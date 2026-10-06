@@ -2,6 +2,7 @@ using System;
 using System.Windows.Forms;
 using ConsoleMode.GamepadCompanion.Core.Interfaces;
 using ConsoleMode.GamepadCompanion.Core.Models;
+using ConsoleMode.GamepadCompanion.Engine;
 using ConsoleMode.GamepadCompanion.Hardware;
 using ConsoleMode.GamepadCompanion.UI;
 
@@ -17,6 +18,7 @@ namespace ConsoleMode.GamepadCompanion
 
             var settings = new AppSettings();
             using (IGamepadService gamepad = new GamepadService())
+            using (new MouseEmulationEngine(gamepad, new InputSimulator(), settings))
             {
                 gamepad.SelectedSlot = settings.SelectedSlot;
                 gamepad.Start();

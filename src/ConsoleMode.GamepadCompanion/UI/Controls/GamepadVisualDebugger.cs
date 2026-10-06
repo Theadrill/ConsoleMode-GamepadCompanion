@@ -12,7 +12,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private const float LogicalWidth = 520f;
         private const float LogicalHeight = 330f;
         private const float StickTravel = 24f;
-        private const float DeadzoneRatio = 0.24f;
+        private const float DeadzoneRatio = Core.GamepadDefaults.StickDeadzone;
 
         private static readonly Color Background = Color.FromArgb(24, 26, 32);
         private static readonly Color Outline = Color.FromArgb(120, 126, 140);
