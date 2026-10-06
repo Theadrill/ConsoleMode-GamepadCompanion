@@ -1,8 +1,14 @@
 # Regras do Projeto — ConsoleMode-GamepadCompanion
 
+> [!IMPORTANT]
+> ## LEITURA OBRIGATÓRIA ANTES DE QUALQUER AÇÃO
+> Todo agente que ler este documento **DEVE OBRIGATORIAMENTE LER TAMBÉM** o arquivo [`docs/BRAINSTORMING.md`](docs/BRAINSTORMING.md).
+> O `BRAINSTORMING.md` contém todo o mapeamento do layout Octowow, a arquitetura modular, a mecânica do Smart Mouse Look (`F9`), o ecossistema de skills e o roadmap do projeto. Não inicie nenhuma tarefa sem carregar ambos os documentos no contexto.
+
 Este documento estabelece as **regras obrigatórias e inegociáveis** de governança, engenharia de software e operação dos agentes de IA para o repositório **ConsoleMode-GamepadCompanion**.
 
 ---
+
 
 ## 1. Regras Principais de Operação & Governança
 
