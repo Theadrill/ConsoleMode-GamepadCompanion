@@ -16,16 +16,26 @@ namespace ConsoleMode.GamepadCompanion
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            var settings = new AppSettings();
+            var configRepo = new ConfigRepository();
+            var settings = configRepo.Load();
+
             var input = new InputSimulator();
             var gamingProfile = new Profiles.GamingProfile(input, settings);
+            var desktopProfile = new Profiles.DesktopProfile();
+
+            var windowTracker = new WindowTracker();
 
             using (IGamepadService gamepad = new GamepadService())
-            using (new ProfileEngine(gamepad, gamingProfile))
             {
                 gamepad.SelectedSlot = settings.SelectedSlot;
                 gamepad.Start();
-                Application.Run(new SettingsForm(gamepad, settings));
+
+                using (var profileEngine = new ProfileEngine(gamepad, desktopProfile))
+                using (var profileManager = new ProfileManager(profileEngine, gamingProfile, desktopProfile, windowTracker, gamepad))
+                using (var trayContext = new TrayAppContext(gamepad, settings, profileManager, configRepo, windowTracker))
+                {
+                    Application.Run(trayContext);
+                }
             }
         }
     }

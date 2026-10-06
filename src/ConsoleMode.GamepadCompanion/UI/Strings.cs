@@ -16,6 +16,10 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string TriggerThreshold = "Limiar dos gatilhos (%)";
         public const string StatusNone = "Nenhum controle conectado";
         public const string StatusFormat = "Usando Gamepad {0}";
+        public const string ProfileFormat = "Perfil: {0}";
+        public const string ProfileGaming = "Gaming (WoW ativo)";
+        public const string ProfileDesktop = "Desktop (em espera)";
+        public const string OpenSettings = "Configurações";
         public const string Exit = "Sair";
     }
 }

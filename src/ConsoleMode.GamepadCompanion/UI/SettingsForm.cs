@@ -12,20 +12,29 @@ namespace ConsoleMode.GamepadCompanion.UI
     {
         private readonly IGamepadService _gamepad;
         private readonly AppSettings _settings;
+        private readonly Engine.ProfileManager _profileManager;
+        private readonly Hardware.ConfigRepository _configRepo;
         private readonly Timer _refreshTimer = new Timer { Interval = 16 };
 
         private readonly ComboBox _slotCombo = new ComboBox();
         private readonly Label _statusLabel = new Label();
+        private readonly Label _profileLabel = new Label();
         private readonly Button _toggleButton = new Button();
         private readonly GamepadVisualDebugger _debugger = new GamepadVisualDebugger();
 
         private string _slotSignature = string.Empty;
         private bool _updatingCombo;
 
-        public SettingsForm(IGamepadService gamepad, AppSettings settings)
+        public SettingsForm(
+            IGamepadService gamepad,
+            AppSettings settings,
+            Engine.ProfileManager profileManager,
+            Hardware.ConfigRepository configRepo)
         {
             _gamepad = gamepad;
             _settings = settings;
+            _profileManager = profileManager;
+            _configRepo = configRepo;
 
             BuildLayout();
             RefreshSlotCombo(force: true);
@@ -52,35 +61,51 @@ namespace ConsoleMode.GamepadCompanion.UI
             _slotCombo.SetBounds(16, 42, 228, 28);
             _slotCombo.SelectedIndexChanged += (s, e) => OnSlotChanged();
 
-            _statusLabel.SetBounds(16, 78, 228, 22);
+            _statusLabel.SetBounds(16, 74, 228, 20);
             _statusLabel.ForeColor = Color.FromArgb(150, 220, 160);
 
-            _toggleButton.SetBounds(16, 116, 228, 40);
+            _profileLabel.SetBounds(16, 96, 228, 20);
+            _profileLabel.ForeColor = Color.FromArgb(120, 190, 255);
+
+            _toggleButton.SetBounds(16, 122, 228, 38);
             _toggleButton.FlatStyle = FlatStyle.Flat;
             _toggleButton.FlatAppearance.BorderSize = 0;
             _toggleButton.Click += (s, e) =>
             {
                 _settings.MappingEnabled = !_settings.MappingEnabled;
+                _configRepo.Save(_settings);
                 ApplyToggleVisual();
             };
 
             var exit = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat };
             exit.SetBounds(16, 436, 228, 36);
             exit.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
-            exit.Click += (s, e) => Close();
+            exit.Click += (s, e) =>
+            {
+                _allowClose = true;
+                Application.Exit();
+            };
 
-            side.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _toggleButton, exit });
-            AddSlider(side, Strings.MouseSensitivity, 176, 1, 100, _settings.MouseSensitivity,
-                v => _settings.MouseSensitivity = v);
-            AddSlider(side, Strings.StickDeadzone, 244, 5, 50, _settings.StickDeadzonePercent,
-                v => _settings.StickDeadzonePercent = v);
-            AddSlider(side, Strings.TriggerThreshold, 312, 5, 90, _settings.TriggerThresholdPercent,
-                v => _settings.TriggerThresholdPercent = v);
+            side.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _profileLabel, _toggleButton, exit });
+            AddSlider(side, Strings.MouseSensitivity, 172, 1, 100, _settings.MouseSensitivity,
+                v => { _settings.MouseSensitivity = v; _configRepo.Save(_settings); });
+            AddSlider(side, Strings.StickDeadzone, 240, 5, 50, _settings.StickDeadzonePercent,
+                v => { _settings.StickDeadzonePercent = v; _configRepo.Save(_settings); });
+            AddSlider(side, Strings.TriggerThreshold, 308, 5, 90, _settings.TriggerThresholdPercent,
+                v => { _settings.TriggerThresholdPercent = v; _configRepo.Save(_settings); });
 
             _debugger.Dock = DockStyle.Fill;
 
             Controls.Add(_debugger);
             Controls.Add(side);
+        }
+
+        private bool _allowClose;
+
+        public void ForceClose()
+        {
+            _allowClose = true;
+            Close();
         }
 
         private static void AddSlider(
@@ -121,6 +146,13 @@ namespace ConsoleMode.GamepadCompanion.UI
             int active = _gamepad.ActiveSlot;
             _statusLabel.Text = active >= 0 ? string.Format(Strings.StatusFormat, active + 1) : Strings.StatusNone;
             _statusLabel.ForeColor = active >= 0 ? Color.FromArgb(150, 220, 160) : Color.FromArgb(255, 190, 90);
+
+            if (_profileManager != null)
+            {
+                string prof = _profileManager.IsGameFocused ? Strings.ProfileGaming : Strings.ProfileDesktop;
+                _profileLabel.Text = string.Format(Strings.ProfileFormat, prof);
+                _profileLabel.ForeColor = _profileManager.IsGameFocused ? Color.FromArgb(120, 230, 150) : Color.FromArgb(160, 170, 185);
+            }
         }
 
         private void RefreshSlotCombo(bool force)
@@ -156,6 +188,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             if (_updatingCombo || _slotCombo.SelectedIndex < 0) return;
             _settings.SelectedSlot = _slotCombo.SelectedIndex - 1;
             _gamepad.SelectedSlot = _settings.SelectedSlot;
+            _configRepo.Save(_settings);
         }
 
         private void ApplyToggleVisual()
@@ -164,6 +197,17 @@ namespace ConsoleMode.GamepadCompanion.UI
             _toggleButton.Text = on ? Strings.MappingOn : Strings.MappingOff;
             _toggleButton.BackColor = on ? Color.FromArgb(46, 125, 80) : Color.FromArgb(150, 80, 60);
             _toggleButton.ForeColor = Color.White;
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (!_allowClose && e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                Hide();
+                return;
+            }
+            base.OnFormClosing(e);
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
