@@ -94,3 +94,28 @@ Baseado nas configurações de controle validadas:
 - [ ] **Overlay Estilo Steam:** Interface de overlay transparente/imersiva acionada pelo botão Guide/Home do controle, permitindo ajustar configurações rápidas por cima do jogo sem perder o contexto visual.
 - [ ] **Perfil Desktop (Uso no Windows):** Mapeamento dedicado para navegar e usar o computador normalmente pelo controle quando o WoW não estiver em foco (movimentação de mouse livre no stick esquerdo/direito, cliques esquerdo/direito nos gatilhos/botões frontais, scroll e atalhos multimídia).
 
+---
+
+## 6. Ecossistema de Skills Integradas (Importadas de DeskQuadra e Base de Conhecimento)
+
+O projeto incorpora em `.agent/skills/` um conjunto selecionado de skills especializadas para guiar o desenvolvimento e as decisões arquiteturais:
+
+* **P/Invoke & Interoperabilidade com Windows:**
+  * `dotnet-pinvoke`: Padrões de marshaling seguro e de alta performance para chamadas Win32 (`SendInput`, `GetForegroundWindow`) e `XInput`.
+* **Qualidade de Código & Engenharia C#:**
+  * `csharp-pro` e `clean-code`: Princípios SOLID, Clean Architecture e design modular (zero monólito).
+  * `csharp-refactoring`: Estratégias de refatoração cirúrgica sem quebra de contratos.
+  * `coding-guidelines`: Diretrizes de estilo e robustez corporativa em .NET.
+* **Performance & Baixa Latência:**
+  * `analyzing-dotnet-performance` e `microbenchmarking`: Otimização do loop de polling (120Hz-250Hz), zero alocações na hot path e prevenção de GC pauses.
+* **Interface & Experiência de Usuário:**
+  * `ui-ux-pro-max`, `ui-visual-validator`, `better-colors`, `contrast-checker`: Excelência visual para a janela de configurações e futuro overlay.
+  * `wpf-windows-desktop`: Padrões avançados de desktop Windows.
+* **Testes & Confiabilidade:**
+  * `run-tests`, `assertion-quality`, `test-anti-patterns`, `test-smell-detection`: Testes automatizados focados na matemática de curvas de aceleração e deadzones.
+* **Operação de Shell & Build:**
+  * `windows-shell-reliability` e `msbuild-modernization`: Execução confiável de scripts de terminal, controle de processos e builds sem travas.
+* **Documentação:**
+  * `docs-writer`: Manutenção de documentação clara e viva.
+
+
