@@ -17,8 +17,6 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly ComboBox _slotCombo = new ComboBox();
         private readonly Label _statusLabel = new Label();
         private readonly Button _toggleButton = new Button();
-        private readonly TrackBar _sensitivity = new TrackBar();
-        private readonly Label _sensitivityValue = new Label();
         private readonly GamepadVisualDebugger _debugger = new GamepadVisualDebugger();
 
         private string _slotSignature = string.Empty;
@@ -41,8 +39,8 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             Text = Strings.WindowTitle;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(820, 400);
-            MinimumSize = new Size(700, 380);
+            ClientSize = new Size(820, 490);
+            MinimumSize = new Size(700, 530);
             BackColor = Color.FromArgb(30, 32, 40);
             ForeColor = Color.FromArgb(230, 232, 240);
             Font = new Font("Segoe UI", 9.5f);
@@ -66,34 +64,43 @@ namespace ConsoleMode.GamepadCompanion.UI
                 ApplyToggleVisual();
             };
 
-            var sensTitle = MakeTitle(Strings.MouseSensitivity, 176);
-            _sensitivity.SetBounds(10, 202, 190, 45);
-            _sensitivity.Minimum = 1;
-            _sensitivity.Maximum = 100;
-            _sensitivity.TickFrequency = 10;
-            _sensitivity.Value = Math.Max(1, Math.Min(100, _settings.MouseSensitivity));
-            _sensitivity.ValueChanged += (s, e) =>
-            {
-                _settings.MouseSensitivity = _sensitivity.Value;
-                _sensitivityValue.Text = _sensitivity.Value.ToString();
-            };
-            _sensitivityValue.SetBounds(204, 208, 44, 24);
-            _sensitivityValue.Text = _sensitivity.Value.ToString();
-
             var exit = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat };
-            exit.SetBounds(16, 340, 228, 36);
+            exit.SetBounds(16, 436, 228, 36);
             exit.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
             exit.Click += (s, e) => Close();
 
-            side.Controls.AddRange(new Control[]
-            {
-                slotTitle, _slotCombo, _statusLabel, _toggleButton, sensTitle, _sensitivity, _sensitivityValue, exit
-            });
+            side.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _toggleButton, exit });
+            AddSlider(side, Strings.MouseSensitivity, 176, 1, 100, _settings.MouseSensitivity,
+                v => _settings.MouseSensitivity = v);
+            AddSlider(side, Strings.StickDeadzone, 244, 5, 50, _settings.StickDeadzonePercent,
+                v => _settings.StickDeadzonePercent = v);
+            AddSlider(side, Strings.TriggerThreshold, 312, 5, 90, _settings.TriggerThresholdPercent,
+                v => _settings.TriggerThresholdPercent = v);
 
             _debugger.Dock = DockStyle.Fill;
 
             Controls.Add(_debugger);
             Controls.Add(side);
+        }
+
+        private static void AddSlider(
+            Panel parent, string title, int top, int min, int max, int value, Action<int> onChanged)
+        {
+            var valueLabel = new Label { AutoSize = false, Text = value.ToString() };
+            valueLabel.SetBounds(204, top + 32, 44, 24);
+
+            var track = new TrackBar { Minimum = min, Maximum = max, TickFrequency = Math.Max(1, (max - min) / 10) };
+            track.SetBounds(10, top + 26, 190, 45);
+            track.Value = Math.Max(min, Math.Min(max, value));
+            track.ValueChanged += (s, e) =>
+            {
+                onChanged(track.Value);
+                valueLabel.Text = track.Value.ToString();
+            };
+
+            parent.Controls.Add(MakeTitle(title, top));
+            parent.Controls.Add(track);
+            parent.Controls.Add(valueLabel);
         }
 
         private static Label MakeTitle(string text, int top)
@@ -106,6 +113,8 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void Refresh_Tick()
         {
             GamepadState state = _gamepad.CurrentState;
+            _debugger.StickDeadzone = _settings.StickDeadzone;
+            _debugger.TriggerThreshold = _settings.TriggerThreshold;
             _debugger.SetState(state);
             RefreshSlotCombo(force: false);
 

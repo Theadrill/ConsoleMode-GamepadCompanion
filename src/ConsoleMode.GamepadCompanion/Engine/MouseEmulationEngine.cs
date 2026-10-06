@@ -52,7 +52,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         {
             MouseCurveCalculator.Calculate(
                 state.RightThumbX, state.RightThumbY, _settings.MouseSensitivity, dt,
-                GamepadDefaults.StickDeadzone, out float dx, out float dy);
+                _settings.StickDeadzone, out float dx, out float dy);
 
             _remainderX += dx;
             _remainderY += dy;

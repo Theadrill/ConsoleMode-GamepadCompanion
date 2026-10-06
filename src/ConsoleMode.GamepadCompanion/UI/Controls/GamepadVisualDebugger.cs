@@ -12,7 +12,6 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private const float LogicalWidth = 520f;
         private const float LogicalHeight = 330f;
         private const float StickTravel = 24f;
-        private const float DeadzoneRatio = Core.GamepadDefaults.StickDeadzone;
 
         private static readonly Color Background = Color.FromArgb(24, 26, 32);
         private static readonly Color Outline = Color.FromArgb(120, 126, 140);
@@ -20,6 +19,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private static readonly Color Lit = Color.FromArgb(240, 240, 245);
 
         private GamepadState _state = GamepadState.Disconnected;
+        private float _stickDeadzone = Core.GamepadDefaults.StickDeadzone;
+        private byte _triggerThreshold = 51;
 
         public GamepadVisualDebugger()
         {
@@ -28,6 +29,30 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
             BackColor = Background;
             MinimumSize = new Size(360, 230);
+        }
+
+        /// <summary>Deadzone dos analógicos (0-1) mostrada no círculo tracejado.</summary>
+        public float StickDeadzone
+        {
+            get => _stickDeadzone;
+            set
+            {
+                if (Math.Abs(_stickDeadzone - value) < 0.0001f) return;
+                _stickDeadzone = value;
+                Invalidate();
+            }
+        }
+
+        /// <summary>Limiar (0-255) dos gatilhos mostrado como marca nas barras.</summary>
+        public byte TriggerThreshold
+        {
+            get => _triggerThreshold;
+            set
+            {
+                if (_triggerThreshold == value) return;
+                _triggerThreshold = value;
+                Invalidate();
+            }
         }
 
         public void SetState(GamepadState state)
@@ -85,16 +110,21 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             DrawPill(g, new RectangleF(340, 42, 90, 22), _state.IsPressed(GamepadButtons.RightShoulder), "RB");
         }
 
-        private static void DrawTrigger(Graphics g, float x, float y, byte value, string label)
+        private void DrawTrigger(Graphics g, float x, float y, byte value, string label)
         {
             var rect = new RectangleF(x, y, 90, 26);
+            bool active = value >= _triggerThreshold;
+            Color fillColor = active ? Color.FromArgb(120, 230, 150) : Color.FromArgb(90, 170, 255);
+            float markX = x + 90f * _triggerThreshold / 255f;
             using (var back = new SolidBrush(Idle))
-            using (var fill = new SolidBrush(Color.FromArgb(90, 170, 255)))
+            using (var fill = new SolidBrush(fillColor))
             using (var pen = new Pen(Outline, 1.5f))
+            using (var mark = new Pen(Color.FromArgb(255, 190, 60), 2f))
             {
                 g.FillRectangle(back, rect);
                 g.FillRectangle(fill, x, y, 90f * value / 255f, 26);
                 g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+                g.DrawLine(mark, markX, y - 2, markX, y + 28);
             }
             DrawLabel(g, label + " " + value, rect, Lit);
         }
@@ -119,7 +149,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 g.FillEllipse(back, cx - radius, cy - radius, radius * 2, radius * 2);
                 g.DrawEllipse(pen, cx - radius, cy - radius, radius * 2, radius * 2);
-                float dz = StickTravel * DeadzoneRatio * 2.2f;
+                float dz = StickTravel * _stickDeadzone;
                 g.DrawEllipse(dead, cx - dz, cy - dz, dz * 2, dz * 2);
             }
 
@@ -127,7 +157,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             float ny = rawY / 32768f;
             float px = cx + nx * StickTravel;
             float py = cy - ny * StickTravel;
-            bool outsideDeadzone = Math.Sqrt(nx * nx + ny * ny) > DeadzoneRatio;
+            bool outsideDeadzone = Math.Sqrt(nx * nx + ny * ny) > _stickDeadzone;
 
             Color knob = clicked ? Color.FromArgb(255, 120, 120)
                 : outsideDeadzone ? Color.FromArgb(120, 230, 150) : Lit;

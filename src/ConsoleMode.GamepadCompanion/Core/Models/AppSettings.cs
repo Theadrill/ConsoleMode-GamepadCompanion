@@ -11,5 +11,17 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 
         /// <summary>Mapeamento ativo (false = pausado).</summary>
         public bool MappingEnabled { get; set; } = true;
+
+        /// <summary>Deadzone dos analógicos em % do curso (5-50).</summary>
+        public int StickDeadzonePercent { get; set; } = 24;
+
+        /// <summary>Limiar dos gatilhos LT/RT em % do curso (5-90).</summary>
+        public int TriggerThresholdPercent { get; set; } = 20;
+
+        /// <summary>Deadzone dos analógicos como fração (0-1).</summary>
+        public float StickDeadzone => StickDeadzonePercent / 100f;
+
+        /// <summary>Limiar dos gatilhos no valor bruto do XInput (0-255).</summary>
+        public byte TriggerThreshold => (byte)(TriggerThresholdPercent * 255 / 100);
     }
 }
