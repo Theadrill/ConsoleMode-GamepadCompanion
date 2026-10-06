@@ -69,6 +69,7 @@ Este documento define as fases atômicas de desenvolvimento do **ConsoleMode-Gam
     - **D-Pad:** Cima (`7`), Baixo (`8`), Esquerda (`9`), Direita (`0`).
     - **Bumpers & Triggers:** LB (`Tab`), RB (`Ctrl`), LT (`Shift` digital), RT (`Alt` digital).
     - **Menus:** Select (`M`), Start (`F11`).
+    - **Sticks:** L3 (Clique do botão esquerdo do mouse), R3 (Clique do botão direito do mouse).
   - Implementar a mecânica do Smart Mouse Look (`Engine/SmartMouseLookHandler.cs`):
     - Analógico esquerdo (WASD) ou botão A (Espaço): envia `F9 Down` ao sair da deadzone e `F9 Up` ao retornar à deadzone.
 * **Critério de Aceite & Validação do Usuário:**

@@ -17,8 +17,11 @@ namespace ConsoleMode.GamepadCompanion
             Application.SetCompatibleTextRenderingDefault(false);
 
             var settings = new AppSettings();
+            var input = new InputSimulator();
+            var gamingProfile = new Profiles.GamingProfile(input, settings);
+
             using (IGamepadService gamepad = new GamepadService())
-            using (new MouseEmulationEngine(gamepad, new InputSimulator(), settings))
+            using (new ProfileEngine(gamepad, gamingProfile))
             {
                 gamepad.SelectedSlot = settings.SelectedSlot;
                 gamepad.Start();

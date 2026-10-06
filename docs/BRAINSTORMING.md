@@ -19,6 +19,7 @@ Baseado nas configurações de controle validadas:
 | Entrada Física (Gamepad) | Ação / Tecla Emitida | Comportamento & Função |
 | :--- | :--- | :--- |
 | **Alavanca Esquerda (L-Stick)** | `W`, `A`, `S`, `D` + `F9` | Movimento do personagem. Dispara `F9 Down` ao sair da deadzone e `F9 Up` ao retornar à deadzone. |
+| **Clique L3 (LS Click)** | Botão Esquerdo do Mouse | Seleção e clique primário do mouse. |
 | **Alavanca Direita (R-Stick)** | Movimento do Mouse | Controle de câmera e mira. Emulação de mouse via curva exponencial suave. |
 | **Clique R3 (RS Click)** | Botão Direito do Mouse | Trava/destrava de câmera e interação com o mundo. |
 | **Botão A** | `Espaço` + `F9` | Pulo e confirmação de interface. Dispara `F9 Down` ao pressionar e `F9 Up` ao soltar. |
