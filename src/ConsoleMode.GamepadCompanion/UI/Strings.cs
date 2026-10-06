@@ -21,5 +21,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string ProfileDesktop = "Desktop (em espera)";
         public const string OpenSettings = "Configurações";
         public const string Exit = "Sair";
+        public const string AlreadyRunningTitle = "ConsoleMode - Gamepad Companion";
+        public const string AlreadyRunningPrompt = "O ConsoleMode - Gamepad Companion já está em execução no sistema.\n\nDeseja forçar o encerramento da instância anterior e iniciar esta?";
     }
 }
