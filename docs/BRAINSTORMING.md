@@ -93,6 +93,7 @@ Baseado nas configurações de controle validadas:
 
 ## 5. Roadmap & Próximos Passos (TODO)
 
+- [ ] **Biblioteca de Games & Launcher (Visão Futura):** Alternância entre visualizador de gamepad e grade de capas de jogos, navegação 100% por controle (D-Pad, A para iniciar, Y para configurar, X para alternar), suporte a atalhos com launcher intermediário vs executável principal monitorado. Especificação completa em `docs/biblioteca_brainstorming.md`.
 - [ ] **Overlay Estilo Steam:** Interface de overlay transparente/imersiva acionada pelo botão Guide/Home do controle, permitindo ajustar configurações rápidas por cima do jogo sem perder o contexto visual.
 - [ ] **Perfil Desktop (Uso no Windows):** Mapeamento dedicado para navegar e usar o computador normalmente pelo controle quando o WoW não estiver em foco (movimentação de mouse livre no stick esquerdo/direito, cliques esquerdo/direito nos gatilhos/botões frontais, scroll e atalhos multimídia).
 
