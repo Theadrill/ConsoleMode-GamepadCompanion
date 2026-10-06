@@ -86,3 +86,11 @@ Baseado nas configurações de controle validadas:
 * **Compatibilidade:** Windows 7 SP1 até Windows 11 (incluso nativamente no SO sem necessidade de instalação de runtimes adicionais).
 * **Acesso ao Gamepad:** P/Invoke nativo para `xinput1_4.dll` (com fallback para `xinput9_1_0.dll` / `xinput1_3.dll`). Leitura estendida para o botão Guide (`XInputGetStateEx`).
 * **Despacho de Comandos:** P/Invoke para `SendInput` da Win32 API (`user32.dll`), garantindo latência de ~1ms e compatibilidade total com o cliente de jogo.
+
+---
+
+## 5. Roadmap & Próximos Passos (TODO)
+
+- [ ] **Overlay Estilo Steam:** Interface de overlay transparente/imersiva acionada pelo botão Guide/Home do controle, permitindo ajustar configurações rápidas por cima do jogo sem perder o contexto visual.
+- [ ] **Perfil Desktop (Uso no Windows):** Mapeamento dedicado para navegar e usar o computador normalmente pelo controle quando o WoW não estiver em foco (movimentação de mouse livre no stick esquerdo/direito, cliques esquerdo/direito nos gatilhos/botões frontais, scroll e atalhos multimídia).
+
