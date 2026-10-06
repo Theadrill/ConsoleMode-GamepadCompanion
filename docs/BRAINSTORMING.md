@@ -74,6 +74,7 @@ Baseado nas configurações de controle validadas:
   * Botão de ativação / pausa manual do mapeamento.
   * Slider de sensibilidade do mouse para o analógico direito.
   * Status visual do perfil ativo (`Gaming [WoW]` vs `Desktop [Inativo]`).
+  * **Visual Debugger do Gamepad (Testador em Tempo Real):** Representação gráfica/visual do controle no painel com feedback ao vivo dos botões pressionados (A, B, X, Y, D-Pad, LB, RB, LT, RT, Start, Back, Guide) e movimentação dos eixos analógicos (L-Stick e R-Stick) para o usuário validar na hora se o controle está respondendo perfeitamente.
   * Fechamento da janela oculta para a bandeja em vez de matar o processo.
   * Botão explícito para "Sair" (encerra o aplicativo).
 * **Botão Guide / Home:** Pressionar o botão central do controle atua como toggle (abre/fecha a janela de configurações centralizada na tela, similar ao Steam Overlay).
