@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using ConsoleMode.GamepadCompanion.Core.Models;
 using ConsoleMode.GamepadCompanion.Engine.Search;
@@ -25,7 +26,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private readonly SearchBarControl _searchBar = new SearchBarControl();
 
         private readonly Panel _emptyStatePanel = new Panel();
-        private readonly Label _emptyIconLabel = new Label();
+        private readonly Panel _emptyIconPanel = new Panel();
         private readonly Label _emptyTitleLabel = new Label();
         private readonly Label _emptyDescLabel = new Label();
 
@@ -34,6 +35,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private string _currentQuery = string.Empty;
         private int _focusedIndex = 0;
         private bool _isSearchFocused;
+
+        // Controle de transição e supressão de disparo contínuo entre busca e grade
+        private bool _suppressDownUntilRelease;
+        private bool _suppressUpUntilRelease;
 
         // Controle de debounce / repetição do gamepad
         private bool _lastDpadUp;
@@ -76,7 +81,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _lastDpadDown = false;
             _lastDpadLeft = false;
             _lastDpadRight = false;
+            _suppressDownUntilRelease = false;
+            _suppressUpUntilRelease = false;
             _repeatCount = 0;
+            _lastMoveTime = 0;
         }
 
         private void BuildLayout()
@@ -140,13 +148,22 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _emptyStatePanel.BackColor = Color.Transparent;
             _emptyStatePanel.Visible = false;
 
-            _emptyIconLabel.Text = "🔍";
-            _emptyIconLabel.Font = new Font("Segoe UI", 24f);
-            _emptyIconLabel.ForeColor = Color.FromArgb(90, 96, 110);
-            _emptyIconLabel.AutoSize = false;
-            _emptyIconLabel.Size = new Size(380, 44);
-            _emptyIconLabel.TextAlign = ContentAlignment.MiddleCenter;
-            _emptyIconLabel.Location = new Point(0, 10);
+            _emptyIconPanel.Size = new Size(380, 44);
+            _emptyIconPanel.BackColor = Color.Transparent;
+            _emptyIconPanel.Location = new Point(0, 8);
+            _emptyIconPanel.Paint += (s, pe) =>
+            {
+                var g = pe.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                int cx = _emptyIconPanel.Width / 2;
+                int cy = 20;
+                int r = 12;
+                using (var pen = new Pen(Color.FromArgb(90, 96, 110), 2.5f))
+                {
+                    g.DrawEllipse(pen, cx - r, cy - r, r * 2, r * 2);
+                    g.DrawLine(pen, cx + 8, cy + 8, cx + 18, cy + 18);
+                }
+            };
 
             _emptyTitleLabel.Text = Strings.NoGamesFound;
             _emptyTitleLabel.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
@@ -164,7 +181,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _emptyDescLabel.TextAlign = ContentAlignment.MiddleCenter;
             _emptyDescLabel.Location = new Point(0, 88);
 
-            _emptyStatePanel.Controls.Add(_emptyIconLabel);
+            _emptyStatePanel.Controls.Add(_emptyIconPanel);
             _emptyStatePanel.Controls.Add(_emptyTitleLabel);
             _emptyStatePanel.Controls.Add(_emptyDescLabel);
         }
@@ -272,6 +289,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         {
             _isSearchFocused = false;
             _searchBar.BlurInput();
+            Focus();
             int idx = _cards.IndexOf(card);
             if (idx >= 0)
             {
@@ -364,13 +382,24 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             // Se o foco estiver na barra de pesquisa:
             if (_isSearchFocused)
             {
+                if (_suppressUpUntilRelease)
+                {
+                    if (dpadUp) dpadUp = false;
+                    else _suppressUpUntilRelease = false;
+                }
+
                 // D-Pad Down sai da busca e retorna aos cards da grade
                 if (dpadDown && !_lastDpadDown && _cards.Count > 0)
                 {
                     _isSearchFocused = false;
                     _searchBar.BlurInput();
+                    Focus();
                     _focusedIndex = 0;
                     UpdateCardFocus();
+
+                    _suppressDownUntilRelease = true;
+                    _lastMoveTime = currentTimeMs;
+                    _repeatCount = 0;
                 }
 
                 // Botão B limpa a busca ou fecha o foco
@@ -384,6 +413,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     {
                         _isSearchFocused = false;
                         _searchBar.BlurInput();
+                        Focus();
                         if (_cards.Count > 0)
                         {
                             _focusedIndex = 0;
@@ -392,8 +422,13 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     }
                 }
 
+                _lastDpadUp = dpadUp;
                 _lastDpadDown = dpadDown;
+                _lastDpadLeft = dpadLeft;
+                _lastDpadRight = dpadRight;
+                _lastBtnA = btnA;
                 _lastBtnB = btnB;
+                _lastBtnY = btnY;
                 return;
             }
 
@@ -415,11 +450,25 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 return;
             }
 
+            // Supressão de D-Pad Down que originou a transição da busca para a grade
+            if (_suppressDownUntilRelease)
+            {
+                if (dpadDown)
+                {
+                    dpadDown = false;
+                }
+                else
+                {
+                    _suppressDownUntilRelease = false;
+                }
+            }
+
             // D-Pad Up a partir da linha de topo move o foco para a barra de busca
             int cols = GetColumnsCount();
             if (dpadUp && !_lastDpadUp && _focusedIndex < cols)
             {
                 FocusSearch();
+                _suppressUpUntilRelease = true;
                 _lastDpadUp = dpadUp;
                 return;
             }

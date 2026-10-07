@@ -465,13 +465,24 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             Assert.True(grid.IsSearchFocused);
 
-            // 2. D-Pad Down sai da busca e retorna aos cards
+            // 2. D-Pad Down sai da busca e retorna aos cards: deve focar no card 0
             var stateDown = new GamepadState(true, 3, GamepadButtons.DPadDown, 0, 0, 0, 0, 0, 0);
             grid.ProcessGamepad(stateNeutral, 200);
             grid.ProcessGamepad(stateDown, 220);
 
             Assert.False(grid.IsSearchFocused);
             Assert.Equal(0, grid.FocusedIndex);
+
+            // 3. Continuar segurando D-Pad Down nos ticks seguintes NÃO deve pular para o card 1!
+            grid.ProcessGamepad(stateDown, 236);
+            grid.ProcessGamepad(stateDown, 252);
+            grid.ProcessGamepad(stateDown, 300);
+            Assert.Equal(0, grid.FocusedIndex);
+
+            // 4. Apenas após soltar e apertar novamente para baixo é que move para o card 1
+            grid.ProcessGamepad(stateNeutral, 320);
+            grid.ProcessGamepad(stateDown, 340);
+            Assert.Equal(1, grid.FocusedIndex);
         }
 
         private sealed class MockWindowTracker : IWindowTracker

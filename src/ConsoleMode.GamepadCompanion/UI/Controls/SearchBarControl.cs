@@ -154,13 +154,14 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 DrawRoundedRectangle(g, borderPen, rect, 6);
             }
 
-            // Ícone de Lupa
-            int iconX = 12;
-            int iconY = 10;
-            using (var iconFont = new Font("Segoe UI", 9.5f))
-            using (var iconBrush = new SolidBrush(IsSearchFocused ? BorderFocused : IconColor))
+            // Ícone de Lupa vetorial (não depende de fontes de emoji do sistema)
+            int cx = 19;
+            int cy = Height / 2;
+            int r = 5;
+            using (var iconPen = new Pen(IsSearchFocused ? BorderFocused : IconColor, 1.8f))
             {
-                g.DrawString("🔍", iconFont, iconBrush, iconX, iconY);
+                g.DrawEllipse(iconPen, cx - r, cy - r, r * 2, r * 2);
+                g.DrawLine(iconPen, cx + 3, cy + 3, cx + 8, cy + 8);
             }
         }
 

@@ -139,12 +139,35 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     g.FillRectangle(bgBrush, bounds);
                 }
 
-                // Ícone de jogo centralizado estilizado
-                using (var iconFont = new Font("Segoe UI", 26f, FontStyle.Bold))
-                using (var iconBrush = new SolidBrush(Color.FromArgb(80, 90, 115)))
+                // Ícone de jogo centralizado estilizado em vetor
+                int padW = 48;
+                int padH = 30;
+                int padX = (Width - padW) / 2;
+                int padY = 52;
+                var padRect = new Rectangle(padX, padY, padW, padH);
+
+                using (var padPath = CreateRoundedRectanglePath(padRect, 7))
+                using (var padBrush = new SolidBrush(Color.FromArgb(48, 54, 70)))
+                using (var padPen = new Pen(Color.FromArgb(75, 85, 110), 1.5f))
                 {
-                    var sfIcon = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                    g.DrawString("🎮", iconFont, iconBrush, new RectangleF(0, 40, Width, 50), sfIcon);
+                    g.FillPath(padBrush, padPath);
+                    g.DrawPath(padPen, padPath);
+                }
+
+                // D-Pad à esquerda
+                using (var dpadBrush = new SolidBrush(Color.FromArgb(90, 102, 130)))
+                {
+                    g.FillRectangle(dpadBrush, padX + 8, padY + 11, 10, 8);
+                    g.FillRectangle(dpadBrush, padX + 9, padY + 10, 8, 10);
+                }
+
+                // Botões de ação à direita
+                using (var btnBrush = new SolidBrush(Color.FromArgb(120, 190, 255)))
+                {
+                    g.FillEllipse(btnBrush, padX + padW - 14, padY + 8, 4, 4);
+                    g.FillEllipse(btnBrush, padX + padW - 14, padY + 18, 4, 4);
+                    g.FillEllipse(btnBrush, padX + padW - 19, padY + 13, 4, 4);
+                    g.FillEllipse(btnBrush, padX + padW - 9, padY + 13, 4, 4);
                 }
             }
 
