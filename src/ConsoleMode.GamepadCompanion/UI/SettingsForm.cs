@@ -102,15 +102,15 @@ namespace ConsoleMode.GamepadCompanion.UI
             _slotCombo.DropDownStyle = ComboBoxStyle.DropDownList;
             _slotCombo.SetBounds(16, currentY, 228, 28);
             _slotCombo.SelectedIndexChanged += (s, e) => OnSlotChanged();
-            currentY = _slotCombo.Bottom + 6;
+            currentY = _slotCombo.Bottom + 14;
 
-            _statusLabel.SetBounds(16, currentY, 228, 20);
+            _statusLabel.SetBounds(16, currentY, 228, 18);
             _statusLabel.ForeColor = Color.FromArgb(150, 220, 160);
-            currentY = _statusLabel.Bottom + 2;
+            currentY = _statusLabel.Bottom + 4;
 
-            _profileLabel.SetBounds(16, currentY, 228, 20);
+            _profileLabel.SetBounds(16, currentY, 228, 18);
             _profileLabel.ForeColor = Color.FromArgb(120, 190, 255);
-            currentY = _profileLabel.Bottom + 8;
+            currentY = _profileLabel.Bottom + 10;
 
             _toggleButton.SetBounds(16, currentY, 228, 38);
             _toggleButton.FlatStyle = FlatStyle.Flat;
