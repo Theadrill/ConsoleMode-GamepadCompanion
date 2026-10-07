@@ -82,8 +82,8 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             Text = Strings.WindowTitle;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(880, 520);
-            MinimumSize = new Size(760, 540);
+            ClientSize = new Size(880, 540);
+            MinimumSize = new Size(760, 550);
             BackColor = Color.FromArgb(30, 32, 40);
             ForeColor = Color.FromArgb(230, 232, 240);
             Font = new Font("Segoe UI", 9.5f);
@@ -94,18 +94,25 @@ namespace ConsoleMode.GamepadCompanion.UI
             _navManager.RequestRepaint += () => _sidePanel.Invalidate();
             _navManager.EditingChanged += (ctrl, editing) => OnNavEditingChanged(ctrl, editing);
 
-            var slotTitle = MakeTitle(Strings.ActiveController, 16);
+            int currentY = 16;
+
+            var slotTitle = MakeTitle(Strings.ActiveController, currentY);
+            currentY = slotTitle.Bottom + 6;
+
             _slotCombo.DropDownStyle = ComboBoxStyle.DropDownList;
-            _slotCombo.SetBounds(16, 42, 228, 28);
+            _slotCombo.SetBounds(16, currentY, 228, 28);
             _slotCombo.SelectedIndexChanged += (s, e) => OnSlotChanged();
+            currentY = _slotCombo.Bottom + 6;
 
-            _statusLabel.SetBounds(16, 74, 228, 20);
+            _statusLabel.SetBounds(16, currentY, 228, 20);
             _statusLabel.ForeColor = Color.FromArgb(150, 220, 160);
+            currentY = _statusLabel.Bottom + 2;
 
-            _profileLabel.SetBounds(16, 96, 228, 20);
+            _profileLabel.SetBounds(16, currentY, 228, 20);
             _profileLabel.ForeColor = Color.FromArgb(120, 190, 255);
+            currentY = _profileLabel.Bottom + 8;
 
-            _toggleButton.SetBounds(16, 122, 228, 38);
+            _toggleButton.SetBounds(16, currentY, 228, 38);
             _toggleButton.FlatStyle = FlatStyle.Flat;
             _toggleButton.FlatAppearance.BorderSize = 1;
             _toggleButton.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
@@ -115,10 +122,26 @@ namespace ConsoleMode.GamepadCompanion.UI
                 _configRepo.Save(_settings);
                 ApplyToggleVisual();
             };
+            currentY = _toggleButton.Bottom + 14;
+
+            _sidePanel.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _profileLabel, _toggleButton });
+
+            // Registro sequencial dos controles para navegação D-Pad (topo -> base)
+            var slotNav = new DropdownNavigable("SlotCombo", slotTitle, _slotCombo);
+            var toggleNav = new ButtonNavigable("ToggleButton", _toggleButton);
+
+            var sensNav = AddSlider(_sidePanel, "SensSlider", Strings.MouseSensitivity, ref currentY, 1, 100, _settings.MouseSensitivity,
+                v => { _settings.MouseSensitivity = v; _configRepo.Save(_settings); });
+            var deadNav = AddSlider(_sidePanel, "DeadzoneSlider", Strings.StickDeadzone, ref currentY, 5, 50, _settings.StickDeadzonePercent,
+                v => { _settings.StickDeadzonePercent = v; _configRepo.Save(_settings); });
+            var trigNav = AddSlider(_sidePanel, "TriggerSlider", Strings.TriggerThreshold, ref currentY, 5, 90, _settings.TriggerThresholdPercent,
+                v => { _settings.TriggerThresholdPercent = v; _configRepo.Save(_settings); });
+
+            currentY += 8; // Margem de respiro entre o último slider e os botões de ação
 
             // Botão GAMES (Biblioteca de Jogos) - Novo na Fase 2
             _gamesButton.Text = Strings.BtnGames;
-            _gamesButton.SetBounds(16, 386, 228, 36);
+            _gamesButton.SetBounds(16, currentY, 228, 36);
             _gamesButton.FlatStyle = FlatStyle.Flat;
             _gamesButton.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
             _gamesButton.BackColor = Color.FromArgb(40, 44, 56);
@@ -134,9 +157,10 @@ namespace ConsoleMode.GamepadCompanion.UI
                     ShowDebugger();
                 }
             };
+            currentY = _gamesButton.Bottom + 10;
 
             var exit = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat };
-            exit.SetBounds(16, 432, 228, 36);
+            exit.SetBounds(16, currentY, 228, 36);
             exit.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
             exit.Click += (s, e) =>
             {
@@ -153,17 +177,9 @@ namespace ConsoleMode.GamepadCompanion.UI
                     });
             };
 
-            _sidePanel.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _profileLabel, _toggleButton, _gamesButton, exit });
+            _sidePanel.Controls.Add(_gamesButton);
+            _sidePanel.Controls.Add(exit);
 
-            // Registro sequencial dos controles para navegação D-Pad (topo -> base)
-            var slotNav = new DropdownNavigable("SlotCombo", slotTitle, _slotCombo);
-            var toggleNav = new ButtonNavigable("ToggleButton", _toggleButton);
-            var sensNav = AddSlider(_sidePanel, "SensSlider", Strings.MouseSensitivity, 172, 1, 100, _settings.MouseSensitivity,
-                v => { _settings.MouseSensitivity = v; _configRepo.Save(_settings); });
-            var deadNav = AddSlider(_sidePanel, "DeadzoneSlider", Strings.StickDeadzone, 252, 5, 50, _settings.StickDeadzonePercent,
-                v => { _settings.StickDeadzonePercent = v; _configRepo.Save(_settings); });
-            var trigNav = AddSlider(_sidePanel, "TriggerSlider", Strings.TriggerThreshold, 332, 5, 90, _settings.TriggerThresholdPercent,
-                v => { _settings.TriggerThresholdPercent = v; _configRepo.Save(_settings); });
             var gamesNav = new ButtonNavigable("GamesButton", _gamesButton);
             var exitNav = new ButtonNavigable("ExitButton", exit);
 
@@ -314,14 +330,14 @@ namespace ConsoleMode.GamepadCompanion.UI
         }
 
         private static SliderNavigable AddSlider(
-            Panel parent, string id, string title, int top, int min, int max, int value, Action<int> onChanged)
+            Panel parent, string id, string title, ref int currentY, int min, int max, int value, Action<int> onChanged)
         {
-            var titleLabel = MakeTitle(title, top);
+            var titleLabel = MakeTitle(title, currentY);
             var valueLabel = new Label { AutoSize = false, Text = value.ToString() };
-            valueLabel.SetBounds(204, top + 22, 44, 20);
+            valueLabel.SetBounds(204, currentY + 22, 44, 20);
 
             var track = new TrackBar { Minimum = min, Maximum = max, TickFrequency = Math.Max(1, (max - min) / 10) };
-            track.SetBounds(10, top + 18, 190, 32);
+            track.SetBounds(10, currentY + 18, 190, 32);
             track.Value = Math.Max(min, Math.Min(max, value));
             track.ValueChanged += (s, e) =>
             {
@@ -332,6 +348,8 @@ namespace ConsoleMode.GamepadCompanion.UI
             parent.Controls.Add(titleLabel);
             parent.Controls.Add(track);
             parent.Controls.Add(valueLabel);
+
+            currentY = Math.Max(track.Bottom, valueLabel.Bottom) + 12;
 
             return new SliderNavigable(id, title, titleLabel, track, valueLabel, onChanged);
         }
