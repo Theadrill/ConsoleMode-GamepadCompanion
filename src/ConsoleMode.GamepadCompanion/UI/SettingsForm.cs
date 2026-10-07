@@ -206,11 +206,51 @@ namespace ConsoleMode.GamepadCompanion.UI
             _gamesGrid.ConfigureRequested += OnConfigureGame;
             _gamesGrid.AddRequested += OnAddGame;
             _gamesGrid.BackRequested += ShowDebugger;
+            _gamesGrid.RequestSearchVirtualKeyboard += () =>
+            {
+                _focusOverlay.ShowVirtualKeyboard(
+                    this,
+                    Strings.VirtualKeyboardSearchTitle,
+                    _gamesGrid.SearchQuery,
+                    text =>
+                    {
+                        _gamesGrid.SetSearchQuery(text);
+                        _gamesGrid.FocusSearch();
+                        _gamesGrid.ResetInputState();
+                    },
+                    onCancel: () =>
+                    {
+                        _gamesGrid.FocusSearch();
+                        _gamesGrid.ResetInputState();
+                    },
+                    onLiveTextChange: text =>
+                    {
+                        _gamesGrid.SetSearchQuery(text);
+                    }
+                );
+            };
 
             // Eventos do Painel de Configuração
             _configPanel.SaveRequested += OnSaveGame;
             _configPanel.DeleteRequested += OnDeleteGame;
             _configPanel.CancelRequested += ShowGamesLibrary;
+            _configPanel.RequestVirtualKeyboard += (title, initialText, onConfirmed) =>
+            {
+                _focusOverlay.ShowVirtualKeyboard(
+                    this,
+                    title,
+                    initialText,
+                    text =>
+                    {
+                        onConfirmed(text);
+                        _configPanel.ResetInputState();
+                    },
+                    onCancel: () =>
+                    {
+                        _configPanel.ResetInputState();
+                    }
+                );
+            };
             _configPanel.ValidationFailed += (title, message) =>
             {
                 _focusOverlay.ShowMessage(this, title, message, MessageDialogType.Warning, () =>
@@ -403,10 +443,16 @@ namespace ConsoleMode.GamepadCompanion.UI
                 return;
             }
 
+            if (_focusOverlay.IsVirtualKeyboardOpen)
+            {
+                _focusOverlay.ProcessVirtualKeyboardGamepad(state, _stopwatch.ElapsedMilliseconds);
+                return;
+            }
+
             // Processamento de acordo com o modo atual de exibição
             if (_viewMode == ContentViewMode.GameConfig)
             {
-                _configPanel.ProcessGamepad(state);
+                _configPanel.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
             }
             else if (_viewMode == ContentViewMode.GamesGrid)
             {

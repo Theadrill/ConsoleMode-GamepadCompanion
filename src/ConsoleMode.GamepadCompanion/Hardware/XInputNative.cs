@@ -54,5 +54,27 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
             return XInputGetState14(userIndex, out state);
         }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct XInputVibration
+        {
+            public ushort wLeftMotorSpeed;
+            public ushort wRightMotorSpeed;
+        }
+
+        [DllImport("xinput1_4.dll", EntryPoint = "XInputSetState")]
+        private static extern uint XInputSetState14(uint dwUserIndex, ref XInputVibration pVibration);
+
+        public static uint SetState(uint userIndex, ref XInputVibration vibration)
+        {
+            try
+            {
+                return XInputSetState14(userIndex, ref vibration);
+            }
+            catch
+            {
+                return 1;
+            }
+        }
     }
 }

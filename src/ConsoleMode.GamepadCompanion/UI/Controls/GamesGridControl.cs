@@ -56,6 +56,18 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         public event Action<GameEntry> ConfigureRequested;
         public event Action AddRequested;
         public event Action BackRequested;
+        public event Action RequestSearchVirtualKeyboard;
+
+        public string SearchQuery
+        {
+            get => _searchBar.SearchText;
+            set => _searchBar.SearchText = value ?? string.Empty;
+        }
+
+        public void SetSearchQuery(string query)
+        {
+            _searchBar.SearchText = query ?? string.Empty;
+        }
 
         public GamesGridControl()
         {
@@ -370,10 +382,11 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             bool btnX = state.IsPressed(GamepadButtons.X);
             bool btnY = state.IsPressed(GamepadButtons.Y);
 
-            // Botão X: foca/alterna para a barra de pesquisa
+            // Botão X: foca a barra de pesquisa e abre teclado virtual de busca
             if (btnX && !_lastBtnX)
             {
                 FocusSearch();
+                RequestSearchVirtualKeyboard?.Invoke();
                 _lastBtnX = btnX;
                 return;
             }
@@ -382,6 +395,13 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             // Se o foco estiver na barra de pesquisa:
             if (_isSearchFocused)
             {
+                if (btnA && !_lastBtnA)
+                {
+                    RequestSearchVirtualKeyboard?.Invoke();
+                    _lastBtnA = btnA;
+                    return;
+                }
+
                 if (_suppressUpUntilRelease)
                 {
                     if (dpadUp) dpadUp = false;

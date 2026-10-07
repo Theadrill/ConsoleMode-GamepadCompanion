@@ -56,6 +56,14 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private bool _prevMsgLeft;
         private bool _prevMsgRight;
 
+        // Teclado Virtual Couch Gaming
+        private bool _isVirtualKeyboard;
+        private VirtualKeyboard.VirtualKeyboardControl _keyboardControl;
+        private Action<string> _onKeyboardConfirm;
+        private Action _onKeyboardCancel;
+        private Action<string> _currentLiveChangeHandler;
+        private Rectangle _keyboardCardRect;
+
         public FocusOverlayPanel()
         {
             SetStyle(
@@ -67,11 +75,13 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             Visible = false;
         }
 
-        public bool IsActive => _isExitDialog || _isMessageDialog || (_activeControl != null && _activeControl.IsEditing);
+        public bool IsActive => _isExitDialog || _isMessageDialog || _isVirtualKeyboard || (_activeControl != null && _activeControl.IsEditing);
 
         public bool IsExitDialogOpen => _isExitDialog;
 
         public bool IsMessageDialogOpen => _isMessageDialog;
+
+        public bool IsVirtualKeyboardOpen => _isVirtualKeyboard;
 
         public void ShowOverlay(INavigableControl control, Form parent)
         {
@@ -398,12 +408,130 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _prevMsgB = bPressed;
         }
 
+        public void ShowVirtualKeyboard(Form parent, string title, string initialText, Action<string> onConfirm, Action onCancel = null, Action<string> onLiveTextChange = null)
+        {
+            if (parent == null) return;
+
+            if (Visible && _isVirtualKeyboard)
+            {
+                Invalidate();
+                return;
+            }
+
+            if (_activeControl != null)
+            {
+                _activeControl.StateChanged -= OnActiveControlStateChanged;
+                _activeControl = null;
+            }
+
+            _isExitDialog = false;
+            _isMessageDialog = false;
+            _isVirtualKeyboard = true;
+
+            _onKeyboardConfirm = onConfirm;
+            _onKeyboardCancel = onCancel;
+            _currentLiveChangeHandler = onLiveTextChange;
+
+            Bounds = new Rectangle(0, 0, parent.ClientSize.Width, parent.ClientSize.Height);
+
+            _snapshot?.Dispose();
+            _snapshot = CaptureClientArea(parent);
+
+            if (_keyboardControl == null)
+            {
+                _keyboardControl = new VirtualKeyboard.VirtualKeyboardControl();
+                Controls.Add(_keyboardControl);
+            }
+
+            UpdateKeyboardBounds(parent.ClientSize);
+            _keyboardControl.SetInitialText(initialText, title);
+
+            // Re-inscreve eventos
+            _keyboardControl.BufferTextChanged -= OnKeyboardLiveChanged;
+            _keyboardControl.Confirmed -= OnKeyboardConfirmed;
+            _keyboardControl.Cancelled -= OnKeyboardCancelled;
+
+            _keyboardControl.BufferTextChanged += OnKeyboardLiveChanged;
+            _keyboardControl.Confirmed += OnKeyboardConfirmed;
+            _keyboardControl.Cancelled += OnKeyboardCancelled;
+
+            _keyboardControl.Visible = true;
+            _keyboardControl.BringToFront();
+
+            BringToFront();
+            Visible = true;
+            Invalidate();
+        }
+
+        private void UpdateKeyboardBounds(Size parentSize)
+        {
+            if (_keyboardControl == null) return;
+
+            int cardW = Math.Min(800, parentSize.Width - 32);
+            int cardH = Math.Min(370, parentSize.Height - 30);
+            int cardX = (parentSize.Width - cardW) / 2;
+            int cardY = Math.Max(16, (parentSize.Height - cardH) / 2);
+
+            _keyboardCardRect = new Rectangle(cardX, cardY, cardW, cardH);
+            _keyboardControl.SetBounds(cardX, cardY, cardW, cardH);
+        }
+
+        private void OnKeyboardLiveChanged(string text)
+        {
+            _currentLiveChangeHandler?.Invoke(text);
+        }
+
+        private void OnKeyboardConfirmed(string text)
+        {
+            var conf = _onKeyboardConfirm;
+            CloseVirtualKeyboard();
+            conf?.Invoke(text);
+        }
+
+        private void OnKeyboardCancelled()
+        {
+            var canc = _onKeyboardCancel;
+            CloseVirtualKeyboard();
+            canc?.Invoke();
+        }
+
+        public void CloseVirtualKeyboard()
+        {
+            _isVirtualKeyboard = false;
+            if (_keyboardControl != null)
+            {
+                _keyboardControl.Visible = false;
+                _keyboardControl.BufferTextChanged -= OnKeyboardLiveChanged;
+                _keyboardControl.Confirmed -= OnKeyboardConfirmed;
+                _keyboardControl.Cancelled -= OnKeyboardCancelled;
+            }
+            _currentLiveChangeHandler = null;
+            _onKeyboardConfirm = null;
+            _onKeyboardCancel = null;
+
+            Visible = false;
+            _snapshot?.Dispose();
+            _snapshot = null;
+            Parent?.Invalidate(true);
+        }
+
+        public void ProcessVirtualKeyboardGamepad(GamepadState state, long nowMs)
+        {
+            if (!state.IsConnected || !_isVirtualKeyboard || _keyboardControl == null) return;
+            _keyboardControl.ProcessGamepad(state, nowMs);
+        }
+
         public void HideOverlay()
         {
             if (_activeControl != null)
             {
                 _activeControl.StateChanged -= OnActiveControlStateChanged;
                 _activeControl = null;
+            }
+
+            if (_isVirtualKeyboard)
+            {
+                CloseVirtualKeyboard();
             }
 
             _isExitDialog = false;
@@ -459,6 +587,14 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 DrawMessageDialogCard(g);
             }
+            else if (_isVirtualKeyboard)
+            {
+                // Sombra suave e moldura de contorno atrás do teclado
+                using (var cardBorderPen = new Pen(Color.FromArgb(60, 68, 85), 1.5f))
+                {
+                    DrawRoundedRectangle(g, cardBorderPen, _keyboardCardRect, 8);
+                }
+            }
             else if (_activeControl is SliderNavigable slider)
             {
                 DrawSliderCard(g, slider);
@@ -466,6 +602,15 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             else if (_activeControl is DropdownNavigable dropdown)
             {
                 DrawDropdownCard(g, dropdown);
+            }
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (_isVirtualKeyboard && Parent != null)
+            {
+                UpdateKeyboardBounds(Parent.ClientSize);
             }
         }
 

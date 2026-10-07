@@ -82,5 +82,15 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string NoGamesFound = "Nenhum jogo encontrado";
         public const string PressBToClearSearch = "Pressione B para limpar a busca";
         public const string BtnClearSearch = "Limpar busca";
+
+        // Teclado Virtual Couch Gaming (Fase 4)
+        public const string VirtualKeyboardDefaultTitle = "Digitar Texto";
+        public const string VirtualKeyboardSearchTitle = "Pesquisar Jogos";
+        public const string KbHintType = "[A] Digitar";
+        public const string KbHintCancel = "[B] Cancelar";
+        public const string KbHintConfirm = "[RT] Concluir";
+        public const string KbHintCaps = "[LB/RB] Caps";
+        public const string KbHintClear = "[LT] Limpar";
+        public const string KbHintCursor = "[◄/►] Cursor";
     }
 }
