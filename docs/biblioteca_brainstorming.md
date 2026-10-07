@@ -264,20 +264,57 @@ Esta seção registra as questões críticas de design e suas respostas durante 
 
 ---
 
-#### **5. Botões Especiais** ⏳ **EM ABERTO**
+#### **5. Botões Especiais & Layout Completo** ✅ **DEFINIDO**
 
-**Questão:** Além das letras, quais botões especiais o teclado virtual precisa ter?
+**Questão:** Além das letras, quais botões especiais o teclado virtual precisa ter? Como organizar o layout?
 
-**Resposta (parcial):**
-- ✅ **Espaço** (barra grande embaixo?)
-- ✅ **Backspace** (apaga último caractere)
-- ✅ **Enter/Confirmar** (RT físico do controle fecha o teclado)
-- ✅ **Cancelar/ESC** (B físico do controle)
-- ❓ **Clear All** (limpar o campo inteiro) — precisa de botão dedicado no teclado virtual ou atalho físico do controle?
+**Resposta:**
+- Layout baseado no teclado do **Kaspersky** (referência visual fornecida)
+- **LT físico do controle** = Clear All (atalho rápido)
+- **Botões de navegação ← →** no teclado virtual para mover cursor no texto
+- **Copiar/Colar** usando clipboard do Windows (copia sempre o texto INTEIRO do input)
+- **Backspace** em posição padrão (canto superior direito, botão grande)
+- **Enter** em posição padrão (lado direito, botão grande)
+- **Shift** visual na linha 4 (além do LB/RB físico)
+- **Caps Lock** visual na linha 3 (além do LB/RB físico)
+- **Toggle+** para símbolos adicionais
+- **Tab** na linha 2 (navegação futura entre inputs?)
 
-**Status:** ⏳ **AGUARDANDO RESPOSTA**
+**Layout Completo (5 linhas):**
 
-**Próxima Questão:** O teclado virtual precisa de um botão dedicado "Clear All" (limpar campo inteiro) ou podemos usar um atalho do controle físico (exemplo: segurar LB+RB ao mesmo tempo)? Ou você prefere não ter essa função e o usuário apaga manualmente com Backspace?
+```
+Linha 1 (símbolos): [ : ] [ \ ] [ / ] [ _ ] [ - ] [ . ] [ ( ] [ ) ] [ " ] [ @ ] [Toggle+] [Backspace═══]
+Linha 2 (QWERTY):   [Tab] [ q ] [ w ] [ e ] [ r ] [ t ] [ y ] [ u ] [ i ] [ o ] [ p ] [ [ ] [ ] ] [ | ]
+Linha 3 (ASDFGH):   [Caps] [ a ] [ s ] [ d ] [ f ] [ g ] [ h ] [ j ] [ k ] [ l ] [ ; ] [ ' ]  [Enter═══]
+Linha 4 (ZXCVBN):   [Shift] [ z ] [ x ] [ c ] [ v ] [ b ] [ n ] [ m ] [ , ] [ . ] [ / ] [ ? ]
+Linha 5 (utilitários): [Copiar] [Colar] [═══════ Espaço ═══════] [ ← ] [ → ] [Clear All]
+```
+
+**Símbolos da Linha 1 — Justificativa (paths do Windows):**
+1. **`:`** — Unidade (C:, D:)
+2. **`\`** — Separador de diretório Windows
+3. **`/`** — Separador alternativo
+4. **`_`** — Underscore em nomes de arquivo
+5. **`-`** — Hífen em nomes de arquivo
+6. **`.`** — Extensões (.exe, .bat)
+7. **`(`** **`)`** — Program Files (x86)
+8. **`"`** — Aspas para paths com espaço
+9. **`@`** — E-mails ou paths especiais
+10. **[Toggle+]** — Abre tela com símbolos adicionais: `!` `$` `%` `&` `*` `+` `=` `[` `]` `{` `}` `;` `'` `<` `>` `?` `|`
+
+**Comportamentos:**
+- **Copiar**: Usa `Clipboard.SetText()` do Windows, copia conteúdo INTEIRO do input sempre
+- **Colar**: Usa `Clipboard.GetText()` e insere na posição do cursor
+- **← →**: Move cursor 1 caractere (segurar = auto-repeat)
+- **Clear All**: Limpa todo o texto do input (botão visual + LT físico)
+- **Backspace**: Apaga 1 caractere antes do cursor (segurar = auto-repeat)
+- **Enter**: Fecha teclado e salva (mesmo efeito do RT físico)
+- **Tab**: Navega para próximo input do formulário (funcionalidade futura?)
+
+**Removido da proposta:**
+- ❌ Up/Down arrows — inputs são linha única, não precisam
+
+**Status:** ✅ **DEFINIDO**
 
 ---
 
