@@ -558,27 +558,29 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             int textY = _inputBoxRect.Y + ((_inputBoxRect.Height - 22) / 2);
 
             using (var textFont = new Font("Segoe UI", 11f, FontStyle.Regular))
-            using (var textBrush = new SolidBrush(TextColor))
             {
                 if (string.IsNullOrEmpty(text))
                 {
-                    using (var phBrush = new SolidBrush(Color.FromArgb(90, 95, 110)))
-                    {
-                        g.DrawString("...", textFont, phBrush, textX, textY);
-                    }
+                    TextRenderer.DrawText(g, "...", textFont, new Point(textX, textY), Color.FromArgb(90, 95, 110), TextFormatFlags.NoPadding);
                 }
                 else
                 {
-                    g.DrawString(text, textFont, textBrush, textX, textY);
+                    TextRenderer.DrawText(g, text, textFont, new Point(textX, textY), TextColor, TextFormatFlags.NoPadding);
                 }
 
-                // Cursor piscante
+                // Cursor piscante perfeitamente alinhado com o texto
                 bool blink = ((Environment.TickCount / 480) % 2) == 0;
                 if (blink)
                 {
-                    string sub = text.Substring(0, Math.Min(text.Length, cursorPos));
-                    var sz = TextRenderer.MeasureText(g, sub, textFont, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
-                    int cursorX = textX + sz.Width;
+                    int cursorOffset = 0;
+                    if (!string.IsNullOrEmpty(text) && cursorPos > 0)
+                    {
+                        string sub = text.Substring(0, Math.Min(text.Length, cursorPos));
+                        var sz = TextRenderer.MeasureText(g, sub, textFont, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding);
+                        cursorOffset = sz.Width + 1;
+                    }
+
+                    int cursorX = textX + cursorOffset;
 
                     using (var cursorPen = new Pen(KeyFocusBorder, 2f))
                     {
