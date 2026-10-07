@@ -48,6 +48,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
         private bool _lastDpadRight;
         private bool _lastBtnA;
         private bool _lastBtnB;
+        private bool _lastBtnX;
         private bool _lastBtnLB;
         private bool _lastBtnRB;
         private bool _lastTriggerLT;
@@ -57,6 +58,11 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
         private int _repeatCount;
         private const long InitialRepeatDelayMs = 240;
         private const long RepeatIntervalMs = 80;
+
+        private long _lastBtnXTime;
+        private int _btnXRepeatCount;
+        private const long BtnXInitialRepeatDelayMs = 280;
+        private const long BtnXRepeatIntervalMs = 70;
 
         public event Action<string> BufferTextChanged;
         public event Action<string> Confirmed;
@@ -123,12 +129,15 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             _lastDpadRight = false;
             _lastBtnA = true; // Previne clique residual do acionador
             _lastBtnB = true;
+            _lastBtnX = true; // Previne apagar imediatamente se o teclado foi aberto com o botão X
             _lastBtnLB = false;
             _lastBtnRB = false;
             _lastTriggerLT = false;
             _lastTriggerRT = false;
             _repeatCount = 0;
             _lastMoveTime = 0;
+            _btnXRepeatCount = 0;
+            _lastBtnXTime = 0;
         }
 
         protected override void OnResize(EventArgs e)
@@ -202,6 +211,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
 
             bool btnA = state.IsPressed(GamepadButtons.A);
             bool btnB = state.IsPressed(GamepadButtons.B);
+            bool btnX = state.IsPressed(GamepadButtons.X);
             bool btnLB = state.IsPressed(GamepadButtons.LeftShoulder);
             bool btnRB = state.IsPressed(GamepadButtons.RightShoulder);
             bool triggerLT = state.LeftTrigger > 120;
@@ -240,7 +250,39 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             }
             _lastBtnB = btnB;
 
-            // 3. Botão A digita a tecla focada
+            // 3. Botão X apaga (Backspace) com auto-repeat ao segurar
+            if (btnX)
+            {
+                if (!_lastBtnX)
+                {
+                    _buffer.Backspace();
+                    GamepadVibrationService.Instance.Pulse(0, 25);
+                    _lastBtnXTime = currentTimeMs;
+                    _btnXRepeatCount = 0;
+                    Invalidate();
+                }
+                else
+                {
+                    long elapsed = currentTimeMs - _lastBtnXTime;
+                    long required = _btnXRepeatCount == 0 ? BtnXInitialRepeatDelayMs : BtnXRepeatIntervalMs;
+                    if (elapsed >= required)
+                    {
+                        _buffer.Backspace();
+                        GamepadVibrationService.Instance.Pulse(0, 20);
+                        _lastBtnXTime = currentTimeMs;
+                        _btnXRepeatCount++;
+                        Invalidate();
+                    }
+                }
+            }
+            else
+            {
+                _btnXRepeatCount = 0;
+                _lastBtnXTime = 0;
+            }
+            _lastBtnX = btnX;
+
+            // 4. Botão A digita a tecla focada
             if (btnA && !_lastBtnA)
             {
                 ExecuteFocusedKey();
@@ -647,7 +689,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
         private void DrawGamepadHints(Graphics g)
         {
             int footerY = Height - 30;
-            string hints = $"{Strings.KbHintType}   {Strings.KbHintCancel}   {Strings.KbHintConfirm}   {Strings.KbHintCaps}   {Strings.KbHintClear}   {Strings.KbHintCursor}";
+            string hints = $"{Strings.KbHintType}   {Strings.KbHintBackspace}   {Strings.KbHintCancel}   {Strings.KbHintConfirm}   {Strings.KbHintCaps}   {Strings.KbHintClear}   {Strings.KbHintCursor}";
 
             using (var font = new Font("Segoe UI", 8.5f, FontStyle.Regular))
             using (var brush = new SolidBrush(MutedText))

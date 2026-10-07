@@ -313,6 +313,47 @@ namespace ConsoleMode.GamepadCompanion.Tests
         }
 
         [Fact]
+        public void VirtualKeyboardControl_Gamepad_ButtonX_BackspacesSingleCharacter()
+        {
+            var kb = new VirtualKeyboardControl("Texto");
+
+            // Libera X caso tenha vindo acionado
+            kb.ProcessGamepad(new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0), 100);
+
+            // Pressiona X
+            var stateX = new GamepadState(true, 2, GamepadButtons.X, 0, 0, 0, 0, 0, 0);
+            kb.ProcessGamepad(stateX, 150);
+
+            Assert.Equal("Text", kb.Buffer.Text);
+        }
+
+        [Fact]
+        public void VirtualKeyboardControl_Gamepad_ButtonX_AutoRepeatsWhenHeld()
+        {
+            var kb = new VirtualKeyboardControl("12345");
+
+            // Libera X primeiro
+            kb.ProcessGamepad(new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0), 100);
+
+            // Primeiro toque no tempo 150ms: apaga '5' (fica '1234')
+            var stateX = new GamepadState(true, 2, GamepadButtons.X, 0, 0, 0, 0, 0, 0);
+            kb.ProcessGamepad(stateX, 150);
+            Assert.Equal("1234", kb.Buffer.Text);
+
+            // Continua segurando antes do tempo de delay (200ms - decorrido 50ms): NÃO apaga ainda
+            kb.ProcessGamepad(stateX, 200);
+            Assert.Equal("1234", kb.Buffer.Text);
+
+            // Atinge o delay inicial (150 + 280 = 430ms): apaga '4' (fica '123')
+            kb.ProcessGamepad(stateX, 435);
+            Assert.Equal("123", kb.Buffer.Text);
+
+            // Próximo intervalo de repetição (435 + 70 = 505ms): apaga '3' (fica '12')
+            kb.ProcessGamepad(stateX, 510);
+            Assert.Equal("12", kb.Buffer.Text);
+        }
+
+        [Fact]
         public void VirtualKeyboardControl_CursorNavigation_InsertsInMiddle()
         {
             var kb = new VirtualKeyboardControl("AB");
