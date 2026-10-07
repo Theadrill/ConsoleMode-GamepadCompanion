@@ -387,11 +387,14 @@ Linha 5 (utilitários): [Copiar] [Colar] [═══════ Espaço ══�
 
 ---
 
-#### **6. Estado de "Nenhum Resultado"** ⏳ **EM ABERTO**
+#### **6. Estado de "Nenhum Resultado"** ✅ **DEFINIDO**
 
 **Questão:** Se a busca retorna zero matches, mostrar mensagem tipo "Nenhum jogo encontrado" no centro da grade? Ou apenas deixa a grade vazia? Quer sugestão tipo "Pressione B para limpar a busca"?
 
-**Resposta:** ⏳ Aguardando resposta.
+**Resposta:**
+- **Mensagem + dica** centralizadas na área da grade
+- Linha 1: *"Nenhum jogo encontrado"*
+- Linha 2: *"Pressione B para limpar a busca"*
 
-**Status:** ⏳ **EM ABERTO**
+**Status:** ✅ **DEFINIDO**
 
