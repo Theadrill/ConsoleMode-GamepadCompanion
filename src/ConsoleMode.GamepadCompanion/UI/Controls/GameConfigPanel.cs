@@ -41,6 +41,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         public event Action<GameEntry> SaveRequested;
         public event Action<GameEntry> DeleteRequested;
         public event Action CancelRequested;
+        public event Action<string, string> ValidationFailed;
 
         public GameConfigPanel()
         {
@@ -267,12 +268,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             if (string.IsNullOrWhiteSpace(name) || (string.IsNullOrWhiteSpace(target) && string.IsNullOrWhiteSpace(exe)))
             {
-                MessageBox.Show(
-                    FindForm(),
-                    Strings.ValidationErrorPrompt,
-                    Strings.ValidationErrorTitle,
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+                ValidationFailed?.Invoke(Strings.ValidationErrorTitle, Strings.ValidationErrorPrompt);
                 return;
             }
 
@@ -290,18 +286,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private void OnDeleteClicked()
         {
             if (_currentGame == null || _isNewGame) return;
-
-            var result = MessageBox.Show(
-                FindForm(),
-                string.Format(Strings.ConfirmDeletePrompt, _currentGame.Name),
-                Strings.ConfirmDeleteTitle,
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (result == DialogResult.Yes)
-            {
-                DeleteRequested?.Invoke(_currentGame);
-            }
+            DeleteRequested?.Invoke(_currentGame);
         }
 
         private bool _lastBtnB;

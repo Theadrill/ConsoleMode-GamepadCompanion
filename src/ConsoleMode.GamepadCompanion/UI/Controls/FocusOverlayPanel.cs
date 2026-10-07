@@ -8,6 +8,17 @@ using ConsoleMode.GamepadCompanion.UI.Navigation;
 namespace ConsoleMode.GamepadCompanion.UI.Controls
 {
     /// <summary>
+    /// Tipos de diálogo modal Couch Gaming suportados.
+    /// </summary>
+    public enum MessageDialogType
+    {
+        Information,
+        Warning,
+        Error,
+        Confirmation
+    }
+
+    /// <summary>
     /// Painel de overlay escurecido para edição modal de sliders e dropdown via gamepad.
     /// Renderiza a interface escurecida e destaca o elemento ativo no estilo Couch Gaming.
     /// </summary>
@@ -29,6 +40,22 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private bool _prevExitUp;
         private bool _prevExitDown;
 
+        // Diálogos modais customizados Couch Gaming
+        private bool _isMessageDialog;
+        private MessageDialogType _messageType;
+        private string _messageTitle;
+        private string _messageText;
+        private Action _onMessageOk;
+        private Action _onMessageCancel;
+        private int _messageOptionIndex;
+        private Rectangle _msgBtn0Rect;
+        private Rectangle _msgBtn1Rect;
+
+        private bool _prevMsgA;
+        private bool _prevMsgB;
+        private bool _prevMsgLeft;
+        private bool _prevMsgRight;
+
         public FocusOverlayPanel()
         {
             SetStyle(
@@ -40,9 +67,11 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             Visible = false;
         }
 
-        public bool IsActive => _isExitDialog || (_activeControl != null && _activeControl.IsEditing);
+        public bool IsActive => _isExitDialog || _isMessageDialog || (_activeControl != null && _activeControl.IsEditing);
 
         public bool IsExitDialogOpen => _isExitDialog;
+
+        public bool IsMessageDialogOpen => _isMessageDialog;
 
         public void ShowOverlay(INavigableControl control, Form parent)
         {
@@ -209,6 +238,166 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _prevExitDown = down;
         }
 
+        public void ShowMessage(Form parent, string title, string message, MessageDialogType type = MessageDialogType.Information, Action onOk = null)
+        {
+            if (parent == null) return;
+
+            if (Visible && _isMessageDialog)
+            {
+                Invalidate();
+                return;
+            }
+
+            if (_activeControl != null)
+            {
+                _activeControl.StateChanged -= OnActiveControlStateChanged;
+                _activeControl = null;
+            }
+
+            _isExitDialog = false;
+            _isMessageDialog = true;
+            _messageType = type;
+            _messageTitle = title ?? string.Empty;
+            _messageText = message ?? string.Empty;
+            _onMessageOk = onOk;
+            _onMessageCancel = null;
+            _messageOptionIndex = 0;
+
+            _prevMsgA = true;
+            _prevMsgB = true;
+            _prevMsgLeft = false;
+            _prevMsgRight = false;
+
+            Bounds = new Rectangle(0, 0, parent.ClientSize.Width, parent.ClientSize.Height);
+
+            _snapshot?.Dispose();
+            _snapshot = CaptureClientArea(parent);
+
+            BringToFront();
+            Visible = true;
+            Invalidate();
+        }
+
+        public void ShowConfirmation(Form parent, string title, string message, Action onConfirm, Action onCancel = null)
+        {
+            if (parent == null) return;
+
+            if (Visible && _isMessageDialog)
+            {
+                Invalidate();
+                return;
+            }
+
+            if (_activeControl != null)
+            {
+                _activeControl.StateChanged -= OnActiveControlStateChanged;
+                _activeControl = null;
+            }
+
+            _isExitDialog = false;
+            _isMessageDialog = true;
+            _messageType = MessageDialogType.Confirmation;
+            _messageTitle = title ?? string.Empty;
+            _messageText = message ?? string.Empty;
+            _onMessageOk = onConfirm;
+            _onMessageCancel = onCancel;
+            _messageOptionIndex = 0;
+
+            _prevMsgA = true;
+            _prevMsgB = true;
+            _prevMsgLeft = false;
+            _prevMsgRight = false;
+
+            Bounds = new Rectangle(0, 0, parent.ClientSize.Width, parent.ClientSize.Height);
+
+            _snapshot?.Dispose();
+            _snapshot = CaptureClientArea(parent);
+
+            BringToFront();
+            Visible = true;
+            Invalidate();
+        }
+
+        public void CloseMessageDialog()
+        {
+            _isMessageDialog = false;
+            _onMessageOk = null;
+            _onMessageCancel = null;
+            Visible = false;
+            _snapshot?.Dispose();
+            _snapshot = null;
+            Parent?.Invalidate(true);
+        }
+
+        public void ProcessMessageGamepad(GamepadState state, long nowMs)
+        {
+            if (!state.IsConnected || !_isMessageDialog) return;
+
+            bool aPressed = state.IsPressed(GamepadButtons.A);
+            bool bPressed = state.IsPressed(GamepadButtons.B);
+            bool leftPressed = state.IsPressed(GamepadButtons.DPadLeft) || state.LeftThumbX < -16000;
+            bool rightPressed = state.IsPressed(GamepadButtons.DPadRight) || state.LeftThumbX > 16000;
+
+            if (_messageType != MessageDialogType.Confirmation)
+            {
+                // Qualquer botão A ou B fecha e aciona onOk
+                if ((aPressed && !_prevMsgA) || (bPressed && !_prevMsgB))
+                {
+                    var ok = _onMessageOk;
+                    CloseMessageDialog();
+                    ok?.Invoke();
+                    return;
+                }
+            }
+            else
+            {
+                // Alternar seleção entre 0 (Confirmar) e 1 (Cancelar)
+                if (leftPressed && !_prevMsgLeft)
+                {
+                    _messageOptionIndex = 0;
+                    Invalidate();
+                }
+                _prevMsgLeft = leftPressed;
+
+                if (rightPressed && !_prevMsgRight)
+                {
+                    _messageOptionIndex = 1;
+                    Invalidate();
+                }
+                _prevMsgRight = rightPressed;
+
+                // Botão A aciona a opção selecionada
+                if (aPressed && !_prevMsgA)
+                {
+                    if (_messageOptionIndex == 0)
+                    {
+                        var ok = _onMessageOk;
+                        CloseMessageDialog();
+                        ok?.Invoke();
+                    }
+                    else
+                    {
+                        var cancel = _onMessageCancel;
+                        CloseMessageDialog();
+                        cancel?.Invoke();
+                    }
+                    return;
+                }
+
+                // Botão B sempre cancela
+                if (bPressed && !_prevMsgB)
+                {
+                    var cancel = _onMessageCancel;
+                    CloseMessageDialog();
+                    cancel?.Invoke();
+                    return;
+                }
+            }
+
+            _prevMsgA = aPressed;
+            _prevMsgB = bPressed;
+        }
+
         public void HideOverlay()
         {
             if (_activeControl != null)
@@ -218,6 +407,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
 
             _isExitDialog = false;
+            _isMessageDialog = false;
+            _onMessageOk = null;
+            _onMessageCancel = null;
             Visible = false;
             _snapshot?.Dispose();
             _snapshot = null;
@@ -262,6 +454,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             if (_isExitDialog)
             {
                 DrawExitDialogCard(g);
+            }
+            else if (_isMessageDialog)
+            {
+                DrawMessageDialogCard(g);
             }
             else if (_activeControl is SliderNavigable slider)
             {
@@ -540,42 +736,339 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
-            if (!_isExitDialog) return;
-
-            if (_exitOption0Rect.Contains(e.Location))
+            if (_isExitDialog)
             {
-                var act = _onMinimizeToTray;
-                CloseExitDialog();
-                act?.Invoke();
+                if (_exitOption0Rect.Contains(e.Location))
+                {
+                    var act = _onMinimizeToTray;
+                    CloseExitDialog();
+                    act?.Invoke();
+                }
+                else if (_exitOption1Rect.Contains(e.Location))
+                {
+                    var act = _onCloseApp;
+                    CloseExitDialog();
+                    act?.Invoke();
+                }
+                else
+                {
+                    var cancel = _onCancelExit;
+                    CloseExitDialog();
+                    cancel?.Invoke();
+                }
             }
-            else if (_exitOption1Rect.Contains(e.Location))
+            else if (_isMessageDialog)
             {
-                var act = _onCloseApp;
-                CloseExitDialog();
-                act?.Invoke();
-            }
-            else
-            {
-                var cancel = _onCancelExit;
-                CloseExitDialog();
-                cancel?.Invoke();
+                if (_messageType != MessageDialogType.Confirmation)
+                {
+                    var ok = _onMessageOk;
+                    CloseMessageDialog();
+                    ok?.Invoke();
+                }
+                else
+                {
+                    if (_msgBtn0Rect.Contains(e.Location))
+                    {
+                        var ok = _onMessageOk;
+                        CloseMessageDialog();
+                        ok?.Invoke();
+                    }
+                    else if (_msgBtn1Rect.Contains(e.Location))
+                    {
+                        var cancel = _onMessageCancel;
+                        CloseMessageDialog();
+                        cancel?.Invoke();
+                    }
+                    else
+                    {
+                        var cancel = _onMessageCancel;
+                        CloseMessageDialog();
+                        cancel?.Invoke();
+                    }
+                }
             }
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            if (!_isExitDialog) return;
-
-            if (_exitOption0Rect.Contains(e.Location) && _exitOptionIndex != 0)
+            if (_isExitDialog)
             {
-                _exitOptionIndex = 0;
-                Invalidate();
+                if (_exitOption0Rect.Contains(e.Location) && _exitOptionIndex != 0)
+                {
+                    _exitOptionIndex = 0;
+                    Invalidate();
+                }
+                else if (_exitOption1Rect.Contains(e.Location) && _exitOptionIndex != 1)
+                {
+                    _exitOptionIndex = 1;
+                    Invalidate();
+                }
             }
-            else if (_exitOption1Rect.Contains(e.Location) && _exitOptionIndex != 1)
+            else if (_isMessageDialog && _messageType == MessageDialogType.Confirmation)
             {
-                _exitOptionIndex = 1;
-                Invalidate();
+                if (_msgBtn0Rect.Contains(e.Location) && _messageOptionIndex != 0)
+                {
+                    _messageOptionIndex = 0;
+                    Invalidate();
+                }
+                else if (_msgBtn1Rect.Contains(e.Location) && _messageOptionIndex != 1)
+                {
+                    _messageOptionIndex = 1;
+                    Invalidate();
+                }
+            }
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (_isExitDialog)
+            {
+                if (e.KeyCode == Keys.Escape)
+                {
+                    var cancel = _onCancelExit;
+                    CloseExitDialog();
+                    cancel?.Invoke();
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space)
+                {
+                    if (_exitOptionIndex == 0)
+                    {
+                        var act = _onMinimizeToTray;
+                        CloseExitDialog();
+                        act?.Invoke();
+                    }
+                    else
+                    {
+                        var act = _onCloseApp;
+                        CloseExitDialog();
+                        act?.Invoke();
+                    }
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down)
+                {
+                    _exitOptionIndex = _exitOptionIndex == 0 ? 1 : 0;
+                    Invalidate();
+                    e.Handled = true;
+                }
+            }
+            else if (_isMessageDialog)
+            {
+                if (e.KeyCode == Keys.Escape)
+                {
+                    if (_messageType == MessageDialogType.Confirmation)
+                    {
+                        var cancel = _onMessageCancel;
+                        CloseMessageDialog();
+                        cancel?.Invoke();
+                    }
+                    else
+                    {
+                        var ok = _onMessageOk;
+                        CloseMessageDialog();
+                        ok?.Invoke();
+                    }
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space)
+                {
+                    if (_messageType == MessageDialogType.Confirmation && _messageOptionIndex == 1)
+                    {
+                        var cancel = _onMessageCancel;
+                        CloseMessageDialog();
+                        cancel?.Invoke();
+                    }
+                    else
+                    {
+                        var ok = _onMessageOk;
+                        CloseMessageDialog();
+                        ok?.Invoke();
+                    }
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Left || e.KeyCode == Keys.Right)
+                {
+                    if (_messageType == MessageDialogType.Confirmation)
+                    {
+                        _messageOptionIndex = _messageOptionIndex == 0 ? 1 : 0;
+                        Invalidate();
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+
+        private void DrawMessageDialogCard(Graphics g)
+        {
+            int cardW = 500;
+            int maxTextW = cardW - 56;
+
+            Size textSize;
+            using (var bodyFont = new Font("Segoe UI", 10f))
+            {
+                textSize = TextRenderer.MeasureText(_messageText, bodyFont, new Size(maxTextW, 0), TextFormatFlags.WordBreak);
+            }
+
+            int textH = Math.Max(38, textSize.Height);
+            int cardH = 72 + textH + 28 + 44 + 20;
+            if (cardH < 220) cardH = 220;
+
+            int cardX = (ClientSize.Width - cardW) / 2;
+            int cardY = (ClientSize.Height - cardH) / 2;
+            var cardRect = new Rectangle(cardX, cardY, cardW, cardH);
+
+            Color borderColor;
+            Color iconBg;
+            string iconSymbol;
+
+            switch (_messageType)
+            {
+                case MessageDialogType.Error:
+                    borderColor = Color.FromArgb(240, 90, 90);
+                    iconBg = Color.FromArgb(180, 50, 50);
+                    iconSymbol = "✕";
+                    break;
+                case MessageDialogType.Warning:
+                    borderColor = Color.FromArgb(245, 185, 65);
+                    iconBg = Color.FromArgb(170, 120, 30);
+                    iconSymbol = "!";
+                    break;
+                case MessageDialogType.Confirmation:
+                    borderColor = Color.FromArgb(120, 190, 255);
+                    iconBg = Color.FromArgb(46, 75, 115);
+                    iconSymbol = "?";
+                    break;
+                case MessageDialogType.Information:
+                default:
+                    borderColor = Color.FromArgb(120, 190, 255);
+                    iconBg = Color.FromArgb(46, 75, 115);
+                    iconSymbol = "i";
+                    break;
+            }
+
+            // Card background & borda
+            using (var cardBrush = new SolidBrush(Color.FromArgb(34, 37, 46)))
+            using (var borderPen = new Pen(borderColor, 2f))
+            {
+                FillRoundedRectangle(g, cardBrush, cardRect, 8);
+                DrawRoundedRectangle(g, borderPen, cardRect, 8);
+            }
+
+            // Ícone circular de status
+            int iconSize = 28;
+            var iconRect = new Rectangle(cardX + 24, cardY + 20, iconSize, iconSize);
+            using (var iconBrush = new SolidBrush(iconBg))
+            {
+                g.FillEllipse(iconBrush, iconRect);
+            }
+            using (var symFont = new Font("Segoe UI", 11f, FontStyle.Bold))
+            using (var symBrush = new SolidBrush(Color.White))
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            {
+                g.DrawString(iconSymbol, symFont, symBrush, iconRect, sf);
+            }
+
+            // Título
+            using (var titleFont = new Font("Segoe UI", 12f, FontStyle.Bold))
+            using (var titleBrush = new SolidBrush(Color.FromArgb(240, 242, 250)))
+            {
+                g.DrawString(_messageTitle, titleFont, titleBrush, cardX + 62, cardY + 23);
+            }
+
+            // Linha divisória sutil
+            using (var sepPen = new Pen(Color.FromArgb(50, 55, 68), 1f))
+            {
+                g.DrawLine(sepPen, cardX + 24, cardY + 58, cardX + cardW - 24, cardY + 58);
+            }
+
+            // Mensagem de corpo
+            var textRect = new Rectangle(cardX + 26, cardY + 70, maxTextW, textH);
+            using (var bodyFont = new Font("Segoe UI", 9.8f))
+            {
+                TextRenderer.DrawText(
+                    g,
+                    _messageText,
+                    bodyFont,
+                    textRect,
+                    Color.FromArgb(215, 222, 235),
+                    TextFormatFlags.WordBreak | TextFormatFlags.Left);
+            }
+
+            // Botões de ação
+            int btnY = cardY + cardH - 52;
+            int btnH = 36;
+
+            if (_messageType != MessageDialogType.Confirmation)
+            {
+                int btnW = 140;
+                int btnX = cardX + (cardW - btnW) / 2;
+                _msgBtn0Rect = new Rectangle(btnX, btnY, btnW, btnH);
+                _msgBtn1Rect = Rectangle.Empty;
+
+                using (var btnBrush = new SolidBrush(Color.FromArgb(46, 75, 115)))
+                using (var btnPen = new Pen(Color.FromArgb(120, 190, 255), 1.5f))
+                {
+                    FillRoundedRectangle(g, btnBrush, _msgBtn0Rect, 6);
+                    DrawRoundedRectangle(g, btnPen, _msgBtn0Rect, 6);
+                }
+
+                using (var font = new Font("Segoe UI", 9.5f, FontStyle.Bold))
+                using (var brush = new SolidBrush(Color.White))
+                using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                {
+                    g.DrawString("[A] " + Strings.DialogOk, font, brush, _msgBtn0Rect, sf);
+                }
+            }
+            else
+            {
+                int btnW = 140;
+                int spacing = 16;
+                int totalW = btnW * 2 + spacing;
+                int startX = cardX + (cardW - totalW) / 2;
+
+                _msgBtn0Rect = new Rectangle(startX, btnY, btnW, btnH);
+                _msgBtn1Rect = new Rectangle(startX + btnW + spacing, btnY, btnW, btnH);
+
+                bool sel0 = _messageOptionIndex == 0;
+                bool sel1 = _messageOptionIndex == 1;
+
+                Color bg0 = sel0 ? Color.FromArgb(46, 75, 115) : Color.FromArgb(24, 26, 32);
+                Color border0 = sel0 ? Color.FromArgb(120, 190, 255) : Color.FromArgb(52, 56, 66);
+                using (var b0Brush = new SolidBrush(bg0))
+                using (var b0Pen = new Pen(border0, sel0 ? 1.5f : 1f))
+                {
+                    FillRoundedRectangle(g, b0Brush, _msgBtn0Rect, 6);
+                    DrawRoundedRectangle(g, b0Pen, _msgBtn0Rect, 6);
+                }
+
+                Color bg1 = sel1 ? Color.FromArgb(115, 45, 45) : Color.FromArgb(24, 26, 32);
+                Color border1 = sel1 ? Color.FromArgb(255, 120, 120) : Color.FromArgb(52, 56, 66);
+                using (var b1Brush = new SolidBrush(bg1))
+                using (var b1Pen = new Pen(border1, sel1 ? 1.5f : 1f))
+                {
+                    FillRoundedRectangle(g, b1Brush, _msgBtn1Rect, 6);
+                    DrawRoundedRectangle(g, b1Pen, _msgBtn1Rect, 6);
+                }
+
+                using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                {
+                    using (var f0 = new Font("Segoe UI", 9.5f, sel0 ? FontStyle.Bold : FontStyle.Regular))
+                    using (var br0 = new SolidBrush(sel0 ? Color.White : Color.FromArgb(200, 205, 215)))
+                    {
+                        string t0 = sel0 ? "[A] " + Strings.DialogConfirm : Strings.DialogConfirm;
+                        g.DrawString(t0, f0, br0, _msgBtn0Rect, sf);
+                    }
+
+                    using (var f1 = new Font("Segoe UI", 9.5f, sel1 ? FontStyle.Bold : FontStyle.Regular))
+                    using (var br1 = new SolidBrush(sel1 ? Color.White : Color.FromArgb(200, 205, 215)))
+                    {
+                        string t1 = sel1 ? "[A] " + Strings.DialogCancel : "[B] " + Strings.DialogCancel;
+                        g.DrawString(t1, f1, br1, _msgBtn1Rect, sf);
+                    }
+                }
             }
         }
 

@@ -69,5 +69,11 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string DefaultGameName = "Turtle WoW";
         public const string DefaultGameExecutable = "WoW.exe";
         public const string DefaultGameTargetPath = "WoW.exe";
+
+        // Diálogos modais Couch Gaming
+        public const string DialogOk = "OK";
+        public const string DialogConfirm = "Confirmar";
+        public const string DialogCancel = "Cancelar";
+        public const string DialogClose = "Fechar";
     }
 }

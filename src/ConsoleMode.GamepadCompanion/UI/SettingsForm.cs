@@ -211,6 +211,13 @@ namespace ConsoleMode.GamepadCompanion.UI
             _configPanel.SaveRequested += OnSaveGame;
             _configPanel.DeleteRequested += OnDeleteGame;
             _configPanel.CancelRequested += ShowGamesLibrary;
+            _configPanel.ValidationFailed += (title, message) =>
+            {
+                _focusOverlay.ShowMessage(this, title, message, MessageDialogType.Warning, () =>
+                {
+                    _configPanel.ResetInputState();
+                });
+            };
 
             Controls.Add(_focusOverlay);
             Controls.Add(_configPanel);
@@ -273,12 +280,15 @@ namespace ConsoleMode.GamepadCompanion.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
+                _focusOverlay.ShowMessage(
                     this,
-                    string.Format(Strings.LaunchErrorPrompt, ex.Message),
                     Strings.LaunchErrorTitle,
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                    string.Format(Strings.LaunchErrorPrompt, ex.Message),
+                    MessageDialogType.Error,
+                    onOk: () =>
+                    {
+                        _gamesGrid.ResetInputState();
+                    });
             }
             finally
             {
@@ -307,8 +317,20 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void OnDeleteGame(GameEntry game)
         {
             if (game == null) return;
-            _gameRepo.Delete(game.Id);
-            ShowGamesLibrary();
+
+            _focusOverlay.ShowConfirmation(
+                this,
+                Strings.ConfirmDeleteTitle,
+                string.Format(Strings.ConfirmDeletePrompt, game.Name),
+                onConfirm: () =>
+                {
+                    _gameRepo.Delete(game.Id);
+                    ShowGamesLibrary();
+                },
+                onCancel: () =>
+                {
+                    _configPanel.ResetInputState();
+                });
         }
 
         private void OnNavEditingChanged(INavigableControl control, bool isEditing)
@@ -372,6 +394,12 @@ namespace ConsoleMode.GamepadCompanion.UI
             if (_focusOverlay.IsExitDialogOpen)
             {
                 _focusOverlay.ProcessExitGamepad(state, _stopwatch.ElapsedMilliseconds);
+                return;
+            }
+
+            if (_focusOverlay.IsMessageDialogOpen)
+            {
+                _focusOverlay.ProcessMessageGamepad(state, _stopwatch.ElapsedMilliseconds);
                 return;
             }
 

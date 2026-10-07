@@ -321,5 +321,92 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(2, editingChangedCount);
             Assert.False(slider.IsEditing);
         }
+
+        [Fact]
+        public void MessageDialog_Notice_A_Or_B_Dismisses_And_Calls_OnOk()
+        {
+            var form = new Form();
+            var overlay = new FocusOverlayPanel();
+            form.Controls.Add(overlay);
+
+            bool okCalled = false;
+            overlay.ShowMessage(form, "Erro de Teste", "Não foi possível carregar o jogo.", MessageDialogType.Error, () => okCalled = true);
+
+            Assert.True(overlay.IsMessageDialogOpen);
+            Assert.True(overlay.IsActive);
+
+            var stateNeutral = new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            var stateA = new GamepadState(true, 2, GamepadButtons.A, 0, 0, 0, 0, 0, 0);
+            var stateB = new GamepadState(true, 3, GamepadButtons.B, 0, 0, 0, 0, 0, 0);
+
+            // Botão A fecha e aciona callback
+            overlay.ProcessMessageGamepad(stateNeutral, 100);
+            overlay.ProcessMessageGamepad(stateA, 120);
+            Assert.True(okCalled);
+            Assert.False(overlay.IsMessageDialogOpen);
+            Assert.False(overlay.IsActive);
+
+            // Reabre e testa fechamento com Botão B
+            okCalled = false;
+            overlay.ShowMessage(form, "Aviso", "Atenção ao salvar", MessageDialogType.Warning, () => okCalled = true);
+            overlay.ProcessMessageGamepad(stateNeutral, 200);
+            overlay.ProcessMessageGamepad(stateB, 220);
+            Assert.True(okCalled);
+            Assert.False(overlay.IsMessageDialogOpen);
+        }
+
+        [Fact]
+        public void MessageDialog_Confirmation_GamepadNavigation_A_And_B()
+        {
+            var form = new Form();
+            var overlay = new FocusOverlayPanel();
+            form.Controls.Add(overlay);
+
+            bool confirmed = false;
+            bool cancelled = false;
+
+            overlay.ShowConfirmation(
+                form,
+                "Excluir Jogo",
+                "Tem certeza?",
+                onConfirm: () => confirmed = true,
+                onCancel: () => cancelled = true);
+
+            Assert.True(overlay.IsMessageDialogOpen);
+
+            var stateNeutral = new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            var stateA = new GamepadState(true, 2, GamepadButtons.A, 0, 0, 0, 0, 0, 0);
+            var stateB = new GamepadState(true, 3, GamepadButtons.B, 0, 0, 0, 0, 0, 0);
+            var stateRight = new GamepadState(true, 4, GamepadButtons.DPadRight, 0, 0, 0, 0, 0, 0);
+
+            // 1. Cancelar com B
+            overlay.ProcessMessageGamepad(stateNeutral, 100);
+            overlay.ProcessMessageGamepad(stateB, 120);
+            Assert.True(cancelled);
+            Assert.False(confirmed);
+            Assert.False(overlay.IsMessageDialogOpen);
+
+            // 2. Reabre e confirma com A (opção 0 selecionada por padrão)
+            cancelled = false;
+            confirmed = false;
+            overlay.ShowConfirmation(form, "Excluir Jogo", "Tem certeza?", () => confirmed = true, () => cancelled = true);
+            overlay.ProcessMessageGamepad(stateNeutral, 200);
+            overlay.ProcessMessageGamepad(stateA, 220);
+            Assert.True(confirmed);
+            Assert.False(cancelled);
+            Assert.False(overlay.IsMessageDialogOpen);
+
+            // 3. Reabre, navega para a direita (opção 1 = Cancelar) e aperta A
+            cancelled = false;
+            confirmed = false;
+            overlay.ShowConfirmation(form, "Excluir Jogo", "Tem certeza?", () => confirmed = true, () => cancelled = true);
+            overlay.ProcessMessageGamepad(stateNeutral, 300);
+            overlay.ProcessMessageGamepad(stateRight, 320);
+            overlay.ProcessMessageGamepad(stateNeutral, 340);
+            overlay.ProcessMessageGamepad(stateA, 360);
+            Assert.True(cancelled);
+            Assert.False(confirmed);
+            Assert.False(overlay.IsMessageDialogOpen);
+        }
     }
 }
