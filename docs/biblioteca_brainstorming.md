@@ -349,13 +349,15 @@ Linha 5 (utilitários): [Copiar] [Colar] [═══════ Espaço ══�
 
 ---
 
-#### **3. Comportamento de Navegação Pós-Filtro** ⏳ **EM ABERTO**
+#### **3. Comportamento de Navegação Pós-Filtro** ✅ **DEFINIDO**
 
 **Questão:** Cards que não batem com a busca ficam escondidos (removidos da grade) ou opacados/esmaecidos (visíveis mas claramente não-match)? D-Pad navega apenas entre matches ou ainda pode focar nos não-matches esmaecidos?
 
-**Resposta:** ⏳ Aguardando resposta.
+**Resposta:**
+- Cards **escondidos** — grade se reorganiza mostrando apenas os matches, sem buracos
+- D-Pad navega apenas entre os resultados visíveis
 
-**Status:** ⏳ **EM ABERTO**
+**Status:** ✅ **DEFINIDO**
 
 ---
 
