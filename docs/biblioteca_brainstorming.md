@@ -374,13 +374,16 @@ Linha 5 (utilitários): [Copiar] [Colar] [═══════ Espaço ══�
 
 ---
 
-#### **5. Escopo da Busca** ⏳ **EM ABERTO**
+#### **5. Escopo da Busca** ✅ **DEFINIDO**
 
 **Questão:** Busca case-insensitive sempre? Busca apenas no Nome do Game ou também em Nome do Executável, LauncherName, Arguments? Busca partial match (contém substring) ou fuzzy (permite pequenos typos tipo "turt" → "Turtle")?
 
-**Resposta:** ⏳ Aguardando resposta.
+**Resposta:**
+- **Escopo:** Nome do Game + Nome do Executável (MainExecutable)
+- **Match:** Fuzzy — tolera pequenos erros de digitação (ex: "turtl wow" → "Turtle WoW")
+- **Case-insensitive** sempre (implícito)
 
-**Status:** ⏳ **EM ABERTO**
+**Status:** ✅ **DEFINIDO**
 
 ---
 
