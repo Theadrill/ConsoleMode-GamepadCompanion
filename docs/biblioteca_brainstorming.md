@@ -285,3 +285,63 @@ Esta seção registra as questões críticas de design e suas respostas durante 
 
 > ⏸️ **PAUSADO** — Aguardando término do GRILL ME do Teclado Virtual.
 
+---
+
+#### **1. Comportamento de Filtro** ⏳ **EM ABERTO**
+
+**Questão:** Live search (filtra enquanto digita cada letra) ou on-demand (só filtra ao pressionar Enter)? Se live, quer debounce (aguarda 300ms após última tecla antes de filtrar)?
+
+**Resposta:** ⏳ Aguardando resposta.
+
+**Status:** ⏳ **EM ABERTO**
+
+---
+
+#### **2. Visual & Posicionamento** ⏳ **EM ABERTO**
+
+**Questão:** Barra fixa no topo da grade (sempre visível mas desfocada) ou popup centralizado (aparece só quando pressiona X)? Mostrar contador tipo "3 de 12 jogos" enquanto filtra?
+
+**Resposta:** ⏳ Aguardando resposta.
+
+**Status:** ⏳ **EM ABERTO**
+
+---
+
+#### **3. Comportamento de Navegação Pós-Filtro** ⏳ **EM ABERTO**
+
+**Questão:** Cards que não batem com a busca ficam escondidos (removidos da grade) ou opacados/esmaecidos (visíveis mas claramente não-match)? D-Pad navega apenas entre matches ou ainda pode focar nos não-matches esmaecidos?
+
+**Resposta:** ⏳ Aguardando resposta.
+
+**Status:** ⏳ **EM ABERTO**
+
+---
+
+#### **4. Limpeza da Busca** ⏳ **EM ABERTO**
+
+**Questão:** Botão B do controle limpa a busca e retorna tudo? Ou precisa Backspace até string vazia? Quer um ícone de "X" na barra para limpar com clique/A?
+
+**Resposta:** ⏳ Aguardando resposta.
+
+**Status:** ⏳ **EM ABERTO**
+
+---
+
+#### **5. Escopo da Busca** ⏳ **EM ABERTO**
+
+**Questão:** Busca case-insensitive sempre? Busca apenas no Nome do Game ou também em Nome do Executável, LauncherName, Arguments? Busca partial match (contém substring) ou fuzzy (permite pequenos typos tipo "turt" → "Turtle")?
+
+**Resposta:** ⏳ Aguardando resposta.
+
+**Status:** ⏳ **EM ABERTO**
+
+---
+
+#### **6. Estado de "Nenhum Resultado"** ⏳ **EM ABERTO**
+
+**Questão:** Se a busca retorna zero matches, mostrar mensagem tipo "Nenhum jogo encontrado" no centro da grade? Ou apenas deixa a grade vazia? Quer sugestão tipo "Pressione B para limpar a busca"?
+
+**Resposta:** ⏳ Aguardando resposta.
+
+**Status:** ⏳ **EM ABERTO**
+
