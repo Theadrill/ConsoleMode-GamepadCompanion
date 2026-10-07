@@ -337,13 +337,15 @@ Linha 5 (utilitários): [Copiar] [Colar] [═══════ Espaço ══�
 
 ---
 
-#### **2. Visual & Posicionamento** ⏳ **EM ABERTO**
+#### **2. Visual & Posicionamento** ✅ **DEFINIDO**
 
 **Questão:** Barra fixa no topo da grade (sempre visível mas desfocada) ou popup centralizado (aparece só quando pressiona X)? Mostrar contador tipo "3 de 12 jogos" enquanto filtra?
 
-**Resposta:** ⏳ Aguardando resposta.
+**Resposta:**
+- **Barra fixa no topo da grade** — sempre visível, desfocada/esmaecida quando não está em uso
+- Sem contador de resultados (não solicitado)
 
-**Status:** ⏳ **EM ABERTO**
+**Status:** ✅ **DEFINIDO**
 
 ---
 
