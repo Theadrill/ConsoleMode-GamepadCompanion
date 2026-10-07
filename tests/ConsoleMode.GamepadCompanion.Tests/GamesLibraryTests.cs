@@ -362,6 +362,118 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Same(game, configGame);
         }
 
+        [Fact]
+        public void FuzzySearchEngine_MatchesExactAndPartialAndTypo()
+        {
+            var game = new GameEntry
+            {
+                Id = "twow",
+                Name = "Turtle WoW",
+                MainExecutable = "WoW.exe"
+            };
+
+            // Prefixo parcial
+            Assert.True(ConsoleMode.GamepadCompanion.Engine.Search.FuzzySearchEngine.IsMatch("turt", game, out int s1));
+            Assert.True(s1 > 0);
+
+            // Substring e sigla
+            Assert.True(ConsoleMode.GamepadCompanion.Engine.Search.FuzzySearchEngine.IsMatch("wow", game, out int s2));
+            Assert.True(s2 > 0);
+
+            // Erro de digitação / typo ("turtl wow")
+            Assert.True(ConsoleMode.GamepadCompanion.Engine.Search.FuzzySearchEngine.IsMatch("turtl wow", game, out int s3));
+            Assert.True(s3 > 0);
+
+            // Match pelo executável
+            Assert.True(ConsoleMode.GamepadCompanion.Engine.Search.FuzzySearchEngine.IsMatch("wow.exe", game, out int s4));
+            Assert.True(s4 > 0);
+
+            // Busca não correspondente
+            Assert.False(ConsoleMode.GamepadCompanion.Engine.Search.FuzzySearchEngine.IsMatch("xyz123nonexistent", game, out int s5));
+            Assert.Equal(0, s5);
+        }
+
+        [Fact]
+        public void FuzzySearchEngine_Filter_OrdersByRelevance()
+        {
+            var g1 = new GameEntry { Id = "1", Name = "Warcraft III", MainExecutable = "war3.exe" };
+            var g2 = new GameEntry { Id = "2", Name = "Turtle WoW", MainExecutable = "WoW.exe" };
+            var g3 = new GameEntry { Id = "3", Name = "Cyberpunk 2077", MainExecutable = "cyberpunk.exe" };
+
+            var list = new[] { g2, g3, g1 };
+            var results = System.Linq.Enumerable.ToList(ConsoleMode.GamepadCompanion.Engine.Search.FuzzySearchEngine.Filter(list, "warcraft"));
+
+            Assert.Single(results);
+            Assert.Equal("1", results[0].Id);
+
+            // Busca com erro "warcrft"
+            var resultsTypo = System.Linq.Enumerable.ToList(ConsoleMode.GamepadCompanion.Engine.Search.FuzzySearchEngine.Filter(list, "warcrft"));
+            Assert.Single(resultsTypo);
+            Assert.Equal("1", resultsTypo[0].Id);
+        }
+
+        [Fact]
+        public void GamesGridControl_SearchFilter_LiveSearchAndEmptyState()
+        {
+            var grid = new GamesGridControl();
+            var g1 = new GameEntry { Id = "1", Name = "Turtle WoW", MainExecutable = "WoW.exe" };
+            var g2 = new GameEntry { Id = "2", Name = "Diablo II", MainExecutable = "D2R.exe" };
+
+            grid.LoadGames(new[] { g1, g2 });
+
+            // Inicial: 2 jogos + 1 slot [+] = 3
+            Assert.Equal(3, grid.TotalCards);
+
+            // Foca a busca e filtra
+            grid.FocusSearch();
+            Assert.True(grid.IsSearchFocused);
+
+            // Simula digitação "Turtle"
+            var searchControl = (SearchBarControl)grid.Controls[1].Controls[2];
+            searchControl.SearchText = "Turtle";
+
+            // Live search filtra para apenas Turtle WoW (sem slot [+])
+            Assert.Equal(1, grid.TotalCards);
+
+            // Busca que não encontra nada
+            searchControl.SearchText = "NonExistentGame999";
+            Assert.Equal(0, grid.TotalCards);
+
+            // Processa botão B do controle: deve limpar a busca e restaurar os cards
+            var stateB = new GamepadState(true, 1, GamepadButtons.B, 0, 0, 0, 0, 0, 0);
+            grid.ProcessGamepad(stateB, 100);
+
+            Assert.Equal(string.Empty, grid.SearchText);
+            Assert.Equal(3, grid.TotalCards);
+        }
+
+        [Fact]
+        public void GamesGridControl_GamepadButtonX_FocusesSearch_And_DownExits()
+        {
+            var grid = new GamesGridControl();
+            var g1 = new GameEntry { Id = "1", Name = "Turtle WoW", MainExecutable = "WoW.exe" };
+            grid.LoadGames(new[] { g1 });
+
+            grid.ResetInputState();
+            Assert.False(grid.IsSearchFocused);
+
+            // 1. Apertar X foca a barra de pesquisa
+            var stateNeutral = new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            var stateX = new GamepadState(true, 2, GamepadButtons.X, 0, 0, 0, 0, 0, 0);
+            grid.ProcessGamepad(stateNeutral, 100);
+            grid.ProcessGamepad(stateX, 120);
+
+            Assert.True(grid.IsSearchFocused);
+
+            // 2. D-Pad Down sai da busca e retorna aos cards
+            var stateDown = new GamepadState(true, 3, GamepadButtons.DPadDown, 0, 0, 0, 0, 0, 0);
+            grid.ProcessGamepad(stateNeutral, 200);
+            grid.ProcessGamepad(stateDown, 220);
+
+            Assert.False(grid.IsSearchFocused);
+            Assert.Equal(0, grid.FocusedIndex);
+        }
+
         private sealed class MockWindowTracker : IWindowTracker
         {
             public System.Collections.Generic.List<string> RegisteredExecutables = new System.Collections.Generic.List<string>();

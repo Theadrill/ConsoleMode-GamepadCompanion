@@ -75,5 +75,12 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string DialogConfirm = "Confirmar";
         public const string DialogCancel = "Cancelar";
         public const string DialogClose = "Fechar";
+
+        // Busca e Filtragem (Fase 3)
+        public const string SearchPlaceholder = "Buscar jogos... [X]";
+        public const string ActionSearch = "[X] BUSCAR";
+        public const string NoGamesFound = "Nenhum jogo encontrado";
+        public const string PressBToClearSearch = "Pressione B para limpar a busca";
+        public const string BtnClearSearch = "Limpar busca";
     }
 }

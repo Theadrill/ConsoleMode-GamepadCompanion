@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using ConsoleMode.GamepadCompanion.Core.Models;
-using ConsoleMode.GamepadCompanion.Hardware;
+using ConsoleMode.GamepadCompanion.Engine.Search;
 
 namespace ConsoleMode.GamepadCompanion.UI.Controls
 {
     /// <summary>
     /// Componente de Grade de Capas de Jogos com navegação espacial 2D por D-Pad,
-    /// rolagem suave automática e suporte a múltiplos jogos + slot de adição [+].
+    /// rolagem suave automática, Barra de Pesquisa Fuzzy e estado de resultado vazio.
     /// </summary>
     internal sealed class GamesGridControl : UserControl
     {
@@ -22,9 +22,18 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private readonly FlowLayoutPanel _cardsContainer = new FlowLayoutPanel();
         private readonly Label _titleLabel = new Label();
         private readonly Label _hintsLabel = new Label();
+        private readonly SearchBarControl _searchBar = new SearchBarControl();
 
+        private readonly Panel _emptyStatePanel = new Panel();
+        private readonly Label _emptyIconLabel = new Label();
+        private readonly Label _emptyTitleLabel = new Label();
+        private readonly Label _emptyDescLabel = new Label();
+
+        private readonly List<GameEntry> _allGames = new List<GameEntry>();
         private readonly List<GameCoverCard> _cards = new List<GameCoverCard>();
+        private string _currentQuery = string.Empty;
         private int _focusedIndex = 0;
+        private bool _isSearchFocused;
 
         // Controle de debounce / repetição do gamepad
         private bool _lastDpadUp;
@@ -33,6 +42,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private bool _lastDpadRight;
         private bool _lastBtnA;
         private bool _lastBtnB;
+        private bool _lastBtnX;
         private bool _lastBtnY;
         private long _lastMoveTime;
         private int _repeatCount;
@@ -41,18 +51,6 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         public event Action<GameEntry> ConfigureRequested;
         public event Action AddRequested;
         public event Action BackRequested;
-
-        public void ResetInputState()
-        {
-            _lastBtnA = true;
-            _lastBtnB = true;
-            _lastBtnY = true;
-            _lastDpadUp = false;
-            _lastDpadDown = false;
-            _lastDpadLeft = false;
-            _lastDpadRight = false;
-            _repeatCount = 0;
-        }
 
         public GamesGridControl()
         {
@@ -65,38 +63,120 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         public int FocusedIndex => _focusedIndex;
         public int TotalCards => _cards.Count;
+        public bool IsSearchFocused => _isSearchFocused || _searchBar.IsSearchFocused;
+        public string SearchText => _searchBar.SearchText;
+
+        public void ResetInputState()
+        {
+            _lastBtnA = true;
+            _lastBtnB = true;
+            _lastBtnX = true;
+            _lastBtnY = true;
+            _lastDpadUp = false;
+            _lastDpadDown = false;
+            _lastDpadLeft = false;
+            _lastDpadRight = false;
+            _repeatCount = 0;
+        }
 
         private void BuildLayout()
         {
+            // Painel de Cabeçalho (Título + Atalhos + Barra de Pesquisa)
             _headerPanel.Dock = DockStyle.Top;
-            _headerPanel.Height = 44;
+            _headerPanel.Height = 88;
             _headerPanel.BackColor = HeaderBg;
-            _headerPanel.Padding = new Padding(16, 8, 16, 8);
 
             _titleLabel.Text = Strings.GamesLibraryTitle;
             _titleLabel.Font = new Font("Segoe UI", 11.5f, FontStyle.Bold);
             _titleLabel.ForeColor = TextPrimary;
             _titleLabel.AutoSize = true;
-            _titleLabel.Location = new Point(16, 11);
+            _titleLabel.Location = new Point(16, 12);
 
-            _hintsLabel.Text = $"{Strings.ActionLaunch}    {Strings.ActionConfigure}    {Strings.NavHintBack}";
+            _hintsLabel.Text = $"{Strings.ActionLaunch}   {Strings.ActionConfigure}   {Strings.ActionSearch}   {Strings.NavHintBack}";
             _hintsLabel.Font = new Font("Segoe UI", 8.5f);
             _hintsLabel.ForeColor = TextSecondary;
             _hintsLabel.AutoSize = true;
             _hintsLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            _hintsLabel.Location = new Point(Width - 280, 14);
+            _hintsLabel.Location = new Point(Math.Max(200, Width - 360), 14);
+
+            _searchBar.Location = new Point(16, 42);
+            _searchBar.Width = Width - 32;
+            _searchBar.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
+
+            _searchBar.SearchTextChanged += text =>
+            {
+                _currentQuery = text ?? string.Empty;
+                _focusedIndex = 0;
+                ApplyFilter();
+            };
+
+            _searchBar.ClearRequested += () =>
+            {
+                _currentQuery = string.Empty;
+                _focusedIndex = 0;
+                ApplyFilter();
+            };
 
             _headerPanel.Controls.Add(_titleLabel);
             _headerPanel.Controls.Add(_hintsLabel);
+            _headerPanel.Controls.Add(_searchBar);
 
+            // Container de Capas
             _cardsContainer.Dock = DockStyle.Fill;
             _cardsContainer.AutoScroll = true;
             _cardsContainer.BackColor = BgColor;
             _cardsContainer.Padding = new Padding(16);
             _cardsContainer.WrapContents = true;
 
+            BuildEmptyState();
+
             Controls.Add(_cardsContainer);
             Controls.Add(_headerPanel);
+        }
+
+        private void BuildEmptyState()
+        {
+            _emptyStatePanel.Size = new Size(380, 150);
+            _emptyStatePanel.BackColor = Color.Transparent;
+            _emptyStatePanel.Visible = false;
+
+            _emptyIconLabel.Text = "🔍";
+            _emptyIconLabel.Font = new Font("Segoe UI", 24f);
+            _emptyIconLabel.ForeColor = Color.FromArgb(90, 96, 110);
+            _emptyIconLabel.AutoSize = false;
+            _emptyIconLabel.Size = new Size(380, 44);
+            _emptyIconLabel.TextAlign = ContentAlignment.MiddleCenter;
+            _emptyIconLabel.Location = new Point(0, 10);
+
+            _emptyTitleLabel.Text = Strings.NoGamesFound;
+            _emptyTitleLabel.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            _emptyTitleLabel.ForeColor = TextPrimary;
+            _emptyTitleLabel.AutoSize = false;
+            _emptyTitleLabel.Size = new Size(380, 26);
+            _emptyTitleLabel.TextAlign = ContentAlignment.MiddleCenter;
+            _emptyTitleLabel.Location = new Point(0, 58);
+
+            _emptyDescLabel.Text = Strings.PressBToClearSearch;
+            _emptyDescLabel.Font = new Font("Segoe UI", 9.5f);
+            _emptyDescLabel.ForeColor = TextSecondary;
+            _emptyDescLabel.AutoSize = false;
+            _emptyDescLabel.Size = new Size(380, 22);
+            _emptyDescLabel.TextAlign = ContentAlignment.MiddleCenter;
+            _emptyDescLabel.Location = new Point(0, 88);
+
+            _emptyStatePanel.Controls.Add(_emptyIconLabel);
+            _emptyStatePanel.Controls.Add(_emptyTitleLabel);
+            _emptyStatePanel.Controls.Add(_emptyDescLabel);
+        }
+
+        private void PositionEmptyState()
+        {
+            if (_emptyStatePanel != null && _cardsContainer != null)
+            {
+                int x = Math.Max(0, (_cardsContainer.ClientSize.Width - _emptyStatePanel.Width) / 2);
+                int y = Math.Max(40, (_cardsContainer.ClientSize.Height - _emptyStatePanel.Height) / 3);
+                _emptyStatePanel.Location = new Point(x, y);
+            }
         }
 
         protected override void OnResize(EventArgs e)
@@ -106,14 +186,24 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 _hintsLabel.Location = new Point(Math.Max(200, Width - _hintsLabel.Width - 16), 14);
             }
+            PositionEmptyState();
         }
 
         public void LoadGames(IEnumerable<GameEntry> games)
         {
+            _allGames.Clear();
+            if (games != null)
+            {
+                _allGames.AddRange(games);
+            }
+            ApplyFilter();
+        }
+
+        private void ApplyFilter()
+        {
             _cardsContainer.SuspendLayout();
             try
             {
-                // Limpa cards anteriores
                 foreach (var card in _cards)
                 {
                     card.Dispose();
@@ -121,32 +211,56 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 _cards.Clear();
                 _cardsContainer.Controls.Clear();
 
-                if (games != null)
+                IEnumerable<GameEntry> matches;
+                if (string.IsNullOrWhiteSpace(_currentQuery))
                 {
-                    foreach (var game in games)
+                    matches = _allGames;
+                }
+                else
+                {
+                    matches = FuzzySearchEngine.Filter(_allGames, _currentQuery);
+                }
+
+                foreach (var game in matches)
+                {
+                    var card = new GameCoverCard(game);
+                    card.Margin = new Padding(10);
+                    card.Click += (s, e) => OnCardClicked(card);
+                    card.DoubleClick += (s, e) => OnCardDoubleClicked(card);
+                    _cards.Add(card);
+                    _cardsContainer.Controls.Add(card);
+                }
+
+                // Slot de adição [+] exibido apenas quando não há busca ativa
+                if (string.IsNullOrWhiteSpace(_currentQuery))
+                {
+                    var addCard = new GameCoverCard(null);
+                    addCard.Margin = new Padding(10);
+                    addCard.Click += (s, e) => OnCardClicked(addCard);
+                    _cards.Add(addCard);
+                    _cardsContainer.Controls.Add(addCard);
+                }
+
+                bool isEmpty = _cards.Count == 0;
+                _emptyStatePanel.Visible = isEmpty;
+                if (isEmpty)
+                {
+                    _cardsContainer.Controls.Add(_emptyStatePanel);
+                    PositionEmptyState();
+                }
+
+                if (_cards.Count > 0)
+                {
+                    _focusedIndex = Math.Max(0, Math.Min(_cards.Count - 1, _focusedIndex));
+                    if (!_isSearchFocused)
                     {
-                        var card = new GameCoverCard(game);
-                        card.Margin = new Padding(10);
-                        card.Click += (s, e) => OnCardClicked(card);
-                        card.DoubleClick += (s, e) => OnCardDoubleClicked(card);
-                        _cards.Add(card);
-                        _cardsContainer.Controls.Add(card);
+                        UpdateCardFocus();
+                    }
+                    else
+                    {
+                        ClearCardsFocus();
                     }
                 }
-
-                // Slot final [+] Adicionar Novo Jogo
-                var addCard = new GameCoverCard(null);
-                addCard.Margin = new Padding(10);
-                addCard.Click += (s, e) => OnCardClicked(addCard);
-                _cards.Add(addCard);
-                _cardsContainer.Controls.Add(addCard);
-
-                // Garante que o foco fique dentro dos limites
-                if (_focusedIndex >= _cards.Count)
-                {
-                    _focusedIndex = Math.Max(0, _cards.Count - 1);
-                }
-                UpdateCardFocus();
             }
             finally
             {
@@ -156,6 +270,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void OnCardClicked(GameCoverCard card)
         {
+            _isSearchFocused = false;
+            _searchBar.BlurInput();
             int idx = _cards.IndexOf(card);
             if (idx >= 0)
             {
@@ -195,18 +311,37 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
         }
 
+        private void ClearCardsFocus()
+        {
+            for (int i = 0; i < _cards.Count; i++)
+            {
+                _cards[i].IsFocusedCard = false;
+            }
+        }
+
         private int GetColumnsCount()
         {
             if (_cards.Count == 0) return 1;
-            // Largura do card (160) + margem horizontal (20) = 180
             int availableWidth = Math.Max(180, _cardsContainer.ClientSize.Width - 32);
             int cols = availableWidth / 180;
             return Math.Max(1, cols);
         }
 
+        public void FocusSearch()
+        {
+            _isSearchFocused = true;
+            _searchBar.FocusInput();
+            ClearCardsFocus();
+        }
+
+        public void ClearSearch()
+        {
+            _searchBar.ClearSearch();
+        }
+
         public void ProcessGamepad(GamepadState state, long currentTimeMs)
         {
-            if (_cards.Count == 0) return;
+            if (!state.IsConnected) return;
 
             bool dpadUp = state.IsPressed(GamepadButtons.DPadUp);
             bool dpadDown = state.IsPressed(GamepadButtons.DPadDown);
@@ -214,9 +349,82 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             bool dpadRight = state.IsPressed(GamepadButtons.DPadRight);
             bool btnA = state.IsPressed(GamepadButtons.A);
             bool btnB = state.IsPressed(GamepadButtons.B);
+            bool btnX = state.IsPressed(GamepadButtons.X);
             bool btnY = state.IsPressed(GamepadButtons.Y);
 
-            // Navegação direcional
+            // Botão X: foca/alterna para a barra de pesquisa
+            if (btnX && !_lastBtnX)
+            {
+                FocusSearch();
+                _lastBtnX = btnX;
+                return;
+            }
+            _lastBtnX = btnX;
+
+            // Se o foco estiver na barra de pesquisa:
+            if (_isSearchFocused)
+            {
+                // D-Pad Down sai da busca e retorna aos cards da grade
+                if (dpadDown && !_lastDpadDown && _cards.Count > 0)
+                {
+                    _isSearchFocused = false;
+                    _searchBar.BlurInput();
+                    _focusedIndex = 0;
+                    UpdateCardFocus();
+                }
+
+                // Botão B limpa a busca ou fecha o foco
+                if (btnB && !_lastBtnB)
+                {
+                    if (!string.IsNullOrEmpty(_searchBar.SearchText))
+                    {
+                        _searchBar.ClearSearch();
+                    }
+                    else
+                    {
+                        _isSearchFocused = false;
+                        _searchBar.BlurInput();
+                        if (_cards.Count > 0)
+                        {
+                            _focusedIndex = 0;
+                            UpdateCardFocus();
+                        }
+                    }
+                }
+
+                _lastDpadDown = dpadDown;
+                _lastBtnB = btnB;
+                return;
+            }
+
+            // Modo grade vazia (nenhum resultado encontrado na busca)
+            if (_cards.Count == 0)
+            {
+                if (btnB && !_lastBtnB)
+                {
+                    if (!string.IsNullOrEmpty(_searchBar.SearchText))
+                    {
+                        _searchBar.ClearSearch();
+                    }
+                    else
+                    {
+                        BackRequested?.Invoke();
+                    }
+                }
+                _lastBtnB = btnB;
+                return;
+            }
+
+            // D-Pad Up a partir da linha de topo move o foco para a barra de busca
+            int cols = GetColumnsCount();
+            if (dpadUp && !_lastDpadUp && _focusedIndex < cols)
+            {
+                FocusSearch();
+                _lastDpadUp = dpadUp;
+                return;
+            }
+
+            // Navegação direcional entre os cards
             bool isMoving = dpadUp || dpadDown || dpadLeft || dpadRight;
             if (isMoving)
             {
@@ -229,7 +437,6 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
                 if (isInitial || (currentTimeMs - _lastMoveTime >= interval))
                 {
-                    int cols = GetColumnsCount();
                     if (dpadLeft) MoveFocus(-1);
                     else if (dpadRight) MoveFocus(1);
                     else if (dpadUp) MoveFocus(-cols);
@@ -256,10 +463,17 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 TriggerConfigureAction();
             }
 
-            // Botão B (Voltar)
+            // Botão B (Voltar ou Limpar busca)
             if (btnB && !_lastBtnB)
             {
-                BackRequested?.Invoke();
+                if (!string.IsNullOrEmpty(_searchBar.SearchText))
+                {
+                    _searchBar.ClearSearch();
+                }
+                else
+                {
+                    BackRequested?.Invoke();
+                }
             }
 
             _lastDpadUp = dpadUp;
