@@ -459,5 +459,47 @@ namespace ConsoleMode.GamepadCompanion.Tests
             overlay.CloseVirtualKeyboard();
             Assert.False(overlay.IsVirtualKeyboardOpen);
         }
+
+        [Fact]
+        public void VirtualKeyboardControl_CursorBlink_InitialStateAndInputReset()
+        {
+            using var kb = new VirtualKeyboardControl("Test");
+            Assert.True(kb.CursorVisible);
+
+            // Simula tick do timer desligando o cursor
+            kb.ToggleCursorBlinkForTesting();
+            Assert.False(kb.CursorVisible);
+
+            // Reset manual liga o cursor imediatamente
+            kb.ResetCursorBlink();
+            Assert.True(kb.CursorVisible);
+
+            // Desliga de novo
+            kb.ToggleCursorBlinkForTesting();
+            Assert.False(kb.CursorVisible);
+
+            // Mover cursor para esquerda com tecla deve acionar reset automático para visível
+            var leftKey = new VirtualKeyDefinition { KeyType = VirtualKeyType.CursorLeft };
+            kb.ExecuteKey(leftKey);
+            Assert.True(kb.CursorVisible);
+
+            // Desliga de novo
+            kb.ToggleCursorBlinkForTesting();
+            Assert.False(kb.CursorVisible);
+
+            // Digitar caractere deve ligar o cursor imediatamente
+            var charKey = new VirtualKeyDefinition { KeyType = VirtualKeyType.Character, PrimaryLabel = "X" };
+            kb.ExecuteKey(charKey);
+            Assert.True(kb.CursorVisible);
+
+            // Desliga de novo
+            kb.ToggleCursorBlinkForTesting();
+            Assert.False(kb.CursorVisible);
+
+            // Backspace deve ligar o cursor imediatamente
+            var backKey = new VirtualKeyDefinition { KeyType = VirtualKeyType.Backspace };
+            kb.ExecuteKey(backKey);
+            Assert.True(kb.CursorVisible);
+        }
     }
 }

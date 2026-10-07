@@ -30,6 +30,8 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
 
         private readonly TextInputBuffer _buffer;
         private readonly List<List<VirtualKeyDefinition>> _rows;
+        private readonly Timer _cursorBlinkTimer;
+        private bool _cursorVisible = true;
 
         private int _focusedRow = 2; // Inicia na linha home ASDFGH
         private int _focusedCol = 1; // Tecla 'a'
@@ -76,6 +78,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
         public bool IsSymbols => _isSymbols;
         public int FocusedRow => _focusedRow;
         public int FocusedCol => _focusedCol;
+        public bool CursorVisible => _cursorVisible;
 
         public VirtualKeyboardControl() : this(string.Empty)
         {
@@ -94,13 +97,21 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             BackColor = BgColor;
             Font = new Font("Segoe UI", 9.5f);
 
+            _cursorBlinkTimer = new Timer { Interval = 500 };
+            _cursorBlinkTimer.Tick += OnBlinkTimerTick;
+
             _buffer = new TextInputBuffer(initialText);
             _buffer.TextChanged += () =>
             {
+                ResetCursorBlink();
                 BufferTextChanged?.Invoke(_buffer.Text);
                 Invalidate();
             };
-            _buffer.CursorChanged += () => Invalidate();
+            _buffer.CursorChanged += () =>
+            {
+                ResetCursorBlink();
+                Invalidate();
+            };
 
             _rows = KeyboardLayoutProvider.CreateLayout();
         }
@@ -118,6 +129,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             _focusedRow = 2;
             _focusedCol = 1;
             ResetGamepadState();
+            ResetCursorBlink();
             Invalidate();
         }
 
@@ -138,6 +150,90 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             _lastMoveTime = 0;
             _btnXRepeatCount = 0;
             _lastBtnXTime = 0;
+        }
+
+        private void OnBlinkTimerTick(object sender, EventArgs e)
+        {
+            if (!Visible || Disposing || IsDisposed)
+            {
+                _cursorBlinkTimer.Stop();
+                return;
+            }
+
+            _cursorVisible = !_cursorVisible;
+            InvalidateInputArea();
+        }
+
+        public void ResetCursorBlink()
+        {
+            _cursorVisible = true;
+            if (Visible && !Disposing && !IsDisposed)
+            {
+                _cursorBlinkTimer.Stop();
+                _cursorBlinkTimer.Start();
+            }
+            InvalidateInputArea();
+        }
+
+        internal void ToggleCursorBlinkForTesting()
+        {
+            _cursorVisible = !_cursorVisible;
+        }
+
+        private void InvalidateInputArea()
+        {
+            if (_inputBoxRect.Width > 0 && _inputBoxRect.Height > 0)
+            {
+                var rect = _inputBoxRect;
+                rect.Inflate(2, 2);
+                Invalidate(rect);
+            }
+            else
+            {
+                Invalidate();
+            }
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (Visible)
+            {
+                _cursorVisible = true;
+                _cursorBlinkTimer.Start();
+                InvalidateInputArea();
+            }
+            else
+            {
+                _cursorBlinkTimer.Stop();
+            }
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            if (Visible)
+            {
+                _cursorVisible = true;
+                _cursorBlinkTimer.Start();
+            }
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            _cursorBlinkTimer.Stop();
+            base.OnHandleDestroyed(e);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _cursorBlinkTimer.Stop();
+                _cursorBlinkTimer.Tick -= OnBlinkTimerTick;
+                _cursorBlinkTimer.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
         protected override void OnResize(EventArgs e)
@@ -459,10 +555,12 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
 
                 case VirtualKeyType.CursorLeft:
                     _buffer.MoveCursorLeft();
+                    ResetCursorBlink();
                     break;
 
                 case VirtualKeyType.CursorRight:
                     _buffer.MoveCursorRight();
+                    ResetCursorBlink();
                     break;
 
                 case VirtualKeyType.Copy:
@@ -569,8 +667,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
                 }
 
                 // Cursor piscante perfeitamente alinhado com o texto
-                bool blink = ((Environment.TickCount / 480) % 2) == 0;
-                if (blink)
+                if (_cursorVisible)
                 {
                     int cursorOffset = 0;
                     if (!string.IsNullOrEmpty(text) && cursorPos > 0)
