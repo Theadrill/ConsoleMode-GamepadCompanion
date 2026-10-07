@@ -10,15 +10,45 @@ Este documento registra a concepção de arquitetura, fluxo de UX e design da fu
 
 > ⚠️ **IMPLEMENTAR PRIMEIRO antes de qualquer feature de biblioteca de games.**
 
-Antes de criar o Grid de Games, precisamos implementar navegação completa por gamepad na **interface atual** (SettingsForm + Gamepad Visual Debugger).
+Antes de criar o Grid de Games, precisamos implementar navegação completa por gamepad na **interface atual** (SettingsForm).
 
-### Requisitos:
-- Navegação por **D-Pad** entre os controles da interface (sliders, botões, dropdown).
-- **Foco visual** claro nos elementos navegáveis.
-- **Botão A** confirma/ativa o elemento focado.
-- **Botão B** cancela/volta.
-- Sliders ajustáveis via **D-Pad esquerda/direita** ou **analógicos**.
-- Suporte a vibração para feedback tátil (pavimentado mesmo se não usado inicialmente).
+### Escopo:
+- Navegação **apenas na barra lateral esquerda** (lista de controles: toggles, sliders, dropdown de gamepad).
+- **Sem navegação na área direita** (Gamepad Visual Debugger) por enquanto.
+
+### Foco Inicial:
+- Ao abrir a interface com gamepad, o foco vai automaticamente para o **primeiro item da lista esquerda**.
+- Quando a feature de Biblioteca for implementada, o foco inicial mudará para o botão **GAMES/BIBLIOTECA**.
+
+### Renomeação de Botão:
+- O botão atual **"Mapeamento: Estado"** (texto confuso) será renomeado para:
+  - **"Ativar Companion"** quando o companion estiver desativado
+  - **"Desativar Companion"** quando o companion estiver ativado
+
+### Comportamentos por Tipo de Elemento:
+
+#### **Navegação na Lista (modo padrão):**
+- **D-Pad ↑↓** — Navega entre os itens da barra esquerda (sliders, botões, dropdown)
+- **D-Pad ←→** — Sem ação neste modo
+- **A** — Entra no modo de edição/ativação do item focado
+
+#### **Botões & Toggles (ex: Ativar/Desativar Companion, Mapeamento):**
+- **A** — Ativa/alterna o botão diretamente
+- Sem overlay — ação imediata, sem escurecer a UI
+
+#### **Dropdown de Gamepads Conectados:**
+- **A** — Abre a lista com overlay escurecendo a UI
+- **D-Pad ↑↓** — Navega entre os itens da lista
+- **A** — Confirma seleção e fecha lista
+- **B** — Fecha lista sem confirmar, volta ao valor anterior
+
+#### **Sliders (Sensibilidade, Deadzone, Limiar de Gatilho):**
+- **A** — Entra no modo de edição: UI escurece, deixando o slider atual visível em destaque
+- **D-Pad ↑↓** — Sem ação no modo edição
+- **D-Pad ←→** — Altera o valor do slider (1 unidade por tick)
+- **Segurar ←→** — Aceleração progressiva (começa devagar, acelera quanto mais segura)
+- **A** — Confirma o novo valor e sai do modo edição
+- **B** — Cancela, volta ao valor anterior sem salvar, sai do modo edição
 
 ### Arquitetura:
 - Criar módulo `UI/Navigation/GamepadNavigationManager.cs` para gerenciar foco e navegação.
