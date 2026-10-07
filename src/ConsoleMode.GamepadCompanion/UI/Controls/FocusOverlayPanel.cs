@@ -434,9 +434,6 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             Bounds = new Rectangle(0, 0, parent.ClientSize.Width, parent.ClientSize.Height);
 
-            _snapshot?.Dispose();
-            _snapshot = CaptureClientArea(parent);
-
             if (_keyboardControl == null)
             {
                 _keyboardControl = new VirtualKeyboard.VirtualKeyboardControl();
@@ -458,6 +455,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _keyboardControl.Visible = true;
             _keyboardControl.BringToFront();
 
+            _snapshot?.Dispose();
+            _snapshot = null;
+            RefreshLiveBackground(parent);
+
             BringToFront();
             Visible = true;
             Invalidate();
@@ -468,12 +469,52 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             if (_keyboardControl == null) return;
 
             int cardW = Math.Min(800, parentSize.Width - 32);
-            int cardH = Math.Min(370, parentSize.Height - 30);
+            int cardH = Math.Min(340, parentSize.Height - 30);
             int cardX = (parentSize.Width - cardW) / 2;
-            int cardY = Math.Max(16, (parentSize.Height - cardH) / 2);
+            int cardY = Math.Max(12, parentSize.Height - cardH - 14);
 
             _keyboardCardRect = new Rectangle(cardX, cardY, cardW, cardH);
             _keyboardControl.SetBounds(cardX, cardY, cardW, cardH);
+        }
+
+        public void RefreshLiveBackground(Form parent)
+        {
+            if (parent == null) return;
+            int w = Math.Max(1, parent.ClientSize.Width);
+            int h = Math.Max(1, parent.ClientSize.Height);
+
+            try
+            {
+                var bmp = new Bitmap(w, h);
+                using (var g = Graphics.FromImage(bmp))
+                {
+                    using (var bgBrush = new SolidBrush(parent.BackColor))
+                    {
+                        g.FillRectangle(bgBrush, 0, 0, w, h);
+                    }
+
+                    for (int i = parent.Controls.Count - 1; i >= 0; i--)
+                    {
+                        var ctrl = parent.Controls[i];
+                        if (ctrl != this && ctrl.Visible && ctrl.Width > 0 && ctrl.Height > 0)
+                        {
+                            using (var ctrlBmp = new Bitmap(ctrl.Width, ctrl.Height))
+                            {
+                                ctrl.DrawToBitmap(ctrlBmp, new Rectangle(0, 0, ctrl.Width, ctrl.Height));
+                                g.DrawImageUnscaled(ctrlBmp, ctrl.Location.X, ctrl.Location.Y);
+                            }
+                        }
+                    }
+                }
+
+                _snapshot?.Dispose();
+                _snapshot = bmp;
+                Invalidate();
+            }
+            catch
+            {
+                // Fallback seguro se controle estiver indisponível
+            }
         }
 
         private void OnKeyboardLiveChanged(string text)
@@ -572,8 +613,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 }
             }
 
-            // 2. Aplica a camada de escurecimento semi-transparente
-            using (var dimBrush = new SolidBrush(Color.FromArgb(190, 15, 17, 22)))
+            // 2. Aplica a camada de escurecimento semi-transparente (mais suave quando o teclado está ativo para permitir visualização dos resultados)
+            int dimAlpha = _isVirtualKeyboard ? 130 : 190;
+            using (var dimBrush = new SolidBrush(Color.FromArgb(dimAlpha, 15, 17, 22)))
             {
                 g.FillRectangle(dimBrush, ClientRectangle);
             }

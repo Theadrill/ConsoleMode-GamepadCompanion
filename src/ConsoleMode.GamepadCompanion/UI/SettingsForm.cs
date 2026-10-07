@@ -226,6 +226,7 @@ namespace ConsoleMode.GamepadCompanion.UI
                     onLiveTextChange: text =>
                     {
                         _gamesGrid.SetSearchQuery(text);
+                        _focusOverlay.RefreshLiveBackground(this);
                     }
                 );
             };

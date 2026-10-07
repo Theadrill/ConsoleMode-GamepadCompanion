@@ -400,5 +400,23 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             Assert.True(cancelFired);
         }
+
+        [Fact]
+        public void FocusOverlayPanel_RefreshLiveBackground_CompositesControlsCleanly()
+        {
+            var form = new Form { Width = 600, Height = 400 };
+            var overlay = new ConsoleMode.GamepadCompanion.UI.Controls.FocusOverlayPanel();
+            var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Red };
+            form.Controls.Add(overlay);
+            form.Controls.Add(panel);
+
+            overlay.ShowVirtualKeyboard(form, "Busca", "test", text => { });
+            Assert.True(overlay.IsVirtualKeyboardOpen);
+
+            overlay.RefreshLiveBackground(form);
+
+            overlay.CloseVirtualKeyboard();
+            Assert.False(overlay.IsVirtualKeyboardOpen);
+        }
     }
 }
