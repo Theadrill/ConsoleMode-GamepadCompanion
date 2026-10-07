@@ -361,13 +361,16 @@ Linha 5 (utilitários): [Copiar] [Colar] [═══════ Espaço ══�
 
 ---
 
-#### **4. Limpeza da Busca** ⏳ **EM ABERTO**
+#### **4. Limpeza da Busca** ✅ **DEFINIDO**
 
 **Questão:** Botão B do controle limpa a busca e retorna tudo? Ou precisa Backspace até string vazia? Quer um ícone de "X" na barra para limpar com clique/A?
 
-**Resposta:** ⏳ Aguardando resposta.
+**Resposta:**
+- **B físico** sempre limpa o texto e fecha a busca, retornando à grade completa
+- **Ícone ✕ visual** dentro da barra de pesquisa para reforçar ao usuário a ação disponível (navegável com D-Pad + A)
+- Backspace apaga letra por letra normalmente (mas não é o caminho principal para fechar)
 
-**Status:** ⏳ **EM ABERTO**
+**Status:** ✅ **DEFINIDO**
 
 ---
 
