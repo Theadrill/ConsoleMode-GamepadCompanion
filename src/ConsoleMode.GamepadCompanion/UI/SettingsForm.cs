@@ -51,6 +51,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private bool _updatingCombo;
         private bool _allowClose;
         private bool _lastStateY;
+        private bool _isLaunching;
         private ContentViewMode _viewMode = ContentViewMode.Debugger;
 
         public SettingsForm(
@@ -216,22 +217,27 @@ namespace ConsoleMode.GamepadCompanion.UI
             _configPanel.Visible = false;
             _debugger.BringToFront();
             _focusOverlay.BringToFront();
+            _lastStateY = true;
+            _navManager.ResetInputState();
         }
 
         private void ShowGamesLibrary()
         {
             _viewMode = ContentViewMode.GamesGrid;
             RefreshGamesList();
+            _gamesGrid.ResetInputState();
             _debugger.Visible = false;
             _gamesGrid.Visible = true;
             _configPanel.Visible = false;
             _gamesGrid.BringToFront();
             _focusOverlay.BringToFront();
+            _lastStateY = true;
         }
 
         private void ShowGameConfig(GameEntry game)
         {
             _viewMode = ContentViewMode.GameConfig;
+            _configPanel.ResetInputState();
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
             _configPanel.Visible = true;
@@ -242,7 +248,9 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void OnLaunchGame(GameEntry game)
         {
-            if (game == null) return;
+            if (game == null || _isLaunching) return;
+
+            _isLaunching = true;
             try
             {
                 _gameLauncher.Launch(game);
@@ -255,6 +263,11 @@ namespace ConsoleMode.GamepadCompanion.UI
                     Strings.LaunchErrorTitle,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _isLaunching = false;
+                _gamesGrid.ResetInputState();
             }
         }
 

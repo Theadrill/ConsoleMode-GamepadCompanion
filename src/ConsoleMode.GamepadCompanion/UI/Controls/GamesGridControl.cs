@@ -42,6 +42,18 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         public event Action AddRequested;
         public event Action BackRequested;
 
+        public void ResetInputState()
+        {
+            _lastBtnA = true;
+            _lastBtnB = true;
+            _lastBtnY = true;
+            _lastDpadUp = false;
+            _lastDpadDown = false;
+            _lastDpadLeft = false;
+            _lastDpadRight = false;
+            _repeatCount = 0;
+        }
+
         public GamesGridControl()
         {
             BackColor = BgColor;

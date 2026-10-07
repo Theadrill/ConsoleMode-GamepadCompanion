@@ -304,12 +304,21 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
         }
 
+        private bool _lastBtnB;
+
+        public void ResetInputState()
+        {
+            _lastBtnB = true;
+        }
+
         public void ProcessGamepad(GamepadState state)
         {
-            if (state.IsPressed(GamepadButtons.B))
+            bool btnB = state.IsPressed(GamepadButtons.B);
+            if (btnB && !_lastBtnB)
             {
                 CancelRequested?.Invoke();
             }
+            _lastBtnB = btnB;
         }
     }
 }

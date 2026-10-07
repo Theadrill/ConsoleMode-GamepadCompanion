@@ -80,6 +80,14 @@ namespace ConsoleMode.GamepadCompanion.UI.Navigation
             }
         }
 
+        public void ResetInputState()
+        {
+            _prevA = true;
+            _prevB = true;
+            _currentDirection = null;
+            _repeatCount = 0;
+        }
+
         public void ProcessGamepad(GamepadState state, long nowMs)
         {
             if (!state.IsConnected || _controls.Count == 0) return;

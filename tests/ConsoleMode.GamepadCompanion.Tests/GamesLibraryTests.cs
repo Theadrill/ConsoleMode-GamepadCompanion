@@ -304,6 +304,64 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Same(nb2, nav.FocusedControl);
         }
 
+        [Fact]
+        public void GamesGridControl_ResetInputState_PreventsButtonABleed()
+        {
+            var grid = new GamesGridControl();
+            var game = new GameEntry { Id = "g1", Name = "Game 1" };
+            grid.LoadGames(new[] { game });
+
+            GameEntry launchedGame = null;
+            grid.LaunchRequested += g => launchedGame = g;
+
+            // Simula transição com botão A já pressionado da tela anterior
+            grid.ResetInputState();
+
+            // Enquanto o botão A estiver pressionado, não deve disparar
+            var stateA = new GamepadState(true, 1, GamepadButtons.A, 0, 0, 0, 0, 0, 0);
+            grid.ProcessGamepad(stateA, 100);
+            grid.ProcessGamepad(stateA, 116);
+            Assert.Null(launchedGame);
+
+            // Solta o botão A
+            var stateNeutral = new GamepadState(true, 2, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            grid.ProcessGamepad(stateNeutral, 132);
+            Assert.Null(launchedGame);
+
+            // Agora pressiona A novamente de forma intencional: deve disparar!
+            grid.ProcessGamepad(stateA, 148);
+            Assert.Same(game, launchedGame);
+        }
+
+        [Fact]
+        public void GamesGridControl_ResetInputState_PreventsButtonYBleed()
+        {
+            var grid = new GamesGridControl();
+            var game = new GameEntry { Id = "g1", Name = "Game 1" };
+            grid.LoadGames(new[] { game });
+
+            GameEntry configGame = null;
+            grid.ConfigureRequested += g => configGame = g;
+
+            // Simula transição com botão Y já pressionado (ex: atalho Y para abrir biblioteca)
+            grid.ResetInputState();
+
+            // Enquanto o botão Y estiver pressionado, não deve abrir configuração
+            var stateY = new GamepadState(true, 1, GamepadButtons.Y, 0, 0, 0, 0, 0, 0);
+            grid.ProcessGamepad(stateY, 100);
+            grid.ProcessGamepad(stateY, 116);
+            Assert.Null(configGame);
+
+            // Solta o botão Y
+            var stateNeutral = new GamepadState(true, 2, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            grid.ProcessGamepad(stateNeutral, 132);
+            Assert.Null(configGame);
+
+            // Agora pressiona Y intencionalmente: deve abrir configuração!
+            grid.ProcessGamepad(stateY, 148);
+            Assert.Same(game, configGame);
+        }
+
         private sealed class MockWindowTracker : IWindowTracker
         {
             public System.Collections.Generic.List<string> RegisteredExecutables = new System.Collections.Generic.List<string>();
