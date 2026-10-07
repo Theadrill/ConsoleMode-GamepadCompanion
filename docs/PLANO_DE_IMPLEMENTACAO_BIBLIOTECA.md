@@ -60,24 +60,29 @@
 
 ### FASE 2: Catálogo de Jogos & Grid de Biblioteca (Games Grid)
 
-* **Objetivo:** Permitir que o usuário alterne para a tela de Biblioteca via botão `Y`, navegue pelas capas dos jogos cadastrados via D-Pad, acione o jogo com `A`, acesse o painel de propriedades estilo Steam Shortcut com `Y` e cadastre novos jogos no slot `[+]`.
+* **Objetivo:** Implementar o botão **GAMES** na barra lateral esquerda (com foco inicial do controle nele), permitir que o usuário alterne para a tela de Biblioteca via clique no botão, via `A` no gamepad ou via atalho global `Y`, navegar pelas capas dos jogos cadastrados via D-Pad, acionar o jogo com `A`, acessar o painel de propriedades estilo Steam Shortcut com `Y` e cadastrar novos jogos no slot `[+]`.
 * **Tarefas:**
-  1. **Persistência `games.ini` & Modelo `GameEntry`:**
+  1. **Botão GAMES / BIBLIOTECA na Barra Lateral Esquerda:**
+     - Criar botão `btnGames` no `SettingsForm.cs` posicionado abaixo do slider de gatilho e acima do botão `btnExit`.
+     - Integrar `btnGames` ao `GamepadNavigationManager` como `ButtonNavigable`.
+     - Definir o foco inicial do gamepad no botão `btnGames` ao abrir o formulário.
+     - Evento de clique / acionamento com `A`: alterna para a visualização da Grade de Games.
+  2. **Persistência `games.ini` & Modelo `GameEntry`:**
      - Criar `Core/Models/GameEntry.cs` (`Id`, `Name`, `LauncherName`, `MainExecutable`, `TargetPath`, `WorkingDirectory`, `Arguments`, `CoverImagePath`).
      - Criar `Hardware/GameRepository.cs` para persistência INI com pré-cadastro do Turtle WoW caso o arquivo não exista.
-  2. **Grid de Capas (`GamesGridControl`):**
+  3. **Grid de Capas (`GamesGridControl`):**
      - Criar `UI/Controls/GameCoverCard.cs` com proporção de capa (~3:4), renderização de imagem/fallback escuro com nome e overlays de ação `[A] INICIAR` e `[Y] CONFIGURAR`.
      - Criar slot especial `[+] Adicionar Novo Jogo`.
      - Criar `UI/Controls/GamesGridControl.cs` com layout responsivo e rolagem suave automática.
-  3. **Painel de Propriedades do Jogo (`GameConfigPanel`):**
+  4. **Painel de Propriedades do Jogo (`GameConfigPanel`):**
      - Construir formulário estilo Steam com os 7 campos (Nome, Launcher, Executável Principal, TargetPath, WorkingDirectory, Arguments, CoverImagePath) e botões de arquivo/pasta.
-  4. **Lançador de Jogos & Alternância de Visual:**
+  5. **Lançador de Jogos & Alternância de Visual:**
      - Criar `Engine/GameLauncher.cs` disparando o processo e registrando o `MainExecutable` no `WindowTracker` para ativação automática do perfil Gaming.
-     - Integrar no `SettingsForm.cs`: Botão `Y` alterna visual (Debugger ↔ Grade de Games), `B` retorna ao Debugger.
+     - Integrar no `SettingsForm.cs`: Botão `GAMES` ou atalho físico `Y` alterna visual (Debugger ↔ Grade de Games), `B` retorna ao Debugger.
 
 * **🛑 Critério de Aceite & Validação do PO:**
-  1. Abrir o companion e apertar `Y` no controle.
-  2. **Verificar transição:** A área da direita deve trocar do Gamepad Debugger para a Grade de Jogos (com card do Turtle WoW e slot `[+]`).
+  1. Abrir o companion e verificar que o foco inicial do gamepad está sobre o novo botão **GAMES** na barra lateral esquerda.
+  2. Apertar `A` no botão GAMES (ou clicar com o mouse, ou apertar `Y` no controle): a área da direita deve trocar do Gamepad Debugger para a Grade de Jogos (com card do Turtle WoW e slot `[+]`).
   3. **Navegar na grade:** Usar D-Pad para navegar entre as capas e o slot `[+]`. O card selecionado deve ficar destacado.
   4. **Configurar Jogo:** Focar em um jogo e apertar `Y`. O painel de propriedades do jogo deve se abrir.
   5. **Adicionar Jogo:** Focar no slot `[+]` e apertar `A`. O painel de cadastro deve se abrir em branco.
