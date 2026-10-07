@@ -21,11 +21,27 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         private bool _isWowActive;
         private string _lastProcessName = string.Empty;
 
+        private readonly System.Collections.Generic.HashSet<string> _customGameExecutables =
+            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         public bool IsGameFocused => _isWowActive;
 
         public string ActiveProcessName => _lastProcessName;
 
         public event Action<bool> FocusChanged;
+
+        public void RegisterGameExecutable(string executableName)
+        {
+            if (string.IsNullOrWhiteSpace(executableName)) return;
+            string cleanName = Path.GetFileNameWithoutExtension(executableName.Trim());
+            if (!string.IsNullOrEmpty(cleanName))
+            {
+                lock (_customGameExecutables)
+                {
+                    _customGameExecutables.Add(cleanName);
+                }
+            }
+        }
 
         public void CheckActiveWindow()
         {
@@ -59,6 +75,14 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             bool wowFocused = string.Equals(procName, "turtle-wow", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(procName, "WoW", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(procName, "VanillaFixes", StringComparison.OrdinalIgnoreCase);
+
+            if (!wowFocused && !string.IsNullOrEmpty(procName))
+            {
+                lock (_customGameExecutables)
+                {
+                    wowFocused = _customGameExecutables.Contains(procName);
+                }
+            }
 
             UpdateFocus(wowFocused, procName);
         }

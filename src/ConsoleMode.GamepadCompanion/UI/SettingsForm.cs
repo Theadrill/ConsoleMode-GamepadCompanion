@@ -4,18 +4,34 @@ using System.Drawing;
 using System.Windows.Forms;
 using ConsoleMode.GamepadCompanion.Core.Interfaces;
 using ConsoleMode.GamepadCompanion.Core.Models;
+using ConsoleMode.GamepadCompanion.Engine;
+using ConsoleMode.GamepadCompanion.Hardware;
 using ConsoleMode.GamepadCompanion.UI.Controls;
 using ConsoleMode.GamepadCompanion.UI.Navigation;
 
 namespace ConsoleMode.GamepadCompanion.UI
 {
-    /// <summary>Janela de configurações: apresenta estado, visual debugger e navegação nativa por controle.</summary>
+    /// <summary>
+    /// Janela principal de configurações: apresenta estado, visual debugger, catálogo de jogos (Fase 2)
+    /// e navegação nativa por controle com foco couch gaming.
+    /// </summary>
     internal sealed class SettingsForm : Form
     {
+        private enum ContentViewMode
+        {
+            Debugger,
+            GamesGrid,
+            GameConfig
+        }
+
         private readonly IGamepadService _gamepad;
         private readonly AppSettings _settings;
-        private readonly Engine.ProfileManager _profileManager;
-        private readonly Hardware.ConfigRepository _configRepo;
+        private readonly ProfileManager _profileManager;
+        private readonly ConfigRepository _configRepo;
+        private readonly IWindowTracker _windowTracker;
+        private readonly GameRepository _gameRepo;
+        private readonly GameLauncher _gameLauncher;
+
         private readonly Timer _refreshTimer = new Timer { Interval = 16 };
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
 
@@ -23,28 +39,39 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly Label _statusLabel = new Label();
         private readonly Label _profileLabel = new Label();
         private readonly Button _toggleButton = new Button();
+        private readonly Button _gamesButton = new Button();
         private readonly GamepadVisualDebugger _debugger = new GamepadVisualDebugger();
+        private readonly GamesGridControl _gamesGrid = new GamesGridControl();
+        private readonly GameConfigPanel _configPanel = new GameConfigPanel();
         private readonly FocusOverlayPanel _focusOverlay = new FocusOverlayPanel();
         private readonly GamepadNavigationManager _navManager = new GamepadNavigationManager();
 
         private Panel _sidePanel;
         private string _slotSignature = string.Empty;
         private bool _updatingCombo;
+        private bool _allowClose;
+        private bool _lastStateY;
+        private ContentViewMode _viewMode = ContentViewMode.Debugger;
 
         public SettingsForm(
             IGamepadService gamepad,
             AppSettings settings,
-            Engine.ProfileManager profileManager,
-            Hardware.ConfigRepository configRepo)
+            ProfileManager profileManager,
+            ConfigRepository configRepo,
+            IWindowTracker windowTracker = null)
         {
             _gamepad = gamepad;
             _settings = settings;
             _profileManager = profileManager;
             _configRepo = configRepo;
+            _windowTracker = windowTracker;
+            _gameRepo = new GameRepository();
+            _gameLauncher = new GameLauncher(windowTracker);
 
             BuildLayout();
             RefreshSlotCombo(force: true);
             ApplyToggleVisual();
+            RefreshGamesList();
 
             _refreshTimer.Tick += (s, e) => Refresh_Tick();
             _refreshTimer.Start();
@@ -54,8 +81,8 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             Text = Strings.WindowTitle;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(820, 490);
-            MinimumSize = new Size(700, 530);
+            ClientSize = new Size(880, 520);
+            MinimumSize = new Size(760, 540);
             BackColor = Color.FromArgb(30, 32, 40);
             ForeColor = Color.FromArgb(230, 232, 240);
             Font = new Font("Segoe UI", 9.5f);
@@ -88,6 +115,25 @@ namespace ConsoleMode.GamepadCompanion.UI
                 ApplyToggleVisual();
             };
 
+            // Botão GAMES (Biblioteca de Jogos) - Novo na Fase 2
+            _gamesButton.Text = Strings.BtnGames;
+            _gamesButton.SetBounds(16, 386, 228, 36);
+            _gamesButton.FlatStyle = FlatStyle.Flat;
+            _gamesButton.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
+            _gamesButton.BackColor = Color.FromArgb(40, 44, 56);
+            _gamesButton.ForeColor = Color.FromArgb(230, 232, 240);
+            _gamesButton.Click += (s, e) =>
+            {
+                if (_viewMode == ContentViewMode.Debugger)
+                {
+                    ShowGamesLibrary();
+                }
+                else
+                {
+                    ShowDebugger();
+                }
+            };
+
             var exit = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat };
             exit.SetBounds(16, 432, 228, 36);
             exit.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
@@ -106,7 +152,7 @@ namespace ConsoleMode.GamepadCompanion.UI
                     });
             };
 
-            _sidePanel.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _profileLabel, _toggleButton, exit });
+            _sidePanel.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _profileLabel, _toggleButton, _gamesButton, exit });
 
             // Registro sequencial dos controles para navegação D-Pad (topo -> base)
             var slotNav = new DropdownNavigable("SlotCombo", slotTitle, _slotCombo);
@@ -117,6 +163,7 @@ namespace ConsoleMode.GamepadCompanion.UI
                 v => { _settings.StickDeadzonePercent = v; _configRepo.Save(_settings); });
             var trigNav = AddSlider(_sidePanel, "TriggerSlider", Strings.TriggerThreshold, 332, 5, 90, _settings.TriggerThresholdPercent,
                 v => { _settings.TriggerThresholdPercent = v; _configRepo.Save(_settings); });
+            var gamesNav = new ButtonNavigable("GamesButton", _gamesButton);
             var exitNav = new ButtonNavigable("ExitButton", exit);
 
             _navManager.RegisterControl(slotNav);
@@ -124,13 +171,115 @@ namespace ConsoleMode.GamepadCompanion.UI
             _navManager.RegisterControl(sensNav);
             _navManager.RegisterControl(deadNav);
             _navManager.RegisterControl(trigNav);
+            _navManager.RegisterControl(gamesNav);
             _navManager.RegisterControl(exitNav);
 
+            // Foco inicial definido no botão GAMES (conforme regra e plano da Fase 2)
+            _navManager.SetFocus(gamesNav);
+
+            // Views da área de conteúdo à direita
             _debugger.Dock = DockStyle.Fill;
+            _gamesGrid.Dock = DockStyle.Fill;
+            _gamesGrid.Visible = false;
+            _configPanel.Dock = DockStyle.Fill;
+            _configPanel.Visible = false;
+
+            // Eventos do Grid de Jogos
+            _gamesGrid.LaunchRequested += OnLaunchGame;
+            _gamesGrid.ConfigureRequested += OnConfigureGame;
+            _gamesGrid.AddRequested += OnAddGame;
+            _gamesGrid.BackRequested += ShowDebugger;
+
+            // Eventos do Painel de Configuração
+            _configPanel.SaveRequested += OnSaveGame;
+            _configPanel.DeleteRequested += OnDeleteGame;
+            _configPanel.CancelRequested += ShowGamesLibrary;
 
             Controls.Add(_focusOverlay);
+            Controls.Add(_configPanel);
+            Controls.Add(_gamesGrid);
             Controls.Add(_debugger);
             Controls.Add(_sidePanel);
+        }
+
+        private void RefreshGamesList()
+        {
+            var games = _gameRepo.GetAll();
+            _gamesGrid.LoadGames(games);
+        }
+
+        private void ShowDebugger()
+        {
+            _viewMode = ContentViewMode.Debugger;
+            _debugger.Visible = true;
+            _gamesGrid.Visible = false;
+            _configPanel.Visible = false;
+            _debugger.BringToFront();
+            _focusOverlay.BringToFront();
+        }
+
+        private void ShowGamesLibrary()
+        {
+            _viewMode = ContentViewMode.GamesGrid;
+            RefreshGamesList();
+            _debugger.Visible = false;
+            _gamesGrid.Visible = true;
+            _configPanel.Visible = false;
+            _gamesGrid.BringToFront();
+            _focusOverlay.BringToFront();
+        }
+
+        private void ShowGameConfig(GameEntry game)
+        {
+            _viewMode = ContentViewMode.GameConfig;
+            _debugger.Visible = false;
+            _gamesGrid.Visible = false;
+            _configPanel.Visible = true;
+            _configPanel.EditGame(game);
+            _configPanel.BringToFront();
+            _focusOverlay.BringToFront();
+        }
+
+        private void OnLaunchGame(GameEntry game)
+        {
+            if (game == null) return;
+            try
+            {
+                _gameLauncher.Launch(game);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    this,
+                    string.Format(Strings.LaunchErrorPrompt, ex.Message),
+                    Strings.LaunchErrorTitle,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void OnConfigureGame(GameEntry game)
+        {
+            ShowGameConfig(game);
+        }
+
+        private void OnAddGame()
+        {
+            ShowGameConfig(null);
+        }
+
+        private void OnSaveGame(GameEntry game)
+        {
+            if (game == null) return;
+            _gameRepo.Save(game);
+            ShowGamesLibrary();
+        }
+
+        private void OnDeleteGame(GameEntry game)
+        {
+            if (game == null) return;
+            _gameRepo.Delete(game.Id);
+            ShowGamesLibrary();
         }
 
         private void OnNavEditingChanged(INavigableControl control, bool isEditing)
@@ -144,8 +293,6 @@ namespace ConsoleMode.GamepadCompanion.UI
                 _focusOverlay.HideOverlay();
             }
         }
-
-        private bool _allowClose;
 
         public void ForceClose()
         {
@@ -197,7 +344,27 @@ namespace ConsoleMode.GamepadCompanion.UI
                 return;
             }
 
-            _navManager.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+            // Processamento de acordo com o modo atual de exibição
+            if (_viewMode == ContentViewMode.GameConfig)
+            {
+                _configPanel.ProcessGamepad(state);
+            }
+            else if (_viewMode == ContentViewMode.GamesGrid)
+            {
+                _gamesGrid.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+            }
+            else
+            {
+                // Modo Debugger: Atalho Y alterna para a Biblioteca de Jogos
+                bool btnY = state.IsPressed(GamepadButtons.Y);
+                if (btnY && !_lastStateY)
+                {
+                    ShowGamesLibrary();
+                }
+                _lastStateY = btnY;
+
+                _navManager.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+            }
 
             int active = _gamepad.ActiveSlot;
             _statusLabel.Text = active >= 0 ? string.Format(Strings.StatusFormat, active + 1) : Strings.StatusNone;

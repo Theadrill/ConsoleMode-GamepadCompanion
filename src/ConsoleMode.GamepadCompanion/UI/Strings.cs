@@ -38,5 +38,36 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string NavHintBack = "[B] Voltar";
         public const string AlreadyRunningTitle = "ConsoleMode - Gamepad Companion";
         public const string AlreadyRunningPrompt = "O ConsoleMode - Gamepad Companion já está em execução no sistema.\n\nDeseja forçar o encerramento da instância anterior e iniciar esta?";
+
+        // Strings da Biblioteca de Jogos (Fase 2)
+        public const string BtnGames = "BIBLIOTECA (Y)";
+        public const string ActionLaunch = "[A] INICIAR";
+        public const string ActionConfigure = "[Y] CONFIGURAR";
+        public const string ActionAdd = "[A] ADICIONAR";
+        public const string AddGameTitle = "Adicionar Jogo";
+        public const string AddGameDesc = "Novo atalho de jogo";
+        public const string GamesLibraryTitle = "BIBLIOTECA DE JOGOS";
+        public const string GameConfigTitle = "Propriedades do Jogo";
+        public const string GameConfigNewTitle = "Adicionar Novo Jogo";
+        public const string GameConfigName = "Nome do Jogo:";
+        public const string GameConfigLauncher = "Launcher / Script intermediário (opcional):";
+        public const string GameConfigExecutable = "Executável Principal do Jogo (*.exe):";
+        public const string GameConfigTargetPath = "Caminho de Destino (TargetPath):";
+        public const string GameConfigWorkingDir = "Diretório de Trabalho (WorkingDirectory):";
+        public const string GameConfigArguments = "Argumentos de Linha de Comando:";
+        public const string GameConfigCoverImage = "Caminho da Capa (PNG / JPG):";
+        public const string BtnBrowse = "Procurar...";
+        public const string BtnSave = "[A] Salvar";
+        public const string BtnCancel = "[B] Cancelar";
+        public const string BtnDelete = "Excluir Jogo";
+        public const string ConfirmDeleteTitle = "Excluir Jogo";
+        public const string ConfirmDeletePrompt = "Tem certeza de que deseja remover '{0}' da sua biblioteca?";
+        public const string LaunchErrorTitle = "Falha ao Iniciar Jogo";
+        public const string LaunchErrorPrompt = "Não foi possível iniciar o jogo:\n{0}";
+        public const string ValidationErrorTitle = "Dados Incompletos";
+        public const string ValidationErrorPrompt = "Por favor, preencha o Nome do Jogo e o Caminho de Destino (ou Executável).";
+        public const string DefaultGameName = "Turtle WoW";
+        public const string DefaultGameExecutable = "WoW.exe";
+        public const string DefaultGameTargetPath = "WoW.exe";
     }
 }

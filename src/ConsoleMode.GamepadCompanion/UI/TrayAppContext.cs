@@ -28,7 +28,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             _profileManager = profileManager ?? throw new ArgumentNullException(nameof(profileManager));
 
-            _settingsForm = new SettingsForm(gamepad, settings, profileManager, configRepo);
+            _settingsForm = new SettingsForm(gamepad, settings, profileManager, configRepo, windowTracker);
 
             // Menu de contexto rápido da bandeja
             var contextMenu = new ContextMenuStrip();

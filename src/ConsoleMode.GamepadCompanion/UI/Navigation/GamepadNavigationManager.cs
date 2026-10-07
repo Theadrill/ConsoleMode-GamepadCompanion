@@ -70,6 +70,16 @@ namespace ConsoleMode.GamepadCompanion.UI.Navigation
             RequestRepaint?.Invoke();
         }
 
+        public void SetFocus(INavigableControl control)
+        {
+            if (control == null) return;
+            int idx = _controls.IndexOf(control);
+            if (idx >= 0)
+            {
+                SetFocusedIndex(idx);
+            }
+        }
+
         public void ProcessGamepad(GamepadState state, long nowMs)
         {
             if (!state.IsConnected || _controls.Count == 0) return;

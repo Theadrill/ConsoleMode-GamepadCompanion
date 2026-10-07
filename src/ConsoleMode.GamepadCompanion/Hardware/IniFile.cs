@@ -74,6 +74,17 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             _sections[section][key] = value ?? string.Empty;
         }
 
+        public IEnumerable<string> GetSections()
+        {
+            return new List<string>(_sections.Keys);
+        }
+
+        public bool RemoveSection(string section)
+        {
+            if (string.IsNullOrEmpty(section)) return false;
+            return _sections.Remove(section);
+        }
+
         public void Save(string filePath)
         {
             string dir = Path.GetDirectoryName(filePath);
