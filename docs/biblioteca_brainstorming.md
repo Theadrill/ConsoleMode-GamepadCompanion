@@ -324,13 +324,16 @@ Linha 5 (utilitários): [Copiar] [Colar] [═══════ Espaço ══�
 
 ---
 
-#### **1. Comportamento de Filtro** ⏳ **EM ABERTO**
+#### **1. Comportamento de Filtro** ✅ **DEFINIDO**
 
 **Questão:** Live search (filtra enquanto digita cada letra) ou on-demand (só filtra ao pressionar Enter)? Se live, quer debounce (aguarda 300ms após última tecla antes de filtrar)?
 
-**Resposta:** ⏳ Aguardando resposta.
+**Resposta:**
+- **Live search** a cada tecla digitada
+- **Debounce inicial: 0ms** (filtro instantâneo)
+- Implementar com valor configurável para ajuste posterior se necessário (ex: 300ms se performance for problema)
 
-**Status:** ⏳ **EM ABERTO**
+**Status:** ✅ **DEFINIDO**
 
 ---
 
