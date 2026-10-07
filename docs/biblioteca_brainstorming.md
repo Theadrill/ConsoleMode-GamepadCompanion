@@ -6,6 +6,27 @@ Este documento registra a concepção de arquitetura, fluxo de UX e design da fu
 
 ---
 
+## 🎯 **PRIORIDADE ZERO: Navegação por Gamepad na Interface Atual**
+
+> ⚠️ **IMPLEMENTAR PRIMEIRO antes de qualquer feature de biblioteca de games.**
+
+Antes de criar o Grid de Games, precisamos implementar navegação completa por gamepad na **interface atual** (SettingsForm + Gamepad Visual Debugger).
+
+### Requisitos:
+- Navegação por **D-Pad** entre os controles da interface (sliders, botões, dropdown).
+- **Foco visual** claro nos elementos navegáveis.
+- **Botão A** confirma/ativa o elemento focado.
+- **Botão B** cancela/volta.
+- Sliders ajustáveis via **D-Pad esquerda/direita** ou **analógicos**.
+- Suporte a vibração para feedback tátil (pavimentado mesmo se não usado inicialmente).
+
+### Arquitetura:
+- Criar módulo `UI/Navigation/GamepadNavigationManager.cs` para gerenciar foco e navegação.
+- Integrar com `Hardware/XInput/XInputReader.cs` existente.
+- Manter separação de responsabilidades (navegação ≠ lógica de negócio).
+
+---
+
 ## 1. Visão Geral & Integração na Interface
 
 Na barra lateral da janela principal (abaixo dos sliders de Sensibilidade, Deadzone e Gatilho):
@@ -21,7 +42,8 @@ Na barra lateral da janela principal (abaixo dos sliders de Sensibilidade, Deadz
 A experiência é pensada como um console "Couch Gaming":
 
 1. **Acesso à Grade:**
-   * O botão `X` do controle foca/alterna diretamente para a área da biblioteca de games.
+   * O botão **`Y`** do controle alterna diretamente para a área da biblioteca de games.
+   * Quando já estiver na biblioteca, o botão **`B`** retorna à tela anterior (Gamepad Debugger).
 2. **Navegação Espacial nas Capas:**
    * O **D-Pad (Direcional)** é capturado para navegar entre as capas dos jogos (cima, baixo, esquerda, direita).
    * A capa em foco ganha destaque/borda e efeito de escurecimento com dois botões centrais sobrepostos:
@@ -29,8 +51,9 @@ A experiência é pensada como um console "Couch Gaming":
      * **CONFIGURAR**
 3. **Ações Diretas sem Clique:**
    * Estando com o foco em um jogo, o usuário **não precisa clicar com o mouse**:
-     * Botão **`A`**: Dispara diretamente a ação **INICIAR**.
-     * Botão **`Y`**: Dispara diretamente a ação **CONFIGURAR**.
+     * Botão **`A`**: Dispara diretamente a ação **INICIAR** (executa o jogo).
+     * Botão **`Y`**: Dispara diretamente a ação **CONFIGURAR** (abre painel de propriedades).
+     * Botão **`X`**: Abre a **BARRA DE PESQUISA** com teclado virtual para filtrar jogos.
 4. **Último Slot da Grade:**
    * O último item da grade é sempre um retângulo com o ícone **`+` (Adicionar Novo Jogo)**, que ao ser selecionado e confirmado com `A` abre a tela de cadastro.
 
@@ -68,28 +91,197 @@ CoverImagePath="covers/turtle_wow.png"
 
 ---
 
-## 5. Resumo do Fluxo
+## 5. **[PENDING]** Teclado Virtual Integrado
+
+> 🔄 **Status:** Especificação em andamento — seção GRILL ME contém questões e respostas.
+
+### Objetivo:
+Fornecer um teclado virtual navegável por gamepad para edição de todos os campos de texto (inputs) do painel de configuração e da barra de pesquisa, mantendo a experiência 100% sem mouse.
+
+### Paleta de Cores (extraída do código):
+```csharp
+// Backgrounds
+Background Principal:     Color.FromArgb(30, 32, 40)      // #1E2028
+Background Secundário:    Color.FromArgb(24, 26, 32)      // #181A20
+Background Elemento:      Color.FromArgb(34, 37, 46)      // #22252E
+Background Idle:          Color.FromArgb(52, 56, 66)      // #343842
+
+// Contornos & Bordas
+Outline/Border:           Color.FromArgb(120, 126, 140)   // #787E8C
+
+// Texto & Foreground
+Texto Principal:          Color.FromArgb(230, 232, 240)   // #E6E8F0
+Texto Secundário:         Color.FromArgb(160, 170, 185)   // #A0AAB9
+
+// Estados & Feedback
+Status Ativo (Verde):     Color.FromArgb(150, 220, 160)   // #96DCA0
+Ativo Highlight (Verde):  Color.FromArgb(120, 230, 150)   // #78E696
+Gaming Profile (Azul):    Color.FromArgb(120, 190, 255)   // #78BEFF
+Azul Analógico:           Color.FromArgb(90, 170, 255)    // #5AAAFF
+Amarelo Deadzone:         Color.FromArgb(255, 190, 60)    // #FFBE3C
+Alerta (Laranja):         Color.FromArgb(255, 190, 90)    // #FFBE5A
+Erro/Pressed (Vermelho):  Color.FromArgb(255, 120, 120)   // #FF7878
+
+// Botões Toggle
+Toggle ON:                Color.FromArgb(46, 125, 80)     // #2E7D50
+Toggle OFF:               Color.FromArgb(150, 80, 60)     // #96503C
+Texto Botão:              Color.White                      // #FFFFFF
+Lit/Highlight:            Color.FromArgb(240, 240, 245)   // #F0F0F5
+```
+
+### Requisitos Identificados:
+- Layout **QWERTY próximo do completo**.
+- Primeira linha: **símbolos mais usados no Windows** (`:`, `\`, `/`, `_`, `-`, `.`, etc.) + botão toggle para símbolos adicionais.
+- Navegação via **D-Pad** (célula por célula, segurar = movimento contínuo).
+- **LB/RB** alternância de maiúscula/minúscula (Caps Lock instantâneo).
+- Botão **`A`** seleciona tecla com animação de press down + vibração.
+- Botão **`RT`** confirma e fecha teclado.
+- Botão **`B`** cancela e fecha teclado.
+- **Overlay escuro** sobre a interface, destacando apenas o input atual e o teclado abaixo dele.
+
+---
+
+## 6. **[PENDING]** Barra de Pesquisa (Search Bar)
+
+> 🔄 **Status:** Especificação pendente — aguardando término do GRILL ME do Teclado Virtual.
+
+### Objetivo:
+Permitir filtro rápido de jogos na biblioteca através de busca textual, totalmente operável por gamepad via botão **`X`**.
+
+### Requisitos Identificados:
+- Acionada pelo botão **`X`** quando na tela da biblioteca.
+- Ao abrir, invoca automaticamente o **Teclado Virtual**.
+- Filtragem em tempo real (ou após confirmar com Enter)?
+- Suporte a busca parcial/fuzzy (ex: "turt" encontra "Turtle WoW").
+
+---
+
+## 7. Resumo do Fluxo
 
 ```
-[UI Principal]
+[UI Principal — Gamepad Debugger]
        │
-       ├── (Botão X ou Clique) ──► Alterna visual: Gamepad Debugger ◄──► Grid de Games
-                                                                           │
-       ┌───────────────────────────────────────────────────────────────────┘
+       ├── (Botão Y) ──► Alterna para Grid de Games
+       │
        ▼
  [Grade de Jogos]
-       ├── D-Pad: Navega entre as capas
-       ├── Botão A: Executa o TargetPath (INICIAR)
-       ├── Botão Y: Abre Painel de Configurações do Jogo
-       └── Slot [+]: Adiciona novo jogo
+       ├── D-Pad: Navega entre as capas dos jogos
+       ├── Botão A: Executa o TargetPath (INICIAR jogo selecionado)
+       ├── Botão Y: Abre Painel de Configurações do jogo selecionado
+       ├── Botão X: Abre Barra de Pesquisa + Teclado Virtual [PENDING]
+       ├── Botão B: Retorna ao Gamepad Debugger
+       └── Slot [+]: Adiciona novo jogo (abre Painel vazio)
              │
-             ▼
- [Configuração do Jogo]
-       ├── Nome do Game
-       ├── Nome do Launcher (Opcional)
-       ├── Nome do Executável Principal (para monitoramento de foco)
-       ├── Destino (TargetPath)
-       ├── Iniciar Em (WorkingDirectory)
-       ├── Opções de Inicialização (Args)
-       └── Botão para trocar Cover Art
+             ├───────► [Painel de Configuração do Jogo]
+             │         ├── Nome do Game
+             │         ├── Nome do Launcher (Opcional)
+             │         ├── Nome do Executável Principal
+             │         ├── Destino (TargetPath) + botão "Procurar..."
+             │         ├── Iniciar Em (WorkingDirectory) + botão "Procurar..."
+             │         ├── Opções de Inicialização (Arguments)
+             │         ├── Alterar Capa (Cover Art) + botão "Procurar..."
+             │         └── [Ao focar em Input] ──► Teclado Virtual [PENDING]
+             │
+             └───────► [Barra de Pesquisa] [PENDING]
+                       ├── Abre automaticamente com Teclado Virtual
+                       ├── Filtragem em tempo real ou após Enter (a definir)
+                       ├── D-Pad navega apenas entre resultados filtrados
+                       ├── Botão B: Limpa busca e retorna à grade completa
+                       └── Feedback visual: "X resultados" ou "Nenhum resultado"
 ```
+
+### Legenda de Mapeamento de Botões (Xbox Layout):
+- **`Y` (Amarelo/Superior):** Alternar entre Gamepad Debugger ↔ Grid de Games
+- **`B` (Vermelho/Direito):** Voltar/Cancelar
+- **`A` (Verde/Inferior):** Confirmar/Iniciar Jogo
+- **`X` (Azul/Esquerdo):** Abrir Barra de Pesquisa
+- **`D-Pad`:** Navegação espacial (cima, baixo, esquerda, direita)
+
+---
+
+## 8. GRILL ME — Discussão de Design & Especificação
+
+Esta seção registra as questões críticas de design e suas respostas durante o planejamento.
+
+---
+
+### 🎹 **TECLADO VIRTUAL**
+
+#### **1. Layout & Organização**
+
+**Questão:** Quer um layout QWERTY completo (como teclado físico) ou um layout simplificado console-style (tipo Xbox/PlayStation)?
+
+**Resposta:** Layout QWERTY próximo do completo. No lugar da linha de números, colocar uma linha de símbolos mais utilizados no Windows (`:`, `\`, `/`, `_`, `-`, `.`, etc.) + um botão de toggle para mostrar símbolos adicionais. Incluir tecla de Caps Lock.
+
+**Status:** ✅ DEFINIDO
+
+---
+
+#### **2. Navegação & Input**
+
+**Questão:** Como será a navegação? D-Pad puro ou analógico também? Navegação acelerada (bumper + D-Pad pula linha)?
+
+**Resposta:** 
+- **D-Pad** move célula por célula.
+- Ao **segurar D-Pad**, ele vai se movendo automaticamente (repeat).
+- **Analógico esquerdo:** sem função por enquanto.
+- **Navegação acelerada:** não implementar.
+- **Caps Lock:** Usar **LB/RB** para alternar maiúscula/minúscula instantaneamente (não precisa selecionar tecla Caps Lock no teclado virtual).
+
+**Status:** ✅ DEFINIDO
+
+---
+
+#### **3. Feedback Visual & Identidade**
+
+**Questão:** Paleta de cores? Feedback visual da tecla selecionada? Animação ao pressionar?
+
+**Resposta:**
+- **Paleta:** Extraída do código (ver seção 5).
+- **Tecla selecionada:** Hover simples (borda/highlight), nada extravagante. Foco na UX funcional.
+- **Ao pressionar A:** Animação de "press down" + **vibração** para feedback tátil.
+- **Som:** Não implementar por enquanto, mas deixar pavimentado (métodos null/vazios para futuro).
+
+**Status:** ✅ DEFINIDO
+
+---
+
+#### **4. Posicionamento & Transição**
+
+**Questão:** Popup centralizado? Docked na parte inferior? Animação de entrada/saída?
+
+**Resposta:**
+- **Overlay escurece toda a interface**, deixando visível apenas:
+  - O **input atual** (campo de texto sendo editado).
+  - O **teclado virtual** posicionado embaixo do input.
+- **RT** confirma e fecha o teclado/overlay.
+- **B** cancela e fecha o teclado/overlay.
+- Ao confirmar/cancelar: overlay desaparece, foco retorna ao input, usuário pode navegar novamente pela interface.
+
+**Status:** ✅ DEFINIDO
+
+**Observação:** LT/RT inicialmente cogitados para trocar de "tela de teclas" foram descartados. RT é apenas para confirmar.
+
+---
+
+#### **5. Botões Especiais** ⏳ **EM ABERTO**
+
+**Questão:** Além das letras, quais botões especiais o teclado virtual precisa ter?
+
+**Resposta (parcial):**
+- ✅ **Espaço** (barra grande embaixo?)
+- ✅ **Backspace** (apaga último caractere)
+- ✅ **Enter/Confirmar** (RT físico do controle fecha o teclado)
+- ✅ **Cancelar/ESC** (B físico do controle)
+- ❓ **Clear All** (limpar o campo inteiro) — precisa de botão dedicado no teclado virtual ou atalho físico do controle?
+
+**Status:** ⏳ **AGUARDANDO RESPOSTA**
+
+**Próxima Questão:** O teclado virtual precisa de um botão dedicado "Clear All" (limpar campo inteiro) ou podemos usar um atalho do controle físico (exemplo: segurar LB+RB ao mesmo tempo)? Ou você prefere não ter essa função e o usuário apaga manualmente com Backspace?
+
+---
+
+### 🔍 **BARRA DE PESQUISA** 
+
+> ⏸️ **PAUSADO** — Aguardando término do GRILL ME do Teclado Virtual.
+
