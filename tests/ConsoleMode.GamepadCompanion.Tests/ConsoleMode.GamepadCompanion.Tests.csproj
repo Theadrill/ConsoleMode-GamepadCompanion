@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <LangVersion>latest</LangVersion>
+    <UseWindowsForms>true</UseWindowsForms>
     <IsPackable>false</IsPackable>
     <RootNamespace>ConsoleMode.GamepadCompanion.Tests</RootNamespace>
   </PropertyGroup>
