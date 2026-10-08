@@ -161,8 +161,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 SetScrollY(_scrollY + delta);
             };
 
-            Controls.Add(_headerPanel);
             Controls.Add(_contentPanel);
+            Controls.Add(_headerPanel);
+            _contentPanel.BringToFront();
         }
 
         private void RunOnUi(Action action)
