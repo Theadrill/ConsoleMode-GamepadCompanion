@@ -25,6 +25,24 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private readonly GameEntry _game;
         private Image _coverImage;
         private bool _isFocusedCard;
+        private bool _isMouseHovered;
+        private CardHoveredButton _hoveredButton = CardHoveredButton.None;
+
+        public event Action<GameEntry> LaunchClicked;
+        public event Action<GameEntry> ConfigureClicked;
+        public event Action AddClicked;
+
+        private enum CardHoveredButton
+        {
+            None,
+            Launch,
+            Configure,
+            Add
+        }
+
+        public Rectangle LaunchBadgeRect => new Rectangle(12, (Height / 2) - 24, Width - 24, 24);
+        public Rectangle ConfigBadgeRect => new Rectangle(12, (Height / 2) + 6, Width - 24, 24);
+        public Rectangle AddBadgeRect => new Rectangle(12, Height - 48, Width - 24, 24);
 
         public GameCoverCard(GameEntry game = null)
         {
@@ -39,6 +57,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         public GameEntry Game => _game;
         public bool IsAddSlot => _game == null;
+        public bool IsMouseHovered => _isMouseHovered;
 
         public bool IsFocusedCard
         {
@@ -51,6 +70,11 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     Invalidate();
                 }
             }
+        }
+
+        internal void SimulateMouseClick(MouseButtons button, int x, int y)
+        {
+            OnMouseClick(new MouseEventArgs(button, 1, x, y, 0));
         }
 
         public void ReloadImage()
@@ -95,7 +119,6 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
             var bounds = new Rectangle(0, 0, Width, Height);
-            var innerBounds = new Rectangle(0, 0, Width - 1, Height - 1);
 
             if (IsAddSlot)
             {
@@ -106,9 +129,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 PaintGameCard(g, bounds);
             }
 
-            // Borda do card
-            int borderWidth = _isFocusedCard ? 3 : 1;
-            Color borderColor = _isFocusedCard ? BorderFocused : BorderDefault;
+            // Borda do card (destaca com foco gamepad OU hover do mouse)
+            bool isHighlighted = _isFocusedCard || _isMouseHovered;
+            int borderWidth = isHighlighted ? 3 : 1;
+            Color borderColor = isHighlighted ? BorderFocused : BorderDefault;
             using (var borderPen = new Pen(borderColor, borderWidth))
             {
                 int offset = borderWidth / 2;
@@ -185,8 +209,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 g.DrawString(_game.Name, titleFont, titleBrush, new RectangleF(6, Height - 28, Width - 12, 22), sf);
             }
 
-            // Overlays de ação caso esteja focado com gamepad
-            if (_isFocusedCard)
+            // Overlays de ação caso esteja focado com gamepad OU com mouse em cima
+            if (_isFocusedCard || _isMouseHovered)
             {
                 // Película escura sutil
                 using (var overlayBrush = new SolidBrush(Color.FromArgb(140, 10, 12, 16)))
@@ -195,10 +219,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 }
 
                 // Badge [A] INICIAR
-                DrawBadge(g, Strings.ActionLaunch, BadgeLaunchBg, (Height / 2) - 24);
+                DrawBadge(g, Strings.ActionLaunch, BadgeLaunchBg, (Height / 2) - 24, _hoveredButton == CardHoveredButton.Launch);
 
                 // Badge [Y] CONFIGURAR
-                DrawBadge(g, Strings.ActionConfigure, BadgeConfigBg, (Height / 2) + 6);
+                DrawBadge(g, Strings.ActionConfigure, BadgeConfigBg, (Height / 2) + 6, _hoveredButton == CardHoveredButton.Configure);
             }
         }
 
@@ -210,9 +234,11 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 g.FillRectangle(bgBrush, bounds);
             }
 
+            bool isHighlighted = _isFocusedCard || _isMouseHovered;
+
             // Sinal [+] estilizado no centro
             using (var plusFont = new Font("Segoe UI", 36f, FontStyle.Bold))
-            using (var plusBrush = new SolidBrush(_isFocusedCard ? BorderFocused : TextSecondary))
+            using (var plusBrush = new SolidBrush(isHighlighted ? BorderFocused : TextSecondary))
             {
                 var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
                 g.DrawString("+", plusFont, plusBrush, new RectangleF(0, 35, Width, 60), sf);
@@ -220,28 +246,34 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             // Título "Adicionar Jogo"
             using (var font = new Font("Segoe UI", 10f, FontStyle.Bold))
-            using (var brush = new SolidBrush(_isFocusedCard ? TextPrimary : TextSecondary))
+            using (var brush = new SolidBrush(isHighlighted ? TextPrimary : TextSecondary))
             {
                 var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
                 g.DrawString(Strings.AddGameTitle, font, brush, new RectangleF(6, 100, Width - 12, 24), sf);
             }
 
-            // Overlay de ação ao focar
-            if (_isFocusedCard)
+            // Overlay de ação ao focar ou hover
+            if (isHighlighted)
             {
-                DrawBadge(g, Strings.ActionAdd, BadgeAddBg, Height - 48);
+                DrawBadge(g, Strings.ActionAdd, BadgeAddBg, Height - 48, _hoveredButton == CardHoveredButton.Add);
             }
         }
 
-        private void DrawBadge(Graphics g, string text, Color bgColor, int top)
+        private void DrawBadge(Graphics g, string text, Color bgColor, int top, bool isHovered)
         {
             int badgeWidth = Width - 24;
             int badgeHeight = 24;
             var badgeRect = new Rectangle(12, top, badgeWidth, badgeHeight);
 
+            Color fillBg = isHovered
+                ? Color.FromArgb(Math.Min(255, bgColor.R + 45), Math.Min(255, bgColor.G + 45), Math.Min(255, bgColor.B + 45))
+                : bgColor;
+            Color borderColor = isHovered ? Color.White : Color.FromArgb(160, 255, 255, 255);
+            float borderWidth = isHovered ? 1.8f : 1.0f;
+
             using (var path = CreateRoundedRectanglePath(badgeRect, 4))
-            using (var brush = new SolidBrush(bgColor))
-            using (var pen = new Pen(Color.FromArgb(200, 255, 255, 255), 1))
+            using (var brush = new SolidBrush(fillBg))
+            using (var pen = new Pen(borderColor, borderWidth))
             using (var font = new Font("Segoe UI", 8.5f, FontStyle.Bold))
             using (var textBrush = new SolidBrush(Color.White))
             {
@@ -250,6 +282,84 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
                 var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
                 g.DrawString(text, font, textBrush, badgeRect, sf);
+            }
+        }
+
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            base.OnMouseEnter(e);
+            _isMouseHovered = true;
+            Invalidate();
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+            _isMouseHovered = false;
+            _hoveredButton = CardHoveredButton.None;
+            Invalidate();
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            CardHoveredButton newHover = CardHoveredButton.None;
+
+            if (IsAddSlot)
+            {
+                if (AddBadgeRect.Contains(e.Location))
+                {
+                    newHover = CardHoveredButton.Add;
+                }
+            }
+            else
+            {
+                if (ConfigBadgeRect.Contains(e.Location))
+                {
+                    newHover = CardHoveredButton.Configure;
+                }
+                else if (LaunchBadgeRect.Contains(e.Location))
+                {
+                    newHover = CardHoveredButton.Launch;
+                }
+            }
+
+            if (_hoveredButton != newHover)
+            {
+                _hoveredButton = newHover;
+                Invalidate();
+            }
+        }
+
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            base.OnMouseClick(e);
+
+            if (e.Button == MouseButtons.Left)
+            {
+                if (IsAddSlot)
+                {
+                    AddClicked?.Invoke();
+                }
+                else
+                {
+                    if (ConfigBadgeRect.Contains(e.Location))
+                    {
+                        ConfigureClicked?.Invoke(_game);
+                    }
+                    else
+                    {
+                        // 1 clique no botão Iniciar OU em qualquer área do card inicia o jogo
+                        LaunchClicked?.Invoke(_game);
+                    }
+                }
+            }
+            else if (e.Button == MouseButtons.Right)
+            {
+                if (!IsAddSlot)
+                {
+                    ConfigureClicked?.Invoke(_game);
+                }
             }
         }
 

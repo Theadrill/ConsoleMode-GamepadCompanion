@@ -485,6 +485,78 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(1, grid.FocusedIndex);
         }
 
+        [Fact]
+        public void GameCoverCard_SingleClick_OnConfigureBadge_FiresConfigureClicked()
+        {
+            var game = new GameEntry { Id = "test-game", Name = "Portal" };
+            using var card = new ConsoleMode.GamepadCompanion.UI.Controls.GameCoverCard(game);
+
+            GameEntry configured = null;
+            card.ConfigureClicked += g => configured = g;
+
+            var cfgRect = card.ConfigBadgeRect;
+            card.SimulateMouseClick(MouseButtons.Left, cfgRect.X + 10, cfgRect.Y + 10);
+
+            Assert.Same(game, configured);
+        }
+
+        [Fact]
+        public void GameCoverCard_SingleClick_OnLaunchBadge_FiresLaunchClicked()
+        {
+            var game = new GameEntry { Id = "test-game", Name = "Portal" };
+            using var card = new ConsoleMode.GamepadCompanion.UI.Controls.GameCoverCard(game);
+
+            GameEntry launched = null;
+            card.LaunchClicked += g => launched = g;
+
+            var launchRect = card.LaunchBadgeRect;
+            card.SimulateMouseClick(MouseButtons.Left, launchRect.X + 10, launchRect.Y + 10);
+
+            Assert.Same(game, launched);
+        }
+
+        [Fact]
+        public void GameCoverCard_SingleClick_OnCardBody_FiresLaunchClicked()
+        {
+            var game = new GameEntry { Id = "test-game", Name = "Portal" };
+            using var card = new ConsoleMode.GamepadCompanion.UI.Controls.GameCoverCard(game);
+
+            GameEntry launched = null;
+            card.LaunchClicked += g => launched = g;
+
+            // Clica na área superior da capa (fora dos botões)
+            card.SimulateMouseClick(MouseButtons.Left, 20, 20);
+
+            Assert.Same(game, launched);
+        }
+
+        [Fact]
+        public void GameCoverCard_SingleClick_OnAddSlot_FiresAddClicked()
+        {
+            using var card = new ConsoleMode.GamepadCompanion.UI.Controls.GameCoverCard(null);
+
+            bool addFired = false;
+            card.AddClicked += () => addFired = true;
+
+            card.SimulateMouseClick(MouseButtons.Left, 50, 50);
+
+            Assert.True(addFired);
+        }
+
+        [Fact]
+        public void GameCoverCard_RightClick_FiresConfigureClicked()
+        {
+            var game = new GameEntry { Id = "test-game", Name = "Portal" };
+            using var card = new ConsoleMode.GamepadCompanion.UI.Controls.GameCoverCard(game);
+
+            GameEntry configured = null;
+            card.ConfigureClicked += g => configured = g;
+
+            card.SimulateMouseClick(MouseButtons.Right, 50, 50);
+
+            Assert.Same(game, configured);
+        }
+
         private sealed class MockWindowTracker : IWindowTracker
         {
             public System.Collections.Generic.List<string> RegisteredExecutables = new System.Collections.Generic.List<string>();

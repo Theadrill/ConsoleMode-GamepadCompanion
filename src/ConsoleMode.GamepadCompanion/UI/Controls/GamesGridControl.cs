@@ -254,8 +254,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 {
                     var card = new GameCoverCard(game);
                     card.Margin = new Padding(10);
-                    card.Click += (s, e) => OnCardClicked(card);
-                    card.DoubleClick += (s, e) => OnCardDoubleClicked(card);
+                    WireCardEvents(card);
                     _cards.Add(card);
                     _cardsContainer.Controls.Add(card);
                 }
@@ -265,7 +264,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 {
                     var addCard = new GameCoverCard(null);
                     addCard.Margin = new Padding(10);
-                    addCard.Click += (s, e) => OnCardClicked(addCard);
+                    WireCardEvents(addCard);
                     _cards.Add(addCard);
                     _cardsContainer.Controls.Add(addCard);
                 }
@@ -297,28 +296,50 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
         }
 
-        private void OnCardClicked(GameCoverCard card)
+        private void WireCardEvents(GameCoverCard card)
         {
-            _isSearchFocused = false;
-            _searchBar.BlurInput();
-            Focus();
-            int idx = _cards.IndexOf(card);
-            if (idx >= 0)
+            card.MouseEnter += (s, e) =>
             {
-                SetFocusedIndex(idx);
-            }
-        }
+                int idx = _cards.IndexOf(card);
+                if (idx >= 0 && _focusedIndex != idx)
+                {
+                    _focusedIndex = idx;
+                    for (int i = 0; i < _cards.Count; i++)
+                    {
+                        _cards[i].IsFocusedCard = (i == _focusedIndex);
+                    }
+                }
+            };
 
-        private void OnCardDoubleClicked(GameCoverCard card)
-        {
-            if (card.IsAddSlot)
+            card.LaunchClicked += game =>
             {
+                _isSearchFocused = false;
+                _searchBar.BlurInput();
+                Focus();
+                int idx = _cards.IndexOf(card);
+                if (idx >= 0) _focusedIndex = idx;
+                LaunchRequested?.Invoke(game);
+            };
+
+            card.ConfigureClicked += game =>
+            {
+                _isSearchFocused = false;
+                _searchBar.BlurInput();
+                Focus();
+                int idx = _cards.IndexOf(card);
+                if (idx >= 0) _focusedIndex = idx;
+                ConfigureRequested?.Invoke(game);
+            };
+
+            card.AddClicked += () =>
+            {
+                _isSearchFocused = false;
+                _searchBar.BlurInput();
+                Focus();
+                int idx = _cards.IndexOf(card);
+                if (idx >= 0) _focusedIndex = idx;
                 AddRequested?.Invoke();
-            }
-            else
-            {
-                LaunchRequested?.Invoke(card.Game);
-            }
+            };
         }
 
         public void SetFocusedIndex(int index)
