@@ -37,8 +37,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private readonly Label _titleLabel = new Label();
         private readonly Label _legendLabel = new Label();
-        private readonly Panel _headerPanel = new Panel();
-        private readonly Panel _contentPanel = new Panel();
+        private readonly DoubleBufferedPanel _headerPanel = new DoubleBufferedPanel();
+        private readonly DoubleBufferedPanel _contentPanel = new DoubleBufferedPanel();
         private string _statusMessage = null;
         private bool _isLoading;
 
@@ -903,6 +903,21 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 ClearThumbnailCache();
             }
             base.Dispose(disposing);
+        }
+    }
+
+    internal sealed class DoubleBufferedPanel : Panel
+    {
+        public DoubleBufferedPanel()
+        {
+            DoubleBuffered = true;
+            SetStyle(
+                ControlStyles.AllPaintingInWmPaint |
+                ControlStyles.UserPaint |
+                ControlStyles.OptimizedDoubleBuffer |
+                ControlStyles.ResizeRedraw,
+                true);
+            UpdateStyles();
         }
     }
 }
