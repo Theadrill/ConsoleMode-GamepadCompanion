@@ -33,15 +33,23 @@ namespace ConsoleMode.GamepadCompanion.Engine
             if (string.IsNullOrWhiteSpace(target))
                 throw new ArgumentException("O caminho de destino (TargetPath) não pode ser vazio.", nameof(game));
 
-            // Registra o executável principal para detecção de foco no WindowTracker
-            if (!string.IsNullOrWhiteSpace(game.MainExecutable) && _windowTracker != null)
+            // Registra os executáveis no WindowTracker para garantir detecção automática de foco
+            if (_windowTracker != null)
             {
-                _windowTracker.RegisterGameExecutable(game.MainExecutable.Trim().Trim('"', '\''));
-            }
+                if (!string.IsNullOrWhiteSpace(target))
+                {
+                    _windowTracker.RegisterGameExecutable(target);
+                }
 
-            if (!string.IsNullOrWhiteSpace(game.LauncherName) && _windowTracker != null)
-            {
-                _windowTracker.RegisterGameExecutable(game.LauncherName.Trim().Trim('"', '\''));
+                if (!string.IsNullOrWhiteSpace(game.MainExecutable))
+                {
+                    _windowTracker.RegisterGameExecutable(game.MainExecutable.Trim().Trim('"', '\''));
+                }
+
+                if (!string.IsNullOrWhiteSpace(game.LauncherName))
+                {
+                    _windowTracker.RegisterGameExecutable(game.LauncherName.Trim().Trim('"', '\''));
+                }
             }
 
             string workingDir = game.WorkingDirectory?.Trim().Trim('"', '\'');
@@ -69,7 +77,18 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 UseShellExecute = true
             };
 
-            return Process.Start(startInfo);
+            var process = Process.Start(startInfo);
+            if (process != null && _windowTracker != null)
+            {
+                try
+                {
+                    _windowTracker.RegisterGameExecutable(process.ProcessName);
+                }
+                catch
+                {
+                }
+            }
+            return process;
         }
     }
 }

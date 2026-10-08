@@ -16,6 +16,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
         private long _lastTicks;
         private IProfile _currentProfile;
 
+        private readonly object _profileLock = new object();
+
         public ProfileEngine(IGamepadService gamepad, IProfile initialProfile)
         {
             _gamepad = gamepad ?? throw new ArgumentNullException(nameof(gamepad));
@@ -26,12 +28,23 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
         public IProfile CurrentProfile
         {
-            get => _currentProfile;
+            get
+            {
+                lock (_profileLock)
+                {
+                    return _currentProfile;
+                }
+            }
             set
             {
-                if (_currentProfile == value) return;
-                _currentProfile?.Reset();
-                _currentProfile = value;
+                IProfile oldProfile;
+                lock (_profileLock)
+                {
+                    if (_currentProfile == value) return;
+                    oldProfile = _currentProfile;
+                    _currentProfile = value;
+                }
+                oldProfile?.Reset();
             }
         }
 
@@ -42,13 +55,24 @@ namespace ConsoleMode.GamepadCompanion.Engine
             _lastTicks = now;
             dt = Math.Min(dt, 0.05f); // Evita saltos de tempo após travamento ou suspensão
 
-            _currentProfile?.Update(state, dt);
+            IProfile profile;
+            lock (_profileLock)
+            {
+                profile = _currentProfile;
+            }
+            profile?.Update(state, dt);
         }
 
         public void Dispose()
         {
             _gamepad.StateUpdated -= OnStateUpdated;
-            _currentProfile?.Reset();
+            IProfile profile;
+            lock (_profileLock)
+            {
+                profile = _currentProfile;
+                _currentProfile = null;
+            }
+            profile?.Reset();
         }
     }
 }

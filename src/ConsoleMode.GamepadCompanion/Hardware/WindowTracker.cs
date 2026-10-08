@@ -35,23 +35,29 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             if (string.IsNullOrWhiteSpace(executableName)) return;
             string clean = executableName.Trim().Trim('"', '\'');
             string cleanName = string.Empty;
+            string fileName = string.Empty;
             try
             {
                 cleanName = Path.GetFileNameWithoutExtension(clean);
+                fileName = Path.GetFileName(clean);
             }
             catch
             {
                 int lastSlash = Math.Max(clean.LastIndexOf('\\'), clean.LastIndexOf('/'));
-                cleanName = lastSlash >= 0 ? clean.Substring(lastSlash + 1) : clean;
-                int dot = cleanName.LastIndexOf('.');
-                if (dot > 0) cleanName = cleanName.Substring(0, dot);
+                fileName = lastSlash >= 0 ? clean.Substring(lastSlash + 1) : clean;
+                int dot = fileName.LastIndexOf('.');
+                cleanName = dot > 0 ? fileName.Substring(0, dot) : fileName;
             }
 
-            if (!string.IsNullOrEmpty(cleanName))
+            lock (_customGameExecutables)
             {
-                lock (_customGameExecutables)
+                if (!string.IsNullOrEmpty(cleanName))
                 {
                     _customGameExecutables.Add(cleanName);
+                }
+                if (!string.IsNullOrEmpty(fileName))
+                {
+                    _customGameExecutables.Add(fileName);
                 }
             }
         }
@@ -93,7 +99,8 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             {
                 lock (_customGameExecutables)
                 {
-                    wowFocused = _customGameExecutables.Contains(procName);
+                    wowFocused = _customGameExecutables.Contains(procName) ||
+                                 _customGameExecutables.Contains(procName + ".exe");
                 }
             }
 

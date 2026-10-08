@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using ConsoleMode.GamepadCompanion.Core.Interfaces;
 using ConsoleMode.GamepadCompanion.Core.Models;
@@ -49,14 +50,44 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly FocusOverlayPanel _focusOverlay = new FocusOverlayPanel();
         private readonly GamepadNavigationManager _navManager = new GamepadNavigationManager();
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
         private Panel _sidePanel;
         private string _slotSignature = string.Empty;
         private bool _updatingCombo;
         private bool _allowClose;
         private bool _lastStateY;
         private bool _isLaunching;
+        private bool _wasAppForegroundAndGameInactive;
         private string _lastSteamGridSearchTerm;
         private ContentViewMode _viewMode = ContentViewMode.Debugger;
+
+        private bool IsAppForeground()
+        {
+            if (!Visible || WindowState == FormWindowState.Minimized)
+                return false;
+
+            IntPtr fg = GetForegroundWindow();
+            if (fg == IntPtr.Zero)
+                return false;
+
+            if (fg == Handle || ContainsFocus)
+                return true;
+
+            try
+            {
+                GetWindowThreadProcessId(fg, out uint fgPid);
+                return fgPid == (uint)Process.GetCurrentProcess().Id;
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         public SettingsForm(
             IGamepadService gamepad,
@@ -284,6 +315,25 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             var games = _gameRepo.GetAll();
             _gamesGrid.LoadGames(games);
+
+            if (_windowTracker != null)
+            {
+                foreach (var g in games)
+                {
+                    RegisterGameWithTracker(g);
+                }
+            }
+        }
+
+        private void RegisterGameWithTracker(GameEntry game)
+        {
+            if (game == null || _windowTracker == null) return;
+            if (!string.IsNullOrWhiteSpace(game.TargetPath))
+                _windowTracker.RegisterGameExecutable(game.TargetPath);
+            if (!string.IsNullOrWhiteSpace(game.MainExecutable))
+                _windowTracker.RegisterGameExecutable(game.MainExecutable);
+            if (!string.IsNullOrWhiteSpace(game.LauncherName))
+                _windowTracker.RegisterGameExecutable(game.LauncherName);
         }
 
         private void ShowDebugger()
@@ -430,6 +480,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             try
             {
                 _gameLauncher.Launch(game);
+                _windowTracker?.CheckActiveWindow();
             }
             catch (Exception ex)
             {
@@ -464,6 +515,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             if (game == null) return;
             _gameRepo.Save(game);
+            RegisterGameWithTracker(game);
             ShowGamesLibrary();
         }
 
@@ -544,54 +596,65 @@ namespace ConsoleMode.GamepadCompanion.UI
             _debugger.SetState(state);
             RefreshSlotCombo(force: false);
 
-            if (_focusOverlay.IsExitDialogOpen)
-            {
-                _focusOverlay.ProcessExitGamepad(state, _stopwatch.ElapsedMilliseconds);
-                return;
-            }
+            bool isGameFocused = _profileManager != null && _profileManager.IsGameFocused;
+            bool isAppActive = IsAppForeground() && !isGameFocused;
 
-            if (_focusOverlay.IsMessageDialogOpen)
+            if (isAppActive)
             {
-                _focusOverlay.ProcessMessageGamepad(state, _stopwatch.ElapsedMilliseconds);
-                return;
-            }
+                if (!_wasAppForegroundAndGameInactive)
+                {
+                    _wasAppForegroundAndGameInactive = true;
+                    ResetAllUiInputStates();
+                }
 
-            if (_focusOverlay.IsSteamGridApiKeyDialogOpen)
-            {
-                _focusOverlay.ProcessSteamGridApiKeyGamepad(state, _stopwatch.ElapsedMilliseconds);
-                return;
-            }
+                if (_focusOverlay.IsExitDialogOpen)
+                {
+                    _focusOverlay.ProcessExitGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
+                else if (_focusOverlay.IsMessageDialogOpen)
+                {
+                    _focusOverlay.ProcessMessageGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
+                else if (_focusOverlay.IsSteamGridApiKeyDialogOpen)
+                {
+                    _focusOverlay.ProcessSteamGridApiKeyGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
+                else if (_focusOverlay.IsVirtualKeyboardOpen)
+                {
+                    _focusOverlay.ProcessVirtualKeyboardGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
+                else if (_viewMode == ContentViewMode.GameConfig)
+                {
+                    _configPanel.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
+                else if (_viewMode == ContentViewMode.GamesGrid)
+                {
+                    _gamesGrid.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
+                else if (_viewMode == ContentViewMode.SteamGridDb)
+                {
+                    _steamGridBrowser.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
+                else
+                {
+                    // Modo Debugger: Atalho Y alterna para a Biblioteca de Jogos
+                    bool btnY = state.IsPressed(GamepadButtons.Y);
+                    if (btnY && !_lastStateY)
+                    {
+                        ShowGamesLibrary();
+                    }
+                    _lastStateY = btnY;
 
-            if (_focusOverlay.IsVirtualKeyboardOpen)
-            {
-                _focusOverlay.ProcessVirtualKeyboardGamepad(state, _stopwatch.ElapsedMilliseconds);
-                return;
-            }
-
-            // Processamento de acordo com o modo atual de exibição
-            if (_viewMode == ContentViewMode.GameConfig)
-            {
-                _configPanel.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
-            }
-            else if (_viewMode == ContentViewMode.GamesGrid)
-            {
-                _gamesGrid.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
-            }
-            else if (_viewMode == ContentViewMode.SteamGridDb)
-            {
-                _steamGridBrowser.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+                    _navManager.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
             }
             else
             {
-                // Modo Debugger: Atalho Y alterna para a Biblioteca de Jogos
-                bool btnY = state.IsPressed(GamepadButtons.Y);
-                if (btnY && !_lastStateY)
+                if (_wasAppForegroundAndGameInactive)
                 {
-                    ShowGamesLibrary();
+                    _wasAppForegroundAndGameInactive = false;
+                    ResetAllUiInputStates();
                 }
-                _lastStateY = btnY;
-
-                _navManager.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
             }
 
             int active = _gamepad.ActiveSlot;
@@ -604,6 +667,15 @@ namespace ConsoleMode.GamepadCompanion.UI
                 _profileLabel.Text = string.Format(Strings.ProfileFormat, prof);
                 _profileLabel.ForeColor = _profileManager.IsGameFocused ? Color.FromArgb(120, 230, 150) : Color.FromArgb(160, 170, 185);
             }
+        }
+
+        private void ResetAllUiInputStates()
+        {
+            _gamesGrid.ResetInputState();
+            _configPanel.ResetInputState();
+            _steamGridBrowser.ResetInputState();
+            _navManager.ResetInputState();
+            _lastStateY = true;
         }
 
         private void RefreshSlotCombo(bool force)

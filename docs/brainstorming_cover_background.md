@@ -5,6 +5,24 @@ Transformar o visual da biblioteca de jogos (`GamesGridControl`) em uma experiê
 
 ---
 
+## Decisões Definidas (Grill Me)
+
+1. **Área de Cobertura do Fundo:**
+   - O fundo desfocado abrange toda a área direita da biblioteca (`GamesGridControl`), cobrindo desde o topo (título "BIBLIOTECA DE JOGOS" e barra de pesquisa) até embaixo na grade de cards.
+   - O painel lateral esquerdo (`_sidePanel`, com sliders de deadzone, botões e status) permanece sólido e intocado.
+2. **Comportamento em Jogos Sem Capa e Botão "[+] Adicionar Jogo":**
+   - Retorna suavemente ao fundo neutro escuro sólido padrão (24, 26, 32). Sem fundos aleatórios ou mantidos incorretamente.
+3. **Bug Pendente da Barra de Pesquisa em Fullscreen:**
+   - Em tela cheia, a barra de pesquisa apresenta artefato visual de caixa menor interna desalinhada com a barra externa. Resolver assim que o fundo dinâmico for concluído.
+
+---
+
+## Questões Futuras do Grill Me (Pausadas temporariamente)
+- Tipo e duração da animação de transição (Crossfade suave de opacidade).
+- Algoritmo exato de recorte e opacidade da vinheta para legibilidade dos cards.
+
+---
+
 ## Arquitetura & Fluxo Técnico
 
 ### 1. Pré-processamento Antecipado (Zero Custo em Runtime)

@@ -171,8 +171,61 @@ namespace ConsoleMode.GamepadCompanion.Tests
                 proc?.WaitForExit(1000);
             }
 
+            Assert.Contains("cmd.exe", mockTracker.RegisteredExecutables);
             Assert.Contains("portal2.exe", mockTracker.RegisteredExecutables);
             Assert.Contains("Steam.exe", mockTracker.RegisteredExecutables);
+        }
+
+        [Fact]
+        public void GamingProfile_ConcurrentUpdateAndReset_DoesNotThrow()
+        {
+            var fakeInput = new ThreadSafeFakeInputSimulator();
+            var settings = new AppSettings { MappingEnabled = true };
+            var profile = new ConsoleMode.GamepadCompanion.Profiles.GamingProfile(fakeInput, settings);
+
+            var stateWithA = new GamepadState(true, 1, GamepadButtons.A, 0, 0, 0, 0, 0, 0);
+            var stateWithoutA = new GamepadState(true, 2, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+
+            bool running = true;
+            Exception backgroundException = null;
+
+            var updateThread = new Thread(() =>
+            {
+                try
+                {
+                    while (running)
+                    {
+                        profile.Update(stateWithA, 0.016f);
+                        profile.Update(stateWithoutA, 0.016f);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    backgroundException = ex;
+                }
+            });
+
+            updateThread.Start();
+
+            // Executa múltiplos Resets simultaneamente enquanto o Update roda na outra thread
+            for (int i = 0; i < 500; i++)
+            {
+                profile.Reset();
+            }
+
+            running = false;
+            updateThread.Join(2000);
+
+            Assert.Null(backgroundException);
+        }
+
+        private class ThreadSafeFakeInputSimulator : IInputSimulator
+        {
+            public void KeyDown(VirtualKey key) { }
+            public void KeyUp(VirtualKey key) { }
+            public void MouseButtonDown(MouseButton button) { }
+            public void MouseButtonUp(MouseButton button) { }
+            public void MouseMoveRelative(int dx, int dy) { }
         }
 
         [Fact]

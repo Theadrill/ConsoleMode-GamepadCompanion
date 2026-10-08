@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ConsoleMode.GamepadCompanion.Core.Interfaces;
 using ConsoleMode.GamepadCompanion.Core.Models;
 using ConsoleMode.GamepadCompanion.Engine;
@@ -22,6 +23,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         private readonly IInputSimulator _input;
         private readonly AppSettings _settings;
         private readonly SmartMouseLookHandler _smartMouseLook;
+        private readonly object _syncLock = new object();
 
         private readonly HashSet<VirtualKey> _activeKeys = new HashSet<VirtualKey>();
         private bool _l3Held;
@@ -154,39 +156,48 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
         private void SetKeyState(VirtualKey key, bool pressed)
         {
-            if (pressed && !_activeKeys.Contains(key))
+            lock (_syncLock)
             {
-                _input.KeyDown(key);
-                _activeKeys.Add(key);
-            }
-            else if (!pressed && _activeKeys.Contains(key))
-            {
-                _input.KeyUp(key);
-                _activeKeys.Remove(key);
+                if (pressed && !_activeKeys.Contains(key))
+                {
+                    _input.KeyDown(key);
+                    _activeKeys.Add(key);
+                }
+                else if (!pressed && _activeKeys.Contains(key))
+                {
+                    _input.KeyUp(key);
+                    _activeKeys.Remove(key);
+                }
             }
         }
 
         public void Reset()
         {
-            foreach (var key in _activeKeys)
+            VirtualKey[] keysToRelease;
+            lock (_syncLock)
+            {
+                keysToRelease = _activeKeys.ToArray();
+                _activeKeys.Clear();
+
+                if (_l3Held)
+                {
+                    _input.MouseButtonUp(MouseButton.Left);
+                    _l3Held = false;
+                }
+
+                if (_r3Held)
+                {
+                    _input.MouseButtonUp(MouseButton.Right);
+                    _r3Held = false;
+                }
+            }
+
+            foreach (var key in keysToRelease)
             {
                 _input.KeyUp(key);
             }
-            _activeKeys.Clear();
 
             _smartMouseLook.Reset();
-
-            if (_l3Held)
-            {
-                _input.MouseButtonUp(MouseButton.Left);
-                _l3Held = false;
-            }
-
-            if (_r3Held)
-            {
-                _input.MouseButtonUp(MouseButton.Right);
-                _r3Held = false;
-            }
 
             _remainderX = 0f;
             _remainderY = 0f;
