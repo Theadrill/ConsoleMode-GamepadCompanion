@@ -40,6 +40,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private readonly Panel _headerPanel = new Panel();
         private readonly Panel _contentPanel = new Panel();
         private string _statusMessage = null;
+        private bool _isLoading;
 
         private readonly SteamGridDbService _service;
         private string _apiKey;
@@ -92,6 +93,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         }
 
         public SteamGridBrowserMode CurrentMode => _mode;
+        public int FocusedGameIndex => _focusedGameIndex;
+        public int FocusedCoverIndex => _focusedCoverIndex;
+        public int ContentScrollY => _contentPanel.VerticalScroll.Value;
 
         private void BuildLayout()
         {
@@ -137,6 +141,13 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _contentPanel.Paint += (s, e) => OnContentPaint(e);
             _contentPanel.MouseDown += (s, e) => OnContentMouseDown(e);
             _contentPanel.MouseMove += (s, e) => OnContentMouseMove(e);
+            _contentPanel.Resize += (s, e) =>
+            {
+                UpdateScrollSize();
+                _contentPanel.Invalidate();
+            };
+            _contentPanel.Scroll += (s, e) => _contentPanel.Invalidate();
+            _contentPanel.MouseWheel += (s, e) => _contentPanel.Invalidate();
 
             Controls.Add(_contentPanel);
             Controls.Add(_headerPanel);
@@ -163,14 +174,18 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _games.Clear();
             _covers.Clear();
             ClearThumbnailCache();
+            _contentPanel.AutoScrollPosition = new Point(0, 0);
 
+            _isLoading = true;
             ShowStatusMessage("Buscando jogos no SteamGridDB...");
+            UpdateScrollSize();
             UpdateHeader();
 
             var results = await _service.SearchGamesAsync(_currentSearchTerm, _apiKey).ConfigureAwait(false);
 
             RunOnUi(() =>
             {
+                _isLoading = false;
                 _games.Clear();
                 if (results != null)
                 {
@@ -186,6 +201,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     HideStatusMessage();
                 }
 
+                UpdateScrollSize();
                 UpdateHeader();
             });
         }
@@ -199,14 +215,18 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _focusedCoverIndex = 0;
             _covers.Clear();
             ClearThumbnailCache();
+            _contentPanel.AutoScrollPosition = new Point(0, 0);
 
+            _isLoading = true;
             ShowStatusMessage($"Buscando capas verticais para '{game.name}'...");
+            UpdateScrollSize();
             UpdateHeader();
 
             var assets = await _service.GetGameGridsAsync(game.id, _apiKey).ConfigureAwait(false);
 
             RunOnUi(() =>
             {
+                _isLoading = false;
                 _covers.Clear();
                 if (assets != null)
                 {
@@ -223,6 +243,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     _ = LoadThumbnailsAsync();
                 }
 
+                UpdateScrollSize();
                 UpdateHeader();
             });
         }
@@ -263,6 +284,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         {
             if (cover == null || string.IsNullOrWhiteSpace(cover.url)) return;
 
+            _isLoading = true;
             ShowStatusMessage(Strings.SteamGridDownloading);
 
             try
@@ -279,11 +301,35 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
                 string savedPath = await _service.DownloadCoverAsync(cover.url, destFile).ConfigureAwait(false);
 
-                RunOnUi(() => CoverSelected?.Invoke(savedPath));
+                RunOnUi(() =>
+                {
+                    _isLoading = false;
+                    CoverSelected?.Invoke(savedPath);
+                });
             }
             catch (Exception ex)
             {
-                RunOnUi(() => ShowStatusMessage($"Erro ao baixar capa: {ex.Message}\nPressione B para voltar."));
+                RunOnUi(() =>
+                {
+                    _isLoading = false;
+                    ShowStatusMessage($"Erro ao baixar capa: {ex.Message}\nPressione B para voltar.");
+                });
+            }
+        }
+
+        private void UpdateScrollSize()
+        {
+            if (_mode == SteamGridBrowserMode.GameList)
+            {
+                int totalH = 16 + _games.Count * (56 + 8) + 16;
+                _contentPanel.AutoScrollMinSize = new Size(0, totalH);
+            }
+            else
+            {
+                int columns = Math.Max(1, (_contentPanel.ClientSize.Width - 40) / (CoverCardWidth + CoverCardMargin));
+                int rows = (_covers.Count + columns - 1) / columns;
+                int totalH = 16 + rows * (CoverCardHeight + CoverCardMargin) + 16;
+                _contentPanel.AutoScrollMinSize = new Size(0, totalH);
             }
         }
 
@@ -292,12 +338,26 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             if (_mode == SteamGridBrowserMode.GameList)
             {
                 _titleLabel.Text = string.Format(Strings.SteamGridResultsTitle, _currentSearchTerm);
-                _legendLabel.Text = Strings.SteamGridLegendGames;
+                if (_games.Count == 0)
+                {
+                    _legendLabel.Text = "[X] Nova Pesquisa    [Y] Trocar Chave    [B] Voltar";
+                }
+                else
+                {
+                    _legendLabel.Text = Strings.SteamGridLegendGames;
+                }
             }
             else
             {
                 _titleLabel.Text = string.Format(Strings.SteamGridCoversTitle, _selectedGame?.name ?? string.Empty);
-                _legendLabel.Text = Strings.SteamGridLegendCovers;
+                if (_covers.Count == 0)
+                {
+                    _legendLabel.Text = "[B] Voltar aos Jogos";
+                }
+                else
+                {
+                    _legendLabel.Text = Strings.SteamGridLegendCovers;
+                }
             }
         }
 
@@ -543,7 +603,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         public void ProcessGamepad(GamepadState state, long nowMs)
         {
-            if (!state.IsConnected || !string.IsNullOrEmpty(_statusMessage)) return;
+            if (!state.IsConnected) return;
 
             bool up = state.IsPressed(GamepadButtons.DPadUp);
             bool down = state.IsPressed(GamepadButtons.DPadDown);
@@ -552,35 +612,42 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             if (_mode == SteamGridBrowserMode.GameList)
             {
-                if (up && !_lastUp)
+                if (!_isLoading && _games.Count > 0)
                 {
-                    if (_focusedGameIndex > 0)
+                    if (up && !_lastUp)
                     {
-                        _focusedGameIndex--;
-                        EnsureVisibleGame(_focusedGameIndex);
-                        _contentPanel.Invalidate();
+                        if (_focusedGameIndex > 0)
+                        {
+                            _focusedGameIndex--;
+                            EnsureVisibleGame(_focusedGameIndex);
+                            _contentPanel.Invalidate();
+                        }
                     }
+
+                    if (down && !_lastDown)
+                    {
+                        if (_focusedGameIndex < _games.Count - 1)
+                        {
+                            _focusedGameIndex++;
+                            EnsureVisibleGame(_focusedGameIndex);
+                            _contentPanel.Invalidate();
+                        }
+                    }
+
+                    // Botão A seleciona o jogo
+                    bool a = state.IsPressed(GamepadButtons.A);
+                    if (a && !_lastA && _focusedGameIndex >= 0 && _focusedGameIndex < _games.Count)
+                    {
+                        _ = SelectGameAsync(_games[_focusedGameIndex]);
+                    }
+                    _lastA = a;
+                }
+                else
+                {
+                    _lastA = state.IsPressed(GamepadButtons.A);
                 }
                 _lastUp = up;
-
-                if (down && !_lastDown)
-                {
-                    if (_focusedGameIndex < _games.Count - 1)
-                    {
-                        _focusedGameIndex++;
-                        EnsureVisibleGame(_focusedGameIndex);
-                        _contentPanel.Invalidate();
-                    }
-                }
                 _lastDown = down;
-
-                // Botão A seleciona o jogo
-                bool a = state.IsPressed(GamepadButtons.A);
-                if (a && !_lastA && _games.Count > 0 && _focusedGameIndex >= 0 && _focusedGameIndex < _games.Count)
-                {
-                    _ = SelectGameAsync(_games[_focusedGameIndex]);
-                }
-                _lastA = a;
 
                 // Botão X pede nova busca
                 bool x = state.IsPressed(GamepadButtons.X);
@@ -610,60 +677,88 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 int columns = Math.Max(1, (_contentPanel.ClientSize.Width - 40) / (CoverCardWidth + CoverCardMargin));
 
-                if (left && !_lastLeft)
+                if (!_isLoading && _covers.Count > 0)
                 {
-                    if (_focusedCoverIndex > 0)
+                    if (left && !_lastLeft)
                     {
-                        _focusedCoverIndex--;
-                        _contentPanel.Invalidate();
+                        if (_focusedCoverIndex > 0)
+                        {
+                            _focusedCoverIndex--;
+                            EnsureVisibleCover(_focusedCoverIndex);
+                            _contentPanel.Invalidate();
+                        }
                     }
+
+                    if (right && !_lastRight)
+                    {
+                        if (_focusedCoverIndex < _covers.Count - 1)
+                        {
+                            _focusedCoverIndex++;
+                            EnsureVisibleCover(_focusedCoverIndex);
+                            _contentPanel.Invalidate();
+                        }
+                    }
+
+                    if (up && !_lastUp)
+                    {
+                        if (_focusedCoverIndex - columns >= 0)
+                        {
+                            _focusedCoverIndex -= columns;
+                            EnsureVisibleCover(_focusedCoverIndex);
+                            _contentPanel.Invalidate();
+                        }
+                    }
+
+                    if (down && !_lastDown)
+                    {
+                        if (_focusedCoverIndex + columns < _covers.Count)
+                        {
+                            _focusedCoverIndex += columns;
+                            EnsureVisibleCover(_focusedCoverIndex);
+                            _contentPanel.Invalidate();
+                        }
+                        else if (_focusedCoverIndex < _covers.Count - 1)
+                        {
+                            _focusedCoverIndex = _covers.Count - 1;
+                            EnsureVisibleCover(_focusedCoverIndex);
+                            _contentPanel.Invalidate();
+                        }
+                    }
+
+                    // Botão A seleciona a capa
+                    bool a = state.IsPressed(GamepadButtons.A);
+                    if (a && !_lastA && _focusedCoverIndex >= 0 && _focusedCoverIndex < _covers.Count)
+                    {
+                        _ = SelectCoverAsync(_covers[_focusedCoverIndex]);
+                    }
+                    _lastA = a;
+                }
+                else
+                {
+                    _lastA = state.IsPressed(GamepadButtons.A);
                 }
                 _lastLeft = left;
-
-                if (right && !_lastRight)
-                {
-                    if (_focusedCoverIndex < _covers.Count - 1)
-                    {
-                        _focusedCoverIndex++;
-                        _contentPanel.Invalidate();
-                    }
-                }
                 _lastRight = right;
-
-                if (up && !_lastUp)
-                {
-                    if (_focusedCoverIndex - columns >= 0)
-                    {
-                        _focusedCoverIndex -= columns;
-                        _contentPanel.Invalidate();
-                    }
-                }
                 _lastUp = up;
-
-                if (down && !_lastDown)
-                {
-                    if (_focusedCoverIndex + columns < _covers.Count)
-                    {
-                        _focusedCoverIndex += columns;
-                        _contentPanel.Invalidate();
-                    }
-                }
                 _lastDown = down;
-
-                // Botão A seleciona a capa
-                bool a = state.IsPressed(GamepadButtons.A);
-                if (a && !_lastA && _covers.Count > 0 && _focusedCoverIndex >= 0 && _focusedCoverIndex < _covers.Count)
-                {
-                    _ = SelectCoverAsync(_covers[_focusedCoverIndex]);
-                }
-                _lastA = a;
 
                 // Botão B volta para a Tela 1 (Lista de Jogos)
                 bool b = state.IsPressed(GamepadButtons.B);
                 if (b && !_lastB)
                 {
                     _mode = SteamGridBrowserMode.GameList;
+                    _isLoading = false;
+                    if (_games.Count == 0)
+                    {
+                        ShowStatusMessage(Strings.SteamGridNoGamesFound);
+                    }
+                    else
+                    {
+                        HideStatusMessage();
+                    }
+                    UpdateScrollSize();
                     UpdateHeader();
+                    _contentPanel.AutoScrollPosition = new Point(0, 0);
                     _contentPanel.Invalidate();
                 }
                 _lastB = b;
@@ -672,15 +767,47 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void EnsureVisibleGame(int index)
         {
-            int itemHeight = 56 + 8;
-            int targetY = index * itemHeight;
-            if (targetY < _contentPanel.VerticalScroll.Value)
+            if (_games.Count == 0 || index < 0 || index >= _games.Count) return;
+
+            int itemHeight = 56;
+            int itemY = 16 + index * (itemHeight + 8);
+
+            int currentScroll = _contentPanel.VerticalScroll.Value;
+            int viewportHeight = Math.Max(1, _contentPanel.ClientSize.Height);
+
+            if (itemY < currentScroll)
             {
-                _contentPanel.VerticalScroll.Value = Math.Max(0, targetY);
+                int targetY = Math.Max(0, itemY - 16);
+                _contentPanel.AutoScrollPosition = new Point(0, targetY);
             }
-            else if (targetY + itemHeight > _contentPanel.VerticalScroll.Value + _contentPanel.ClientSize.Height)
+            else if (itemY + itemHeight > currentScroll + viewportHeight)
             {
-                _contentPanel.VerticalScroll.Value = Math.Min(_contentPanel.VerticalScroll.Maximum, targetY - _contentPanel.ClientSize.Height + itemHeight);
+                int targetY = itemY + itemHeight - viewportHeight + 16;
+                _contentPanel.AutoScrollPosition = new Point(0, Math.Max(0, targetY));
+            }
+        }
+
+        private void EnsureVisibleCover(int index)
+        {
+            if (_covers.Count == 0 || index < 0 || index >= _covers.Count) return;
+
+            int columns = Math.Max(1, (_contentPanel.ClientSize.Width - 40) / (CoverCardWidth + CoverCardMargin));
+            int row = index / columns;
+            int cardY = 16 + row * (CoverCardHeight + CoverCardMargin);
+            int cardHeight = CoverCardHeight;
+
+            int currentScroll = _contentPanel.VerticalScroll.Value;
+            int viewportHeight = Math.Max(1, _contentPanel.ClientSize.Height);
+
+            if (cardY < currentScroll)
+            {
+                int targetY = Math.Max(0, cardY - 16);
+                _contentPanel.AutoScrollPosition = new Point(0, targetY);
+            }
+            else if (cardY + cardHeight > currentScroll + viewportHeight)
+            {
+                int targetY = cardY + cardHeight - viewportHeight + 16;
+                _contentPanel.AutoScrollPosition = new Point(0, Math.Max(0, targetY));
             }
         }
 
@@ -693,6 +820,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _lastA = false;
             _lastB = false;
             _lastX = false;
+            _lastY = false;
         }
 
         protected override void Dispose(bool disposing)

@@ -149,6 +149,132 @@ namespace ConsoleMode.GamepadCompanion.Tests
             }
         }
 
+        [Fact(Timeout = 5000)]
+        public async Task SteamGridDbBrowserControl_WhenNoGamesFound_GamepadBXY_AreResponsive()
+        {
+            var handler = new MockHttpMessageHandler
+            {
+                Handler = req => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"success\":true,\"data\":[]}")
+                }
+            };
+
+            using (var httpClient = new HttpClient(handler))
+            using (var service = new SteamGridDbService(httpClient))
+            using (var browser = new SteamGridDbBrowserControl(service))
+            {
+                bool backRequested = false;
+                bool newSearchRequested = false;
+                bool changeKeyRequested = false;
+
+                browser.BackToConfigRequested += () => backRequested = true;
+                browser.NewSearchRequested += () => newSearchRequested = true;
+                browser.ChangeApiKeyRequested += () => changeKeyRequested = true;
+
+                await browser.StartSearchAsync("NonExistentGame12345", "test_key");
+
+                // Botão B deve funcionar mesmo sem jogos
+                var stateB = new GamepadState(true, 1, GamepadButtons.B, 0, 0, 0, 0, 0, 0);
+                browser.ProcessGamepad(stateB, 100);
+                Assert.True(backRequested);
+
+                // Botão X deve funcionar
+                browser.ResetInputState();
+                var stateX = new GamepadState(true, 2, GamepadButtons.X, 0, 0, 0, 0, 0, 0);
+                browser.ProcessGamepad(stateX, 200);
+                Assert.True(newSearchRequested);
+
+                // Botão Y deve funcionar
+                browser.ResetInputState();
+                var stateY = new GamepadState(true, 3, GamepadButtons.Y, 0, 0, 0, 0, 0, 0);
+                browser.ProcessGamepad(stateY, 300);
+                Assert.True(changeKeyRequested);
+            }
+        }
+
+        [Fact(Timeout = 5000)]
+        public async Task SteamGridDbBrowserControl_WhenNoCoversFound_GamepadB_ReturnsToGameList()
+        {
+            var handler = new MockHttpMessageHandler
+            {
+                Handler = req =>
+                {
+                    string url = req.RequestUri.ToString();
+                    if (url.Contains("/search/autocomplete"))
+                    {
+                        return new HttpResponseMessage(HttpStatusCode.OK)
+                        {
+                            Content = new StringContent("{\"success\":true,\"data\":[{\"id\":42,\"name\":\"ObscureGame\"}]}")
+                        };
+                    }
+                    // Grids vazias
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("{\"success\":true,\"data\":[]}")
+                    };
+                }
+            };
+
+            using (var httpClient = new HttpClient(handler))
+            using (var service = new SteamGridDbService(httpClient))
+            using (var browser = new SteamGridDbBrowserControl(service))
+            {
+                await browser.StartSearchAsync("ObscureGame", "test_key");
+                await browser.SelectGameAsync(new SteamGridGame { id = 42, name = "ObscureGame" });
+
+                Assert.Equal(SteamGridBrowserMode.CoverGallery, browser.CurrentMode);
+
+                // Botão B deve voltar para GameList mesmo sem capas
+                var stateB = new GamepadState(true, 1, GamepadButtons.B, 0, 0, 0, 0, 0, 0);
+                browser.ProcessGamepad(stateB, 100);
+                Assert.Equal(SteamGridBrowserMode.GameList, browser.CurrentMode);
+            }
+        }
+
+        [Fact(Timeout = 5000)]
+        public async Task SteamGridDbBrowserControl_CoverGallery_GamepadNavigation_ScrollsViewport()
+        {
+            var coversList = new System.Text.StringBuilder();
+            coversList.Append("{\"success\":true,\"data\":[");
+            for (int i = 0; i < 24; i++)
+            {
+                if (i > 0) coversList.Append(",");
+                coversList.Append($"{{\"id\":{i + 1},\"url\":\"https://example.com/cover{i}.png\",\"mime\":\"image/png\"}}");
+            }
+            coversList.Append("]}");
+
+            var handler = new MockHttpMessageHandler
+            {
+                Handler = req => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(coversList.ToString())
+                }
+            };
+
+            using (var httpClient = new HttpClient(handler))
+            using (var service = new SteamGridDbService(httpClient))
+            using (var browser = new SteamGridDbBrowserControl(service))
+            {
+                browser.SetBounds(0, 0, 600, 400);
+
+                await browser.StartSearchAsync("ManyCoversGame", "test_key");
+                await browser.SelectGameAsync(new SteamGridGame { id = 99, name = "ManyCoversGame" });
+                Assert.Equal(SteamGridBrowserMode.CoverGallery, browser.CurrentMode);
+                Assert.Equal(0, browser.FocusedCoverIndex);
+
+                // Navega para baixo repetidamente para linhas inferiores
+                for (int step = 1; step <= 8; step++)
+                {
+                    browser.ResetInputState();
+                    var stateDown = new GamepadState(true, (uint)step, GamepadButtons.DPadDown, 0, 0, 0, 0, 0, 0);
+                    browser.ProcessGamepad(stateDown, step * 100);
+                }
+
+                Assert.True(browser.FocusedCoverIndex > 0);
+            }
+        }
+
         [Fact]
         public void SteamGridDbBrowserControl_IsHiddenByDefault()
         {
