@@ -21,7 +21,8 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             Debugger,
             GamesGrid,
-            GameConfig
+            GameConfig,
+            SteamGridDb
         }
 
         private readonly IGamepadService _gamepad;
@@ -43,6 +44,8 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly GamepadVisualDebugger _debugger = new GamepadVisualDebugger();
         private readonly GamesGridControl _gamesGrid = new GamesGridControl();
         private readonly GameConfigPanel _configPanel = new GameConfigPanel();
+        private readonly SteamGridDbBrowserControl _steamGridBrowser = new SteamGridDbBrowserControl();
+        private readonly Engine.Services.SteamGridDbService _steamGridService = new Engine.Services.SteamGridDbService();
         private readonly FocusOverlayPanel _focusOverlay = new FocusOverlayPanel();
         private readonly GamepadNavigationManager _navManager = new GamepadNavigationManager();
 
@@ -52,6 +55,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private bool _allowClose;
         private bool _lastStateY;
         private bool _isLaunching;
+        private string _lastSteamGridSearchTerm;
         private ContentViewMode _viewMode = ContentViewMode.Debugger;
 
         public SettingsForm(
@@ -200,6 +204,8 @@ namespace ConsoleMode.GamepadCompanion.UI
             _gamesGrid.Visible = false;
             _configPanel.Dock = DockStyle.Fill;
             _configPanel.Visible = false;
+            _steamGridBrowser.Dock = DockStyle.Fill;
+            _steamGridBrowser.Visible = false;
 
             // Eventos do Grid de Jogos
             _gamesGrid.LaunchRequested += OnLaunchGame;
@@ -259,8 +265,15 @@ namespace ConsoleMode.GamepadCompanion.UI
                     _configPanel.ResetInputState();
                 });
             };
+            _configPanel.SteamGridDbRequested += OnSteamGridDbRequested;
+
+            _steamGridBrowser.CoverSelected += OnSteamGridCoverSelected;
+            _steamGridBrowser.BackToConfigRequested += ShowGameConfigFromSteamGrid;
+            _steamGridBrowser.NewSearchRequested += () => PromptSteamGridSearch(_lastSteamGridSearchTerm);
+            _steamGridBrowser.ChangeApiKeyRequested += () => ShowSteamGridApiKeyModal(_lastSteamGridSearchTerm);
 
             Controls.Add(_focusOverlay);
+            Controls.Add(_steamGridBrowser);
             Controls.Add(_configPanel);
             Controls.Add(_gamesGrid);
             Controls.Add(_debugger);
@@ -279,6 +292,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _debugger.Visible = true;
             _gamesGrid.Visible = false;
             _configPanel.Visible = false;
+            _steamGridBrowser.Visible = false;
             _debugger.BringToFront();
             _focusOverlay.BringToFront();
             _lastStateY = true;
@@ -293,6 +307,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _debugger.Visible = false;
             _gamesGrid.Visible = true;
             _configPanel.Visible = false;
+            _steamGridBrowser.Visible = false;
             _gamesGrid.BringToFront();
             _focusOverlay.BringToFront();
             _lastStateY = true;
@@ -304,10 +319,107 @@ namespace ConsoleMode.GamepadCompanion.UI
             _configPanel.ResetInputState();
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
+            _steamGridBrowser.Visible = false;
             _configPanel.Visible = true;
             _configPanel.EditGame(game);
             _configPanel.BringToFront();
             _focusOverlay.BringToFront();
+        }
+
+        private void OnSteamGridDbRequested(string gameName)
+        {
+            if (string.IsNullOrWhiteSpace(_settings.SteamGridDbApiKey))
+            {
+                ShowSteamGridApiKeyModal(gameName);
+            }
+            else
+            {
+                PromptSteamGridSearch(gameName);
+            }
+        }
+
+        private void ShowSteamGridApiKeyModal(string gameName)
+        {
+            _focusOverlay.ShowSteamGridApiKeyDialog(
+                this,
+                _settings.SteamGridDbApiKey,
+                onConfirmed: validKey =>
+                {
+                    _settings.SteamGridDbApiKey = validKey;
+                    _configRepo.Save(_settings);
+                    if (_viewMode == ContentViewMode.SteamGridDb)
+                    {
+                        _steamGridBrowser.ResetInputState();
+                        _ = _steamGridBrowser.StartSearchAsync(gameName, validKey);
+                    }
+                    else
+                    {
+                        _configPanel.ResetInputState();
+                        PromptSteamGridSearch(gameName);
+                    }
+                },
+                onCancel: () =>
+                {
+                    if (_viewMode == ContentViewMode.SteamGridDb)
+                    {
+                        _steamGridBrowser.ResetInputState();
+                    }
+                    else
+                    {
+                        _configPanel.ResetInputState();
+                    }
+                },
+                service: _steamGridService
+            );
+        }
+
+        private void PromptSteamGridSearch(string initialTerm)
+        {
+            _lastSteamGridSearchTerm = string.IsNullOrWhiteSpace(initialTerm) ? "Turtle WoW" : initialTerm;
+            _focusOverlay.ShowVirtualKeyboard(
+                this,
+                Strings.SteamGridSearchTitle,
+                _lastSteamGridSearchTerm,
+                onConfirm: searchQuery =>
+                {
+                    _lastSteamGridSearchTerm = searchQuery;
+                    _configPanel.ResetInputState();
+                    ShowSteamGridBrowser(searchQuery);
+                },
+                onCancel: () =>
+                {
+                    _configPanel.ResetInputState();
+                }
+            );
+        }
+
+        private void ShowSteamGridBrowser(string query)
+        {
+            _viewMode = ContentViewMode.SteamGridDb;
+            _debugger.Visible = false;
+            _gamesGrid.Visible = false;
+            _configPanel.Visible = false;
+            _steamGridBrowser.Visible = true;
+            _steamGridBrowser.BringToFront();
+            _focusOverlay.BringToFront();
+            _steamGridBrowser.ResetInputState();
+            _ = _steamGridBrowser.StartSearchAsync(query, _settings.SteamGridDbApiKey);
+        }
+
+        private void ShowGameConfigFromSteamGrid()
+        {
+            _viewMode = ContentViewMode.GameConfig;
+            _steamGridBrowser.Visible = false;
+            _configPanel.Visible = true;
+            _configPanel.BringToFront();
+            _focusOverlay.BringToFront();
+            _configPanel.ResetInputState();
+        }
+
+        private void OnSteamGridCoverSelected(string localCoverPath)
+        {
+            _configPanel.SetCoverPath(localCoverPath);
+            ShowGameConfigFromSteamGrid();
         }
 
         private void OnLaunchGame(GameEntry game)
@@ -444,6 +556,12 @@ namespace ConsoleMode.GamepadCompanion.UI
                 return;
             }
 
+            if (_focusOverlay.IsSteamGridApiKeyDialogOpen)
+            {
+                _focusOverlay.ProcessSteamGridApiKeyGamepad(state, _stopwatch.ElapsedMilliseconds);
+                return;
+            }
+
             if (_focusOverlay.IsVirtualKeyboardOpen)
             {
                 _focusOverlay.ProcessVirtualKeyboardGamepad(state, _stopwatch.ElapsedMilliseconds);
@@ -458,6 +576,10 @@ namespace ConsoleMode.GamepadCompanion.UI
             else if (_viewMode == ContentViewMode.GamesGrid)
             {
                 _gamesGrid.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+            }
+            else if (_viewMode == ContentViewMode.SteamGridDb)
+            {
+                _steamGridBrowser.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
             }
             else
             {
@@ -555,6 +677,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             _refreshTimer.Stop();
             _refreshTimer.Dispose();
+            _steamGridService?.Dispose();
             base.OnFormClosed(e);
         }
     }

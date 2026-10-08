@@ -298,7 +298,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void WireCardEvents(GameCoverCard card)
         {
-            card.MouseEnter += (s, e) =>
+            Action onPointerActive = () =>
             {
                 int idx = _cards.IndexOf(card);
                 if (idx >= 0 && _focusedIndex != idx)
@@ -308,6 +308,15 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     {
                         _cards[i].IsFocusedCard = (i == _focusedIndex);
                     }
+                }
+            };
+
+            card.MouseEnter += (s, e) => onPointerActive();
+            card.MouseMove += (s, e) =>
+            {
+                if (!card.IsFocusedCard)
+                {
+                    onPointerActive();
                 }
             };
 

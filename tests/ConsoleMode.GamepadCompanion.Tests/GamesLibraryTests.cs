@@ -557,6 +557,52 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Same(game, configured);
         }
 
+        [Fact]
+        public void GameCoverCard_LosingFocus_ClearsHoverStateAndPreventsDoubleNavigation()
+        {
+            var game = new GameEntry { Id = "test-1", Name = "Turtle WoW" };
+            using var card = new ConsoleMode.GamepadCompanion.UI.Controls.GameCoverCard(game);
+
+            card.IsFocusedCard = true;
+            Assert.True(card.IsFocusedCard);
+
+            // Perde o foco (simulando navegação do gamepad para outro card)
+            card.IsFocusedCard = false;
+            Assert.False(card.IsFocusedCard);
+            Assert.False(card.IsMouseHovered);
+        }
+
+        [Fact]
+        public void GamesGridControl_GamepadNavigation_MaintainsSingleFocusedCard()
+        {
+            var games = new System.Collections.Generic.List<GameEntry>
+            {
+                new GameEntry { Id = "g1", Name = "Turtle WoW" },
+                new GameEntry { Id = "g2", Name = "OctoWoW" }
+            };
+
+            using var grid = new ConsoleMode.GamepadCompanion.UI.Controls.GamesGridControl();
+            grid.LoadGames(games);
+
+            Assert.Equal(0, grid.FocusedIndex);
+
+            // Simula D-Pad Right no Gamepad para mover para o card 1
+            var stateRight = new GamepadState(
+                isConnected: true,
+                packetNumber: 1,
+                buttons: GamepadButtons.DPadRight,
+                leftTrigger: 0,
+                rightTrigger: 0,
+                leftThumbX: 0,
+                leftThumbY: 0,
+                rightThumbX: 0,
+                rightThumbY: 0
+            );
+
+            grid.ProcessGamepad(stateRight, 1000);
+            Assert.Equal(1, grid.FocusedIndex);
+        }
+
         [Theory]
         [InlineData("\"C:\\Games\\OctoWoW\\OctoWoW.exe\"", "OctoWoW.exe", "OctoWoW")]
         [InlineData("C:/Games/OctoWoW/OctoWoW.exe", "OctoWoW.exe", "OctoWoW")]

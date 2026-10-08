@@ -37,6 +37,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private readonly Button _btnBrowseTarget = new Button();
         private readonly Button _btnBrowseWorkingDir = new Button();
         private readonly Button _btnBrowseCover = new Button();
+        private readonly Button _btnSteamGridDb = new Button();
 
         private readonly Button _btnSave = new Button();
         private readonly Button _btnCancel = new Button();
@@ -66,6 +67,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         public event Action CancelRequested;
         public event Action<string, string> ValidationFailed;
         public event Action<string, string, Action<string>> RequestVirtualKeyboard;
+        public event Action<string> SteamGridDbRequested;
 
         public GameConfigPanel()
         {
@@ -105,7 +107,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _txtTargetPath.Leave += (s, e) => AutoFillFromTargetPath();
             currentY = AddFieldWithBrowse(_contentPanel, Strings.GameConfigWorkingDir, _txtWorkingDir, _btnBrowseWorkingDir, currentY, BrowseFolder);
             currentY = AddField(_contentPanel, Strings.GameConfigArguments, _txtArguments, currentY);
-            currentY = AddFieldWithBrowse(_contentPanel, Strings.GameConfigCoverImage, _txtCoverPath, _btnBrowseCover, currentY, BrowseImage);
+            currentY = AddCoverField(_contentPanel, Strings.GameConfigCoverImage, _txtCoverPath, _btnBrowseCover, _btnSteamGridDb, currentY, BrowseImage, () => SteamGridDbRequested?.Invoke(_txtName.Text));
 
             // Painel de botões de ação na base
             var actionsPanel = new Panel
@@ -162,7 +164,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _navGrid.Add(new List<Control> { _txtTargetPath, _btnBrowseTarget });
             _navGrid.Add(new List<Control> { _txtWorkingDir, _btnBrowseWorkingDir });
             _navGrid.Add(new List<Control> { _txtArguments });
-            _navGrid.Add(new List<Control> { _txtCoverPath, _btnBrowseCover });
+            _navGrid.Add(new List<Control> { _txtCoverPath, _btnBrowseCover, _btnSteamGridDb });
 
             var actions = new List<Control> { _btnSave, _btnCancel };
             if (!_isNewGame)
@@ -220,6 +222,51 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             parent.Controls.Add(btn);
 
             return top + 56;
+        }
+
+        private int AddCoverField(Panel parent, string labelText, TextBox textBox, Button btnBrowse, Button btnSteamGrid, int top, Action onBrowse, Action onSteamGrid)
+        {
+            var lbl = new Label
+            {
+                Text = labelText,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = TextSecondary,
+                AutoSize = true,
+                Location = new Point(20, top)
+            };
+
+            textBox.SetBounds(20, top + 20, 230, 26);
+            StyleTextBox(textBox);
+
+            btnBrowse.Text = Strings.BtnBrowse;
+            btnBrowse.FlatStyle = FlatStyle.Flat;
+            btnBrowse.Font = new Font("Segoe UI", 8.5f);
+            btnBrowse.BackColor = CardBg;
+            btnBrowse.ForeColor = TextPrimary;
+            btnBrowse.FlatAppearance.BorderColor = BorderColor;
+            btnBrowse.SetBounds(258, top + 19, 84, 28);
+            btnBrowse.Click += (s, e) => onBrowse();
+
+            btnSteamGrid.Text = Strings.BtnSteamGridDb;
+            btnSteamGrid.FlatStyle = FlatStyle.Flat;
+            btnSteamGrid.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btnSteamGrid.BackColor = Color.FromArgb(32, 75, 120);
+            btnSteamGrid.ForeColor = Color.White;
+            btnSteamGrid.FlatAppearance.BorderColor = Color.FromArgb(80, 140, 210);
+            btnSteamGrid.SetBounds(350, top + 19, 110, 28);
+            btnSteamGrid.Click += (s, e) => onSteamGrid();
+
+            parent.Controls.Add(lbl);
+            parent.Controls.Add(textBox);
+            parent.Controls.Add(btnBrowse);
+            parent.Controls.Add(btnSteamGrid);
+
+            return top + 56;
+        }
+
+        public void SetCoverPath(string path)
+        {
+            _txtCoverPath.Text = path ?? string.Empty;
         }
 
         private static void StyleTextBox(TextBox tb)
@@ -724,6 +771,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             else if (ctrl == _btnBrowseCover)
             {
                 BrowseImage();
+            }
+            else if (ctrl == _btnSteamGridDb)
+            {
+                SteamGridDbRequested?.Invoke(_txtName.Text);
             }
             else if (ctrl == _btnSave)
             {

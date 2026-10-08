@@ -95,5 +95,26 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string KbHintCaps = "[LB/RB] Caps";
         public const string KbHintClear = "[LT] Limpar";
         public const string KbHintCursor = "[◄/►] Cursor";
+
+        // Integração SteamGridDB (Capas Automáticas)
+        public const string BtnSteamGridDb = "SteamGridDB";
+        public const string SteamGridModalTitle = "Configurar SteamGridDB";
+        public const string SteamGridStep1 = "1. Clique no botão abaixo para abrir a página oficial no navegador.";
+        public const string SteamGridStep2 = "2. Faça login e em 'API Preferences' gere sua chave gratuita.";
+        public const string SteamGridStep3 = "3. Copie a chave e clique em [Colar] para validar.";
+        public const string BtnGetApiKey = "Obter Chave no SteamGridDB";
+        public const string BtnPaste = "Colar";
+        public const string BtnChangeApiKey = "🔑 Trocar Chave API";
+        public const string SteamGridCheckingKey = "🟡 Checando chave...";
+        public const string SteamGridKeyValid = "🟢 Chave válida!";
+        public const string SteamGridKeyInvalid = "🔴 Chave inválida ou expirada. Tente novamente.";
+        public const string SteamGridSearchTitle = "Pesquisar no SteamGridDB";
+        public const string SteamGridResultsTitle = "Jogos Encontrados para: {0}";
+        public const string SteamGridCoversTitle = "Capas para: {0}";
+        public const string SteamGridNoGamesFound = "Nenhum jogo encontrado com esse termo.";
+        public const string SteamGridNoCoversFound = "Nenhuma capa vertical encontrada para este jogo.";
+        public const string SteamGridDownloading = "Baixando capa em alta resolução...";
+        public const string SteamGridLegendGames = "[A] Escolher Jogo    [X] Nova Pesquisa    [Y] Trocar Chave    [B] Voltar";
+        public const string SteamGridLegendCovers = "[A] Aplicar Capa    [B] Voltar aos Jogos";
     }
 }

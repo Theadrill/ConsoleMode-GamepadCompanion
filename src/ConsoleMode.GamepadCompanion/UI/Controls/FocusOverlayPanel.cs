@@ -64,6 +64,13 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private Action<string> _currentLiveChangeHandler;
         private Rectangle _keyboardCardRect;
 
+        // Diálogo de API Key do SteamGridDB
+        private bool _isSteamGridApiKeyDialog;
+        private SteamGridApiKeyDialogControl _apiKeyDialogControl;
+        private Engine.Services.SteamGridDbService _steamGridService;
+        private Action<string> _onApiKeyConfirm;
+        private Action _onApiKeyCancel;
+
         public FocusOverlayPanel()
         {
             SetStyle(
@@ -75,13 +82,15 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             Visible = false;
         }
 
-        public bool IsActive => _isExitDialog || _isMessageDialog || _isVirtualKeyboard || (_activeControl != null && _activeControl.IsEditing);
+        public bool IsActive => _isExitDialog || _isMessageDialog || _isVirtualKeyboard || _isSteamGridApiKeyDialog || (_activeControl != null && _activeControl.IsEditing);
 
         public bool IsExitDialogOpen => _isExitDialog;
 
         public bool IsMessageDialogOpen => _isMessageDialog;
 
         public bool IsVirtualKeyboardOpen => _isVirtualKeyboard;
+
+        public bool IsSteamGridApiKeyDialogOpen => _isSteamGridApiKeyDialog;
 
         public void ShowOverlay(INavigableControl control, Form parent)
         {
@@ -562,6 +571,136 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _keyboardControl.ProcessGamepad(state, nowMs);
         }
 
+        public void ShowSteamGridApiKeyDialog(
+            Form parent,
+            string initialKey,
+            Action<string> onConfirmed,
+            Action onCancel = null,
+            Engine.Services.SteamGridDbService service = null)
+        {
+            if (parent == null) return;
+
+            _isExitDialog = false;
+            _isMessageDialog = false;
+            _isVirtualKeyboard = false;
+            _isSteamGridApiKeyDialog = true;
+            _onApiKeyConfirm = onConfirmed;
+            _onApiKeyCancel = onCancel;
+
+            Bounds = new Rectangle(0, 0, parent.ClientSize.Width, parent.ClientSize.Height);
+
+            if (service != null)
+            {
+                _steamGridService = service;
+            }
+
+            if (_apiKeyDialogControl == null)
+            {
+                _apiKeyDialogControl = new SteamGridApiKeyDialogControl(_steamGridService);
+                _apiKeyDialogControl.Visible = false;
+                Controls.Add(_apiKeyDialogControl);
+            }
+
+            UpdateApiKeyDialogBounds(parent.ClientSize);
+            _apiKeyDialogControl.SetInitialKey(initialKey);
+
+            _apiKeyDialogControl.KeyConfirmed -= OnApiKeyConfirmed;
+            _apiKeyDialogControl.Cancelled -= OnApiKeyCancelled;
+            _apiKeyDialogControl.RequestVirtualKeyboard -= OnApiKeyRequestVirtualKeyboard;
+
+            _apiKeyDialogControl.KeyConfirmed += OnApiKeyConfirmed;
+            _apiKeyDialogControl.Cancelled += OnApiKeyCancelled;
+            _apiKeyDialogControl.RequestVirtualKeyboard += OnApiKeyRequestVirtualKeyboard;
+
+            _apiKeyDialogControl.Visible = true;
+            _apiKeyDialogControl.BringToFront();
+
+            _snapshot?.Dispose();
+            _snapshot = null;
+            RefreshLiveBackground(parent);
+
+            BringToFront();
+            Visible = true;
+            Invalidate();
+        }
+
+        private void UpdateApiKeyDialogBounds(Size parentSize)
+        {
+            if (_apiKeyDialogControl == null) return;
+
+            int cardW = Math.Min(580, parentSize.Width - 32);
+            int cardH = Math.Min(380, parentSize.Height - 32);
+            int cardX = (parentSize.Width - cardW) / 2;
+            int cardY = (parentSize.Height - cardH) / 2;
+
+            _apiKeyDialogControl.SetBounds(cardX, cardY, cardW, cardH);
+        }
+
+        private void OnApiKeyConfirmed(string key)
+        {
+            var conf = _onApiKeyConfirm;
+            CloseSteamGridApiKeyDialog();
+            conf?.Invoke(key);
+        }
+
+        private void OnApiKeyCancelled()
+        {
+            var canc = _onApiKeyCancel;
+            CloseSteamGridApiKeyDialog();
+            canc?.Invoke();
+        }
+
+        private void OnApiKeyRequestVirtualKeyboard(string currentText, Action<string> onDone)
+        {
+            if (Parent is Form parentForm)
+            {
+                if (_apiKeyDialogControl != null)
+                {
+                    _apiKeyDialogControl.Visible = false;
+                }
+
+                ShowVirtualKeyboard(
+                    parentForm,
+                    "Chave de API do SteamGridDB",
+                    currentText,
+                    newKey =>
+                    {
+                        onDone(newKey);
+                        ShowSteamGridApiKeyDialog(parentForm, newKey, _onApiKeyConfirm, _onApiKeyCancel, _steamGridService);
+                    },
+                    onCancel: () =>
+                    {
+                        ShowSteamGridApiKeyDialog(parentForm, currentText, _onApiKeyConfirm, _onApiKeyCancel, _steamGridService);
+                    }
+                );
+            }
+        }
+
+        public void CloseSteamGridApiKeyDialog()
+        {
+            _isSteamGridApiKeyDialog = false;
+            if (_apiKeyDialogControl != null)
+            {
+                _apiKeyDialogControl.Visible = false;
+                _apiKeyDialogControl.KeyConfirmed -= OnApiKeyConfirmed;
+                _apiKeyDialogControl.Cancelled -= OnApiKeyCancelled;
+                _apiKeyDialogControl.RequestVirtualKeyboard -= OnApiKeyRequestVirtualKeyboard;
+            }
+            _onApiKeyConfirm = null;
+            _onApiKeyCancel = null;
+
+            Visible = false;
+            _snapshot?.Dispose();
+            _snapshot = null;
+            Parent?.Invalidate(true);
+        }
+
+        public void ProcessSteamGridApiKeyGamepad(GamepadState state, long nowMs)
+        {
+            if (!state.IsConnected || !_isSteamGridApiKeyDialog || _apiKeyDialogControl == null) return;
+            _apiKeyDialogControl.ProcessGamepad(state, nowMs);
+        }
+
         public void HideOverlay()
         {
             if (_activeControl != null)
@@ -573,6 +712,11 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             if (_isVirtualKeyboard)
             {
                 CloseVirtualKeyboard();
+            }
+
+            if (_isSteamGridApiKeyDialog)
+            {
+                CloseSteamGridApiKeyDialog();
             }
 
             _isExitDialog = false;
@@ -653,6 +797,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             if (_isVirtualKeyboard && Parent != null)
             {
                 UpdateKeyboardBounds(Parent.ClientSize);
+            }
+            if (_isSteamGridApiKeyDialog && Parent != null)
+            {
+                UpdateApiKeyDialogBounds(Parent.ClientSize);
             }
         }
 

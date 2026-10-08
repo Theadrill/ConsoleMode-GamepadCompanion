@@ -167,6 +167,27 @@ namespace ConsoleMode.GamepadCompanion.Engine.Services
             return destinationPath;
         }
 
+        /// <summary>
+        /// Baixa os bytes brutos de uma URL (ex: miniatura de capa).
+        /// </summary>
+        public async Task<byte[]> GetByteArrayAsync(string imageUrl)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl))
+                return null;
+
+            using (var request = new HttpRequestMessage(HttpMethod.Get, imageUrl))
+            {
+                request.Headers.UserAgent.ParseAdd(UserAgent);
+                using (var response = await _client.SendAsync(request).ConfigureAwait(false))
+                {
+                    if (!response.IsSuccessStatusCode)
+                        return null;
+
+                    return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                }
+            }
+        }
+
         private static void ConfigureRequestHeaders(HttpRequestMessage request, string apiKey)
         {
             request.Headers.UserAgent.ParseAdd(UserAgent);

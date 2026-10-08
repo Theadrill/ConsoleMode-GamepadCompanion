@@ -67,9 +67,21 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 if (_isFocusedCard != value)
                 {
                     _isFocusedCard = value;
+                    if (!value)
+                    {
+                        _isMouseHovered = false;
+                        _hoveredButton = CardHoveredButton.None;
+                    }
                     Invalidate();
                 }
             }
+        }
+
+        public void ClearMouseHover()
+        {
+            _isMouseHovered = false;
+            _hoveredButton = CardHoveredButton.None;
+            Invalidate();
         }
 
         internal void SimulateMouseClick(MouseButtons button, int x, int y)
@@ -129,8 +141,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 PaintGameCard(g, bounds);
             }
 
-            // Borda do card (destaca com foco gamepad OU hover do mouse)
-            bool isHighlighted = _isFocusedCard || _isMouseHovered;
+            // Borda do card (destaca estritamente com foco ativo do card)
+            bool isHighlighted = _isFocusedCard;
             int borderWidth = isHighlighted ? 3 : 1;
             Color borderColor = isHighlighted ? BorderFocused : BorderDefault;
             using (var borderPen = new Pen(borderColor, borderWidth))
@@ -209,8 +221,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 g.DrawString(_game.Name, titleFont, titleBrush, new RectangleF(6, Height - 28, Width - 12, 22), sf);
             }
 
-            // Overlays de ação caso esteja focado com gamepad OU com mouse em cima
-            if (_isFocusedCard || _isMouseHovered)
+            // Overlays de ação caso esteja focado
+            if (_isFocusedCard)
             {
                 // Película escura sutil
                 using (var overlayBrush = new SolidBrush(Color.FromArgb(140, 10, 12, 16)))
@@ -219,10 +231,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 }
 
                 // Badge [A] INICIAR
-                DrawBadge(g, Strings.ActionLaunch, BadgeLaunchBg, (Height / 2) - 24, _hoveredButton == CardHoveredButton.Launch);
+                DrawBadge(g, Strings.ActionLaunch, BadgeLaunchBg, (Height / 2) - 24, _isMouseHovered && _hoveredButton == CardHoveredButton.Launch);
 
                 // Badge [Y] CONFIGURAR
-                DrawBadge(g, Strings.ActionConfigure, BadgeConfigBg, (Height / 2) + 6, _hoveredButton == CardHoveredButton.Configure);
+                DrawBadge(g, Strings.ActionConfigure, BadgeConfigBg, (Height / 2) + 6, _isMouseHovered && _hoveredButton == CardHoveredButton.Configure);
             }
         }
 
@@ -234,7 +246,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 g.FillRectangle(bgBrush, bounds);
             }
 
-            bool isHighlighted = _isFocusedCard || _isMouseHovered;
+            bool isHighlighted = _isFocusedCard;
 
             // Sinal [+] estilizado no centro
             using (var plusFont = new Font("Segoe UI", 36f, FontStyle.Bold))
@@ -252,10 +264,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 g.DrawString(Strings.AddGameTitle, font, brush, new RectangleF(6, 100, Width - 12, 24), sf);
             }
 
-            // Overlay de ação ao focar ou hover
+            // Overlay de ação ao focar
             if (isHighlighted)
             {
-                DrawBadge(g, Strings.ActionAdd, BadgeAddBg, Height - 48, _hoveredButton == CardHoveredButton.Add);
+                DrawBadge(g, Strings.ActionAdd, BadgeAddBg, Height - 48, _isMouseHovered && _hoveredButton == CardHoveredButton.Add);
             }
         }
 
@@ -303,6 +315,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
+            if (!_isFocusedCard) return;
+
+            _isMouseHovered = true;
             CardHoveredButton newHover = CardHoveredButton.None;
 
             if (IsAddSlot)
