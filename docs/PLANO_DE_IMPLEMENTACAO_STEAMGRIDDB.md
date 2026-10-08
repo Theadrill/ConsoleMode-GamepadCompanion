@@ -1,31 +1,32 @@
 # Plano de Implementação — Integração SteamGridDB (Capas Automáticas)
 
-> **Documento de Arquitetura Técnica & Fases de Implementação (Modo Plano)**  
+> **Documento de Arquitetura Técnica, UX e Roteiro de Validação Interativa**  
 > Integração completa com o serviço [SteamGridDB](https://www.steamgriddb.com) para pesquisa, seleção em 2 etapas (Lista de Jogos ➔ Grade de Artes) e download de capas verticais estilo console diretamente na interface Couch Gaming do ConsoleMode-GamepadCompanion.
 
 ---
 
 ## 1. Visão Geral da Experiência do Usuário (UX) & Reuso de Código
 
-O usuário poderá buscar e aplicar qualquer capa do SteamGridDB sem sair do aplicativo, utilizando apenas o controle ou o mouse.
+O usuário poderá buscar e aplicar qualquer capa do SteamGridDB sem sair do sofá, utilizando exclusivamente o controle ou o mouse.
 
-### Princípios Chave de Arquitetura:
-1. **Regra de Ouro do Reuso:** Qualquer componente ou rotina que possa ser reutilizada **SERÁ** reutilizada (ex: o mesmo modal de chave de API é reutilizado na primeira configuração e no botão "Trocar Chave API").
-2. **Desempenho Instantâneo:** A **Tela 1** é uma **Lista Vertical de Jogos** (resposta em <100ms em 1 única requisição leve). Evita 10 requisições simultâneas e riscos de rate-limit.
-3. **Compatibilidade GDI+ (.NET 4.8):** A API busca estritamente formatos nativos compatíveis (`mimes=image/png,image/jpeg`), dispensando DLLs externas de terceiros como WebP nativo.
-4. **Validação Ativa de Chave:** A chave colada/digitada é testada em tempo real com status visual (🟡 Checando ➔ 🟢 Válida / 🔴 Inválida). Se inválida, **não salva**.
+### Princípios Chave de Arquitetura & UX:
+1. **Fase 100% Interativa e Visual:** Nenhuma fase fragmentada sem resultado visível. O usuário deve ser capaz de abrir o app, clicar, testar no controle e validar na tela.
+2. **Regra de Ouro do Reuso:** O mesmo modal de chave de API (`SteamGridApiKeyDialog`) é reutilizado na primeira configuração e no botão *"🔑 Trocar Chave API"*.
+3. **Desempenho Instantâneo:** A **Tela 1** é uma **Lista Vertical de Jogos** (resposta em <100ms em 1 única requisição leve). Evita lentidão e riscos de rate-limit.
+4. **Compatibilidade GDI+ (.NET 4.8):** A API busca estritamente formatos nativos compatíveis (`mimes=image/png,image/jpeg`), garantindo estabilidade nativa no Windows Forms sem bibliotecas C++ externas para WebP.
+5. **Validação Ativa de Chave:** A chave colada ou digitada é testada em tempo real com status visual (🟡 Checando ➔ 🟢 Válida / 🔴 Inválida). Se inválida, **não salva**.
 
 ### Fluxo de Navegação em 2 Etapas:
 ```mermaid
 flowchart TD
-    A["GameConfigPanel\n(Linha da Capa Redesenhada)"] -->|Clica [SteamGridDB]| B{"Possui Chave Válida\nno settings.ini?"}
+    A["GameConfigPanel\n(Linha da Capa Redesenhada)"] -->|Clica [SteamGridDB]| B{"Possui Chave Válida\nno config.ini?"}
     B -->|Não| C["Modal Reutilizável de Chave de API\n(Validação em tempo real: 🟡 ➔ 🟢/🔴)"]
     C -->|Salva apenas se Válida| D["Modal de Termo de Busca\n(Nome do Jogo + Botão Trocar Chave)"]
     B -->|Sim| D
     D -->|Clica [Trocar Chave]| C
     D -->|Confirma Busca| E["Tela 1: Lista de Jogos Encontrados\n(Lista Vertical Instantânea <100ms)"]
     E -->|Pressiona B ou Voltar| A
-    E -->|Seleciona Jogo (A ou 1 clique)| F["Tela 2: Grade de Artes do Jogo\n(Capas Verticais 600x900 PNG/JPG)"]
+    E -->|Seleciona Jogo (A ou 1 clique)| F["Tela 2: Grade de Artes do Jogo\n(Capas Verticais 600x900 PNG/JPEG)"]
     F -->|Pressiona B ou Voltar| E
     F -->|Seleciona Capa (A ou 1 clique)| G["Download em Alta Resolução\n(Salva em covers/ e aplica no formulário)"]
     G --> A
@@ -33,32 +34,32 @@ flowchart TD
 
 ---
 
-## 2. Detalhamento das Telas e Interações
+## 2. Detalhamento dos Componentes de Interface (UI)
 
 ### 2.1. Redesenho da Linha de Capa no `GameConfigPanel`
-- **Campo de Texto (`_txtCoverPath`):** Largura ajustada para **240px**.
-- **Botão `[Procurar...]` (`_btnBrowseCover`):** Largura de ~80px para seleção de arquivos locais no Windows.
-- **Novo Botão `[SteamGridDB]` (`_btnSteamGridDb`):** Largura de ~110px com destaque visual (azul ciano com borda brilhante e suporte a gamepad).
+- **Campo de Texto (`_txtCoverPath`):** Largura ajustada para **230px**.
+- **Botão `[Procurar...]` (`_btnBrowseCover`):** Largura de ~84px para seleção de arquivos locais no Windows.
+- **Novo Botão `[SteamGridDB]` (`_btnSteamGridDb`):** Largura de ~110px com destaque visual (fundo turquesa/ciano com borda suave, ícone/texto claro e suporte a gamepad).
 - **Navegação Gamepad:** A linha possui 3 colunas focáveis no `_navGrid`: `[Input Capa] ➔ [Procurar...] ➔ [SteamGridDB]`.
 
 ---
 
 ### 2.2. Modal Reutilizável de Chave de API (`SteamGridApiKeyDialog`)
-Componente **100% reutilizável** utilizado tanto no primeiro acesso quanto no botão *"Trocar Chave API"*.
+Componente reutilizável utilizado tanto no primeiro acesso quanto no botão *"🔑 Trocar Chave API"*.
 - **Estrutura Visual:**
   - **Título:** *"Configurar SteamGridDB"*
   - **Passo a passo resumido:**
-    1. Clique em **`[Obter Chave no SteamGridDB]`** (abre o navegador).
-    2. Faça login (Steam/Discord) e em *API Preferences* clique em *Generate API Key*.
+    1. Clique em **`[Obter Chave no SteamGridDB]`** (abre a página oficial no navegador).
+    2. Faça login (Steam ou Discord) e em *API Preferences* clique em *Generate API Key*.
     3. Copie a chave gerada e clique em **`[Colar]`** abaixo.
   - **Botão de Ação Externa:** `[Obter Chave no SteamGridDB]` (executa `Process.Start` para `https://www.steamgriddb.com/profile/preferences/api`).
   - **Campo de Entrada com Teclado Virtual Couch Gaming:**
-    - Botão rápido de `[Colar]` da área de transferência.
-    - Se o modal for aberto para "Trocar Chave", o campo já vem preenchido com a chave atual mascarada/visível.
+    - Botão rápido de `[Colar]` da área de transferência (1 clique no mouse ou atalho no controle).
+    - Se aberto via "Trocar Chave", já traz a chave atual preenchida.
 - **Validação em Tempo Real (Feedback Imediato):**
   - Ao colar ou digitar e confirmar:
-    - 🟡 **Checando...:** Borda amarela pulsante, faz requisição de teste assíncrona (`GET /api/v2/games/id/1` com header `Bearer <chave>`).
-    - 🟢 **Chave Válida!:** Borda verde neon, salva automaticamente no `settings.ini` na seção `[SteamGridDB]` `ApiKey=<chave>` e fecha o modal avançando o fluxo.
+    - 🟡 **Checando...:** Borda amarela pulsante, executa `ValidateApiKeyAsync`.
+    - 🟢 **Chave Válida!:** Borda verde neon, salva automaticamente no `config.ini` na seção `[SteamGridDB]` `ApiKey=<chave>` e avança o fluxo.
     - 🔴 **Chave Inválida!:** Borda vermelha com mensagem *"Chave incorreta ou expirada. Verifique e tente colar novamente."*. **Não salva** no arquivo de configurações e mantém o foco no botão de colar.
 
 ---
@@ -74,16 +75,12 @@ Componente **100% reutilizável** utilizado tanto no primeiro acesso quanto no b
 ---
 
 ### 2.4. Tela 1 — Lista Vertical de Jogos Encontrados
-- **Vantagem de Performance:** Carregamento ultra-rápido (<100ms) sem gastar 10 requisições simultâneas para puxar imagens preliminares.
+- **Vantagem de Performance:** Carregamento ultra-rápido (<100ms) sem gastar requisições para puxar imagens preliminares.
 - **Cabeçalho:**
   - Título: *"Jogos Encontrados para: [Termo]"*
   - Legenda: `[A] Escolher Jogo   [X] Nova Pesquisa   [B] Voltar`
 - **Conteúdo (Lista Vertical Estilo Console):**
   - Itens em lista vertical estilizada com badge de plataforma e título completo retornado por `/search/autocomplete/{termo}`.
-  - Exemplo:
-    - `[1] World of Warcraft`
-    - `[2] World of Warcraft: Classic`
-    - `[3] World of Warcraft: Wrath of the Lich King`
   - Suporte completo a navegação vertical com D-Pad/Analógico (Gamepad) e clique único/hover (Mouse).
 - **Ações:**
   - `B` no controle ou botão Voltar: retorna ao `GameConfigPanel`.
@@ -111,42 +108,53 @@ Componente **100% reutilizável** utilizado tanto no primeiro acesso quanto no b
 
 ---
 
-## 3. Arquitetura Técnica & Componentes
+## 3. Roteiro de Validação Interativa (Como o Usuário Valida no App)
 
-### 3.1. Cliente HTTP & Serviço (`SteamGridDbService`)
-Local: `src/ConsoleMode.GamepadCompanion/Engine/Services/SteamGridDbService.cs`
-- Utiliza `HttpClient` singleton resiliente.
-- **Métodos:**
-  - `ValidateApiKeyAsync(string apiKey)`: testa a chave contra a API e retorna `bool` (usado no feedback 🟡/🟢/🔴).
-  - `SearchGamesAsync(string term, string apiKey)`: consome `/api/v2/search/autocomplete/{term}`.
-  - `GetGameGridsAsync(int gameId, string apiKey)`: consome `/api/v2/grids/game/{gameId}?dimensions=600x900&mimes=image/png,image/jpeg&types=static`.
-  - `DownloadCoverAsync(string imageUrl, string destinationPath)`: faz download em stream e valida que o arquivo foi gravado corretamente.
+Quando a entrega for concluída, o usuário poderá validar cada detalhe diretamente na tela através dos seguintes passos:
 
-### 3.2. Modelos de Dados (`SteamGridModels.cs`)
-Local: `src/ConsoleMode.GamepadCompanion/Core/Models/SteamGridModels.cs`
-- DTOs serializáveis leves para o JSON da v2: `SteamGridSearchItem`, `SteamGridAssetItem`, `SteamGridResponse<T>`.
+### Teste 1: Linha de Capa & Primeiro Acesso (Chave de API)
+1. Inicie o app e navegue até a **Biblioteca de Jogos**.
+2. Clique com o botão direito ou no botão **`[Y] Configurar`** de qualquer jogo.
+3. Observe a linha da Capa: o campo está menor, ao lado do botão `[Procurar...]` agora existe o botão **`[SteamGridDB]`**.
+4. Clique no botão **`[SteamGridDB]`** (com o mouse ou com `A` no controle).
+5. Como ainda não há chave salva, o modal **"Configurar SteamGridDB"** abre na tela.
+6. Clique no botão **`[Obter Chave no SteamGridDB]`**: o navegador deve abrir na página da API do SteamGridDB.
+7. Digite uma chave falsa ou aleatória e confirme: o sistema exibirá **🟡 Checando...** e em seguida a borda fica **🔴 Vermelha ("Chave inválida!")** sem salvar.
+8. Cole a chave correta da sua conta e confirme: o sistema exibirá **🟢 Chave válida!** e avançará automaticamente.
 
-### 3.3. Telas e Controles UI
-1. `SteamGridApiKeyDialog.cs`: Diálogo couch com teclado virtual, botão de link externo, botão de colar e verificação em tempo real (Reutilizável para configuração e troca).
-2. `SteamGridDbBrowserControl.cs`: Controle de navegação em duas etapas:
-   - Estado `GameList`: lista vertical dos títulos encontrados.
-   - Estado `CoverGrid`: grade de cards das capas verticais 600x900.
+### Teste 2: Pesquisa de Jogo & Troca de Chave
+1. O modal de busca abre com o nome do jogo atual já preenchido.
+2. Note o botão **`[🔑 Trocar Chave API]`**: clicando nele, o modal anterior reabre com a sua chave já preenchida para edição.
+3. Pressione `Enter` ou confirme com `A`/`RT` no controle para pesquisar.
+
+### Teste 3: Tela 1 (Lista de Jogos Encontrados)
+1. Em menos de 1 segundo, a **Tela 1** exibe a lista vertical dos jogos encontrados com títulos e plataformas.
+2. Navegue com o D-Pad para cima e para baixo (ou mova o mouse para destacar com hover).
+3. Pressione `B` (ou clique em Voltar): volta para a configuração do jogo.
+4. Pressione `[SteamGridDB]` novamente e selecione um jogo pressionando `A` (ou 1 clique com o mouse).
+
+### Teste 4: Tela 2 (Grade de Capas) & Download
+1. A **Tela 2** abre exibindo os cards das capas verticais 600x900 disponíveis para o título.
+2. Navegue entre as capas com o D-Pad ou mouse.
+3. Pressione `B`: retorna à Tela 1 (lista de jogos).
+4. Escolha uma capa e pressione `A` (ou 1 clique com o mouse):
+   - O app baixa a capa em alta resolução para a pasta local `covers/`.
+   - O campo de caminho da capa no formulário é atualizado.
+   - A prévia da capa é atualizada na tela do jogo.
+   - Pressione Salvar e veja o card do jogo na biblioteca com a nova capa oficial!
 
 ---
 
-## 4. Fases Agrupadas & Testáveis de Implementação
+## 4. Marco de Entrega Consolidado
 
-Para manter o desenvolvimento coeso, ágil e livre de micro-passos fragmentados, o projeto é estruturado em **2 grandes marcos testáveis**:
-
-| Marco / Fase | Escopo Completo | Critério de Aceite & Verificação |
+| Marco | Conteúdo Completo | Verificação Automática + Manual |
 | :--- | :--- | :--- |
-| **Fase 1: Engine, Serviço HTTP & Testes de Integração** | - Criação dos modelos de dados DTO (`SteamGridModels.cs`).<br>- Implementação completa do serviço `SteamGridDbService` (`HttpClient`, autenticação Bearer, validação de chave em tempo real `ValidateApiKeyAsync`, busca de jogos `SearchGamesAsync`, consulta de capas verticais com filtro PNG/JPEG `GetGameGridsAsync`, e download em stream para disco `DownloadCoverAsync`).<br>- Suíte de testes unitários automatizados cobrindo todos os cenários (HTTP 200, 401 chave inválida, lista vazia, deserialização JSON e download). | `dotnet test` executando com **100% de sucesso** em todos os cenários de rede/API sem warnings nem erros. |
-| **Fase 2: Interface Couch Gaming Completa (UI, Navegação Dual & Integração)** | - Redesenho da linha de capa no `GameConfigPanel` (`_txtCoverPath` 240px, `_btnBrowseCover` e `_btnSteamGridDb`) com navegação de controle integrada ao `_navGrid`.<br>- Modal reutilizável de Chave de API (`SteamGridApiKeyDialog`): botão para abrir navegador oficial, colar com 1 clique, validação visual ativa (🟡 Checando ➔ 🟢 Válida / 🔴 Inválida) e persistência no `settings.ini`.<br>- Diálogo de busca de jogo com atalho `[Trocar Chave API]`.<br>- Navegação visual em 2 etapas (`SteamGridDbBrowserControl`):<br>&nbsp;&nbsp;• **Tela 1:** Lista vertical instantânea dos jogos encontrados.<br>&nbsp;&nbsp;• **Tela 2:** Grade de capas 600x900 em alta resolução.<br>- Download automático para a pasta `covers/` e aplicação instantânea no formulário. | Teste visual ponta a ponta no app: fluxo completo funcionando tanto via Gamepad quanto via Mouse com feedback em tempo real. |
+| **Entrega Completa: SteamGridDB Couch Gaming** | - DTOs e `SteamGridDbService` (validação de chave, busca, consulta com filtro MIME e download stream).<br>- Redesenho da linha da capa no `GameConfigPanel`.<br>- Modal reutilizável de chave (`SteamGridApiKeyDialog`) com feedback em tempo real (🟡/🟢/🔴) e persistência em `config.ini`.<br>- Modal de pesquisa com atalho de troca de chave.<br>- Controle de navegação em 2 etapas (`SteamGridDbBrowserControl`): Lista de Jogos + Grade de Capas 600x900.<br>- Download em disco e integração final no formulário. | - `dotnet test` (97+ testes aprovados).<br>- Validação visual e interativa completa no app conforme o Roteiro da Seção 3. |
 
 ---
 
 ## 5. Regras & Boas Práticas
 - **Zero Warnings / Zero Errors:** Compilação limpa com `TreatWarningsAsErrors=true`.
-- **Encerramento Preventivo:** `Stop-Process -Name ConsoleMode-GamepadCompanion -ErrorAction SilentlyContinue` antes de qualquer compilação/teste.
+- **Encerramento Preventivo:** `Stop-Process -Name ConsoleMode-GamepadCompanion -ErrorAction SilentlyContinue` antes de compilar/testar.
 - **Push apenas sob comando:** Commits atômicos locais; push só com comando explícito.
-- **Suporte 100% Dual:** Todas as interações funcionam perfeitamente no Gamepad e no Mouse.
+- **Suporte 100% Dual:** Todas as interações funcionam identicamente no Gamepad e no Mouse.
