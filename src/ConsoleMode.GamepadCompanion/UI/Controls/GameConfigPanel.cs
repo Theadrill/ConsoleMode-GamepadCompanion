@@ -101,6 +101,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             currentY = AddField(_contentPanel, Strings.GameConfigLauncher, _txtLauncher, currentY);
             currentY = AddField(_contentPanel, Strings.GameConfigExecutable, _txtExecutable, currentY);
             currentY = AddFieldWithBrowse(_contentPanel, Strings.GameConfigTargetPath, _txtTargetPath, _btnBrowseTarget, currentY, BrowseTarget);
+            _txtTargetPath.TextChanged += (s, e) => AutoFillFromTargetPath();
+            _txtTargetPath.Leave += (s, e) => AutoFillFromTargetPath();
             currentY = AddFieldWithBrowse(_contentPanel, Strings.GameConfigWorkingDir, _txtWorkingDir, _btnBrowseWorkingDir, currentY, BrowseFolder);
             currentY = AddField(_contentPanel, Strings.GameConfigArguments, _txtArguments, currentY);
             currentY = AddFieldWithBrowse(_contentPanel, Strings.GameConfigCoverImage, _txtCoverPath, _btnBrowseCover, currentY, BrowseImage);
@@ -304,6 +306,156 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             return null;
         }
 
+        public static string CleanPathQuotes(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+
+            string s = raw.Trim();
+
+            // Se começa com aspas, pega o conteúdo até a aspa de fechamento (ignorando argumentos externos)
+            if (s.StartsWith("\"") && s.Length > 1)
+            {
+                int endQuote = s.IndexOf('"', 1);
+                if (endQuote > 1)
+                {
+                    return s.Substring(1, endQuote - 1).Trim();
+                }
+                return s.Trim('\"', '\'', '`');
+            }
+
+            if (s.StartsWith("'") && s.Length > 1)
+            {
+                int endQuote = s.IndexOf('\'', 1);
+                if (endQuote > 1)
+                {
+                    return s.Substring(1, endQuote - 1).Trim();
+                }
+                return s.Trim('\"', '\'', '`');
+            }
+
+            return s.Trim('\"', '\'', '`');
+        }
+
+        public static string ExtractFileNameSafe(string rawPath)
+        {
+            if (string.IsNullOrWhiteSpace(rawPath)) return string.Empty;
+
+            string clean = CleanPathQuotes(rawPath);
+
+            // Se o caminho contiver executável seguido de parâmetros (ex: "game.exe" -arg ou game.exe -arg)
+            int exeIdx = clean.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
+            if (exeIdx >= 0 && exeIdx + 4 < clean.Length)
+            {
+                if (char.IsWhiteSpace(clean[exeIdx + 4]))
+                {
+                    clean = clean.Substring(0, exeIdx + 4);
+                }
+            }
+
+            try
+            {
+                string fn = Path.GetFileName(clean);
+                if (!string.IsNullOrWhiteSpace(fn))
+                {
+                    return fn;
+                }
+            }
+            catch
+            {
+                // Fallback caso contenha caracteres rejeitados pelo Path.GetFileName do .NET
+            }
+
+            // Fallback manual independente
+            int lastSlash = Math.Max(clean.LastIndexOf('\\'), clean.LastIndexOf('/'));
+            if (lastSlash >= 0 && lastSlash < clean.Length - 1)
+            {
+                clean = clean.Substring(lastSlash + 1);
+            }
+
+            // Remove caracteres inválidos restantes
+            foreach (char c in Path.GetInvalidFileNameChars())
+            {
+                clean = clean.Replace(c.ToString(), string.Empty);
+            }
+
+            return clean.Trim();
+        }
+
+        public static string ExtractNameWithoutExtensionSafe(string rawPath)
+        {
+            string fileName = ExtractFileNameSafe(rawPath);
+            if (string.IsNullOrWhiteSpace(fileName)) return string.Empty;
+
+            try
+            {
+                string name = Path.GetFileNameWithoutExtension(fileName);
+                if (!string.IsNullOrWhiteSpace(name)) return name;
+            }
+            catch
+            {
+            }
+
+            int lastDot = fileName.LastIndexOf('.');
+            if (lastDot > 0)
+            {
+                return fileName.Substring(0, lastDot);
+            }
+
+            return fileName;
+        }
+
+        public static string ExtractDirectorySafe(string rawPath)
+        {
+            if (string.IsNullOrWhiteSpace(rawPath)) return string.Empty;
+            string clean = CleanPathQuotes(rawPath);
+
+            try
+            {
+                string dir = Path.GetDirectoryName(clean);
+                if (!string.IsNullOrEmpty(dir)) return dir;
+            }
+            catch
+            {
+            }
+
+            int lastSlash = Math.Max(clean.LastIndexOf('\\'), clean.LastIndexOf('/'));
+            if (lastSlash > 0)
+            {
+                return clean.Substring(0, lastSlash);
+            }
+
+            return string.Empty;
+        }
+
+        private void AutoFillFromTargetPath()
+        {
+            string target = _txtTargetPath.Text;
+            if (string.IsNullOrWhiteSpace(target)) return;
+
+            string exeName = ExtractFileNameSafe(target);
+            if (!string.IsNullOrWhiteSpace(exeName))
+            {
+                if (string.IsNullOrWhiteSpace(_txtExecutable.Text))
+                {
+                    _txtExecutable.Text = exeName;
+                }
+
+                if (string.IsNullOrWhiteSpace(_txtName.Text))
+                {
+                    _txtName.Text = ExtractNameWithoutExtensionSafe(target);
+                }
+
+                if (string.IsNullOrWhiteSpace(_txtWorkingDir.Text))
+                {
+                    string dir = ExtractDirectorySafe(target);
+                    if (!string.IsNullOrWhiteSpace(dir))
+                    {
+                        _txtWorkingDir.Text = dir;
+                    }
+                }
+            }
+        }
+
         private void BrowseTarget()
         {
             using (var ofd = new OpenFileDialog())
@@ -312,20 +464,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 ofd.Filter = "Executáveis e Atalhos (*.exe;*.lnk;*.bat;*.cmd)|*.exe;*.lnk;*.bat;*.cmd|Todos os Arquivos (*.*)|*.*";
                 if (ofd.ShowDialog(FindForm()) == DialogResult.OK)
                 {
-                    _txtTargetPath.Text = ofd.FileName;
-
-                    string fileName = Path.GetFileName(ofd.FileName);
-                    string nameNoExt = Path.GetFileNameWithoutExtension(ofd.FileName);
-                    string dir = Path.GetDirectoryName(ofd.FileName);
-
-                    if (string.IsNullOrWhiteSpace(_txtName.Text))
-                        _txtName.Text = nameNoExt;
-
-                    if (string.IsNullOrWhiteSpace(_txtExecutable.Text))
-                        _txtExecutable.Text = fileName;
-
-                    if (string.IsNullOrWhiteSpace(_txtWorkingDir.Text))
-                        _txtWorkingDir.Text = dir;
+                    _txtTargetPath.Text = CleanPathQuotes(ofd.FileName);
+                    AutoFillFromTargetPath();
                 }
             }
         }
@@ -335,9 +475,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             using (var fbd = new FolderBrowserDialog())
             {
                 fbd.Description = "Selecionar Diretório de Trabalho do Jogo";
-                if (!string.IsNullOrWhiteSpace(_txtWorkingDir.Text) && Directory.Exists(_txtWorkingDir.Text))
+                string currentDir = CleanPathQuotes(_txtWorkingDir.Text);
+                if (!string.IsNullOrWhiteSpace(currentDir) && Directory.Exists(currentDir))
                 {
-                    fbd.SelectedPath = _txtWorkingDir.Text;
+                    fbd.SelectedPath = currentDir;
                 }
                 if (fbd.ShowDialog(FindForm()) == DialogResult.OK)
                 {
@@ -354,7 +495,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 ofd.Filter = "Imagens (*.png;*.jpg;*.jpeg;*.bmp;*.webp)|*.png;*.jpg;*.jpeg;*.bmp;*.webp|Todos os Arquivos (*.*)|*.*";
                 if (ofd.ShowDialog(FindForm()) == DialogResult.OK)
                 {
-                    _txtCoverPath.Text = ofd.FileName;
+                    _txtCoverPath.Text = CleanPathQuotes(ofd.FileName);
                 }
             }
         }
@@ -362,24 +503,83 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private void OnSaveClicked()
         {
             string name = _txtName.Text.Trim();
-            string target = _txtTargetPath.Text.Trim();
-            string exe = _txtExecutable.Text.Trim();
+            string target = CleanPathQuotes(_txtTargetPath.Text);
+            string exe = CleanPathQuotes(_txtExecutable.Text);
+            string workingDir = CleanPathQuotes(_txtWorkingDir.Text);
+            string launcher = CleanPathQuotes(_txtLauncher.Text);
+            string arguments = _txtArguments.Text.Trim();
+            string cover = CleanPathQuotes(_txtCoverPath.Text);
 
-            if (string.IsNullOrWhiteSpace(name) || (string.IsNullOrWhiteSpace(target) && string.IsNullOrWhiteSpace(exe)))
+            // Auto-preenchimento inteligente se o executável ainda estiver vazio mas o destino foi informado
+            if (string.IsNullOrWhiteSpace(exe) && !string.IsNullOrWhiteSpace(target))
+            {
+                exe = ExtractFileNameSafe(target);
+                if (!string.IsNullOrWhiteSpace(exe))
+                {
+                    _txtExecutable.Text = exe;
+                }
+            }
+
+            // Auto-preenchimento do diretório de trabalho se estiver vazio
+            if (string.IsNullOrWhiteSpace(workingDir) && !string.IsNullOrWhiteSpace(target))
+            {
+                workingDir = ExtractDirectorySafe(target);
+                if (!string.IsNullOrWhiteSpace(workingDir))
+                {
+                    _txtWorkingDir.Text = workingDir;
+                }
+            }
+
+            // Validação 1: Nome do Jogo é obrigatório
+            if (string.IsNullOrWhiteSpace(name))
             {
                 ValidationFailed?.Invoke(Strings.ValidationErrorTitle, Strings.ValidationErrorPrompt);
+                FocusField(_txtName);
+                return;
+            }
+
+            // Validação 2: Destino ou Executável precisa ser informado
+            if (string.IsNullOrWhiteSpace(target) && string.IsNullOrWhiteSpace(exe))
+            {
+                ValidationFailed?.Invoke(Strings.ValidationErrorTitle, Strings.ValidationErrorPrompt);
+                FocusField(_txtTargetPath);
+                return;
+            }
+
+            // Validação 3: Se o executável não pôde ser determinado
+            if (string.IsNullOrWhiteSpace(exe))
+            {
+                ValidationFailed?.Invoke(
+                    Strings.ValidationExeRequiredTitle,
+                    Strings.ValidationExeRequiredPrompt);
+                FocusField(_txtExecutable);
                 return;
             }
 
             _currentGame.Name = name;
-            _currentGame.LauncherName = _txtLauncher.Text.Trim();
-            _currentGame.MainExecutable = string.IsNullOrWhiteSpace(exe) ? Path.GetFileName(target) : exe;
+            _currentGame.LauncherName = launcher;
+            _currentGame.MainExecutable = exe;
             _currentGame.TargetPath = string.IsNullOrWhiteSpace(target) ? exe : target;
-            _currentGame.WorkingDirectory = _txtWorkingDir.Text.Trim();
-            _currentGame.Arguments = _txtArguments.Text.Trim();
-            _currentGame.CoverImagePath = _txtCoverPath.Text.Trim();
+            _currentGame.WorkingDirectory = workingDir;
+            _currentGame.Arguments = arguments;
+            _currentGame.CoverImagePath = cover;
 
             SaveRequested?.Invoke(_currentGame);
+        }
+
+        private void FocusField(Control targetCtrl)
+        {
+            for (int r = 0; r < _navGrid.Count; r++)
+            {
+                int c = _navGrid[r].IndexOf(targetCtrl);
+                if (c >= 0)
+                {
+                    _navRow = r;
+                    _navCol = c;
+                    UpdateFocusVisual();
+                    break;
+                }
+            }
         }
 
         private void OnDeleteClicked()

@@ -66,6 +66,8 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string LaunchErrorPrompt = "Não foi possível iniciar o jogo:\n{0}";
         public const string ValidationErrorTitle = "Dados Incompletos";
         public const string ValidationErrorPrompt = "Por favor, preencha o Nome do Jogo e o Caminho de Destino (ou Executável).";
+        public const string ValidationExeRequiredTitle = "Executável Necessário";
+        public const string ValidationExeRequiredPrompt = "Não foi possível identificar o executável principal do jogo (*.exe).\n\nPor favor, informe o nome do executável (ex: OctoWoW.exe) ou selecione o arquivo em Destino.";
         public const string DefaultGameName = "Turtle WoW";
         public const string DefaultGameExecutable = "WoW.exe";
         public const string DefaultGameTargetPath = "WoW.exe";

@@ -29,26 +29,27 @@ namespace ConsoleMode.GamepadCompanion.Engine
             if (game == null)
                 throw new ArgumentNullException(nameof(game));
 
-            if (string.IsNullOrWhiteSpace(game.TargetPath))
+            string target = game.TargetPath?.Trim().Trim('"', '\'') ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(target))
                 throw new ArgumentException("O caminho de destino (TargetPath) não pode ser vazio.", nameof(game));
 
             // Registra o executável principal para detecção de foco no WindowTracker
             if (!string.IsNullOrWhiteSpace(game.MainExecutable) && _windowTracker != null)
             {
-                _windowTracker.RegisterGameExecutable(game.MainExecutable);
+                _windowTracker.RegisterGameExecutable(game.MainExecutable.Trim().Trim('"', '\''));
             }
 
             if (!string.IsNullOrWhiteSpace(game.LauncherName) && _windowTracker != null)
             {
-                _windowTracker.RegisterGameExecutable(game.LauncherName);
+                _windowTracker.RegisterGameExecutable(game.LauncherName.Trim().Trim('"', '\''));
             }
 
-            string workingDir = game.WorkingDirectory;
+            string workingDir = game.WorkingDirectory?.Trim().Trim('"', '\'');
             if (string.IsNullOrWhiteSpace(workingDir))
             {
                 try
                 {
-                    string dir = Path.GetDirectoryName(game.TargetPath);
+                    string dir = Path.GetDirectoryName(target);
                     if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
                     {
                         workingDir = dir;
@@ -62,7 +63,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
             var startInfo = new ProcessStartInfo
             {
-                FileName = game.TargetPath,
+                FileName = target,
                 Arguments = game.Arguments ?? string.Empty,
                 WorkingDirectory = workingDir ?? string.Empty,
                 UseShellExecute = true

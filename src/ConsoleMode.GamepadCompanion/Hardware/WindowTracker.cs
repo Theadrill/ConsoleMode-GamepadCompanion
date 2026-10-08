@@ -33,7 +33,20 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         public void RegisterGameExecutable(string executableName)
         {
             if (string.IsNullOrWhiteSpace(executableName)) return;
-            string cleanName = Path.GetFileNameWithoutExtension(executableName.Trim());
+            string clean = executableName.Trim().Trim('"', '\'');
+            string cleanName = string.Empty;
+            try
+            {
+                cleanName = Path.GetFileNameWithoutExtension(clean);
+            }
+            catch
+            {
+                int lastSlash = Math.Max(clean.LastIndexOf('\\'), clean.LastIndexOf('/'));
+                cleanName = lastSlash >= 0 ? clean.Substring(lastSlash + 1) : clean;
+                int dot = cleanName.LastIndexOf('.');
+                if (dot > 0) cleanName = cleanName.Substring(0, dot);
+            }
+
             if (!string.IsNullOrEmpty(cleanName))
             {
                 lock (_customGameExecutables)

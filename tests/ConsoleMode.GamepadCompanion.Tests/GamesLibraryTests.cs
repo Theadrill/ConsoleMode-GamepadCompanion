@@ -557,6 +557,70 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Same(game, configured);
         }
 
+        [Theory]
+        [InlineData("\"C:\\Games\\OctoWoW\\OctoWoW.exe\"", "OctoWoW.exe", "OctoWoW")]
+        [InlineData("C:/Games/OctoWoW/OctoWoW.exe", "OctoWoW.exe", "OctoWoW")]
+        [InlineData("\"C:\\Games\\OctoWoW\\OctoWoW.exe\" -console", "OctoWoW.exe", "OctoWoW")]
+        [InlineData("game.exe", "game.exe", "game")]
+        [InlineData("\"D:\\Program Files (x86)\\Game\\Launcher.bat\"", "Launcher.bat", "Launcher")]
+        public void GameConfigPanel_PathHelpers_SafelyExtractFileAndName(string rawPath, string expectedFile, string expectedName)
+        {
+            string file = ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel.ExtractFileNameSafe(rawPath);
+            string name = ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel.ExtractNameWithoutExtensionSafe(rawPath);
+
+            Assert.Equal(expectedFile, file);
+            Assert.Equal(expectedName, name);
+        }
+
+        [Fact]
+        public void GameConfigPanel_AutoFillsExecutableFromTargetPath_OnSave()
+        {
+            using var panel = new ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel();
+            panel.EditGame(null); // Novo jogo
+
+            // Acessa via reflection os campos de texto para simular digitação
+            var txtName = (TextBox)typeof(ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel)
+                .GetField("_txtName", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(panel);
+            var txtTarget = (TextBox)typeof(ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel)
+                .GetField("_txtTargetPath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(panel);
+            var txtExe = (TextBox)typeof(ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel)
+                .GetField("_txtExecutable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(panel);
+
+            txtName.Text = "OctoWoW";
+            txtTarget.Text = "\"C:\\Jogos\\OctoWoW\\OctoWoW.exe\"";
+            txtExe.Text = string.Empty; // Deixa o executável vazio!
+
+            GameEntry saved = null;
+            panel.SaveRequested += g => saved = g;
+
+            // Invoca OnSaveClicked via reflection
+            var onSaveMethod = typeof(ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel)
+                .GetMethod("OnSaveClicked", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            onSaveMethod.Invoke(panel, null);
+
+            Assert.NotNull(saved);
+            Assert.Equal("OctoWoW", saved.Name);
+            Assert.Equal("OctoWoW.exe", saved.MainExecutable);
+            Assert.Equal("C:\\Jogos\\OctoWoW\\OctoWoW.exe", saved.TargetPath);
+            Assert.Equal("C:\\Jogos\\OctoWoW", saved.WorkingDirectory);
+        }
+
+        [Fact]
+        public void GameConfigPanel_ValidationFailed_WhenMissingRequiredFields()
+        {
+            using var panel = new ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel();
+            panel.EditGame(null);
+
+            bool validationFired = false;
+            panel.ValidationFailed += (title, msg) => validationFired = true;
+
+            var onSaveMethod = typeof(ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel)
+                .GetMethod("OnSaveClicked", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            onSaveMethod.Invoke(panel, null);
+
+            Assert.True(validationFired);
+        }
+
         private sealed class MockWindowTracker : IWindowTracker
         {
             public System.Collections.Generic.List<string> RegisteredExecutables = new System.Collections.Generic.List<string>();
