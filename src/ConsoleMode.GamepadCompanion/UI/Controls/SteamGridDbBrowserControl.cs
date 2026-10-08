@@ -60,6 +60,15 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private const int CoverCardHeight = 210;
         private const int CoverCardMargin = 16;
 
+        // Scroll determinístico sem dependência de WinForms AutoScroll
+        private int _scrollY;
+
+        // Hold to Scroll / Gamepad Repeat
+        private long _lastDirectionTime;
+        private int _repeatCount;
+        private const long InitialRepeatDelayMs = 240;
+        private const long RepeatIntervalMs = 85;
+
         // Debounce Gamepad
         private bool _lastUp;
         private bool _lastDown;
@@ -95,7 +104,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         public SteamGridBrowserMode CurrentMode => _mode;
         public int FocusedGameIndex => _focusedGameIndex;
         public int FocusedCoverIndex => _focusedCoverIndex;
-        public int ContentScrollY => _contentPanel.VerticalScroll.Value;
+        public int ContentScrollY => _scrollY;
 
         private void BuildLayout()
         {
@@ -136,21 +145,24 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             // Painel de Conteúdo
             _contentPanel.Dock = DockStyle.Fill;
-            _contentPanel.AutoScroll = true;
+            _contentPanel.AutoScroll = false;
             _contentPanel.BackColor = BgColor;
             _contentPanel.Paint += (s, e) => OnContentPaint(e);
             _contentPanel.MouseDown += (s, e) => OnContentMouseDown(e);
             _contentPanel.MouseMove += (s, e) => OnContentMouseMove(e);
             _contentPanel.Resize += (s, e) =>
             {
-                UpdateScrollSize();
+                ClampScroll();
                 _contentPanel.Invalidate();
             };
-            _contentPanel.Scroll += (s, e) => _contentPanel.Invalidate();
-            _contentPanel.MouseWheel += (s, e) => _contentPanel.Invalidate();
+            _contentPanel.MouseWheel += (s, e) =>
+            {
+                int delta = -(e.Delta / 120) * 80;
+                SetScrollY(_scrollY + delta);
+            };
 
-            Controls.Add(_contentPanel);
             Controls.Add(_headerPanel);
+            Controls.Add(_contentPanel);
         }
 
         private void RunOnUi(Action action)
@@ -171,14 +183,13 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _apiKey = apiKey;
             _mode = SteamGridBrowserMode.GameList;
             _focusedGameIndex = 0;
+            _scrollY = 0;
             _games.Clear();
             _covers.Clear();
             ClearThumbnailCache();
-            _contentPanel.AutoScrollPosition = new Point(0, 0);
 
             _isLoading = true;
             ShowStatusMessage("Buscando jogos no SteamGridDB...");
-            UpdateScrollSize();
             UpdateHeader();
 
             var results = await _service.SearchGamesAsync(_currentSearchTerm, _apiKey).ConfigureAwait(false);
@@ -201,7 +212,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     HideStatusMessage();
                 }
 
-                UpdateScrollSize();
+                ClampScroll();
                 UpdateHeader();
             });
         }
@@ -213,13 +224,12 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _selectedGame = game;
             _mode = SteamGridBrowserMode.CoverGallery;
             _focusedCoverIndex = 0;
+            _scrollY = 0;
             _covers.Clear();
             ClearThumbnailCache();
-            _contentPanel.AutoScrollPosition = new Point(0, 0);
 
             _isLoading = true;
             ShowStatusMessage($"Buscando capas verticais para '{game.name}'...");
-            UpdateScrollSize();
             UpdateHeader();
 
             var assets = await _service.GetGameGridsAsync(game.id, _apiKey).ConfigureAwait(false);
@@ -243,7 +253,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     _ = LoadThumbnailsAsync();
                 }
 
-                UpdateScrollSize();
+                ClampScroll();
                 UpdateHeader();
             });
         }
@@ -317,19 +327,41 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
         }
 
-        private void UpdateScrollSize()
+        private int GetTotalContentHeight()
         {
             if (_mode == SteamGridBrowserMode.GameList)
             {
-                int totalH = 16 + _games.Count * (56 + 8) + 16;
-                _contentPanel.AutoScrollMinSize = new Size(0, totalH);
+                return 16 + _games.Count * (56 + 8) + 16;
             }
             else
             {
                 int columns = Math.Max(1, (_contentPanel.ClientSize.Width - 40) / (CoverCardWidth + CoverCardMargin));
                 int rows = (_covers.Count + columns - 1) / columns;
-                int totalH = 16 + rows * (CoverCardHeight + CoverCardMargin) + 16;
-                _contentPanel.AutoScrollMinSize = new Size(0, totalH);
+                return 16 + rows * (CoverCardHeight + CoverCardMargin) + 16;
+            }
+        }
+
+        private int GetMaxScrollY()
+        {
+            int viewportH = Math.Max(1, _contentPanel.ClientSize.Height);
+            int totalH = GetTotalContentHeight();
+            return Math.Max(0, totalH - viewportH);
+        }
+
+        private void ClampScroll()
+        {
+            int max = GetMaxScrollY();
+            _scrollY = Math.Max(0, Math.Min(_scrollY, max));
+        }
+
+        private void SetScrollY(int newScroll)
+        {
+            int max = GetMaxScrollY();
+            int clamped = Math.Max(0, Math.Min(newScroll, max));
+            if (_scrollY != clamped)
+            {
+                _scrollY = clamped;
+                _contentPanel.Invalidate();
             }
         }
 
@@ -406,11 +438,40 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 DrawCoverGallery(g);
             }
+
+            DrawCustomScrollBar(g);
+        }
+
+        private void DrawCustomScrollBar(Graphics g)
+        {
+            int totalH = GetTotalContentHeight();
+            int viewportH = _contentPanel.ClientSize.Height;
+            if (totalH <= viewportH || viewportH <= 0) return;
+
+            int trackWidth = 6;
+            int trackX = _contentPanel.ClientSize.Width - trackWidth - 6;
+            int trackY = 8;
+            int trackH = viewportH - 16;
+
+            using (var trackBrush = new SolidBrush(Color.FromArgb(25, 255, 255, 255)))
+            {
+                g.FillRectangle(trackBrush, trackX, trackY, trackWidth, trackH);
+            }
+
+            float thumbRatio = (float)viewportH / totalH;
+            int thumbH = Math.Max(28, (int)(trackH * thumbRatio));
+            float scrollRatio = (float)_scrollY / (totalH - viewportH);
+            int thumbY = trackY + (int)((trackH - thumbH) * scrollRatio);
+
+            using (var thumbBrush = new SolidBrush(Color.FromArgb(120, 190, 255)))
+            {
+                g.FillRectangle(thumbBrush, trackX, thumbY, trackWidth, thumbH);
+            }
         }
 
         private void DrawGameList(Graphics g)
         {
-            int startY = 16 - _contentPanel.VerticalScroll.Value;
+            int startY = 16 - _scrollY;
             int itemHeight = 56;
             int itemWidth = Math.Max(400, _contentPanel.ClientSize.Width - 40);
 
@@ -463,8 +524,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawCoverGallery(Graphics g)
         {
-            int startX = 20 - _contentPanel.HorizontalScroll.Value;
-            int startY = 16 - _contentPanel.VerticalScroll.Value;
+            int startX = 20;
+            int startY = 16 - _scrollY;
 
             int columns = Math.Max(1, (_contentPanel.ClientSize.Width - 40) / (CoverCardWidth + CoverCardMargin));
 
@@ -535,7 +596,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             if (_mode == SteamGridBrowserMode.GameList)
             {
-                int startY = 16 - _contentPanel.VerticalScroll.Value;
+                int startY = 16 - _scrollY;
                 int itemHeight = 56;
                 int clickedIndex = (e.Y - startY) / (itemHeight + 8);
                 if (clickedIndex >= 0 && clickedIndex < _games.Count && clickedIndex != _focusedGameIndex)
@@ -546,8 +607,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
             else
             {
-                int startX = 20 - _contentPanel.HorizontalScroll.Value;
-                int startY = 16 - _contentPanel.VerticalScroll.Value;
+                int startX = 20;
+                int startY = 16 - _scrollY;
                 int columns = Math.Max(1, (_contentPanel.ClientSize.Width - 40) / (CoverCardWidth + CoverCardMargin));
 
                 int col = (e.X - startX) / (CoverCardWidth + CoverCardMargin);
@@ -571,7 +632,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             if (_mode == SteamGridBrowserMode.GameList)
             {
-                int startY = 16 - _contentPanel.VerticalScroll.Value;
+                int startY = 16 - _scrollY;
                 int itemHeight = 56;
                 int clickedIndex = (e.Y - startY) / (itemHeight + 8);
                 if (clickedIndex >= 0 && clickedIndex < _games.Count)
@@ -582,8 +643,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
             else
             {
-                int startX = 20 - _contentPanel.HorizontalScroll.Value;
-                int startY = 16 - _contentPanel.VerticalScroll.Value;
+                int startX = 20;
+                int startY = 16 - _scrollY;
                 int columns = Math.Max(1, (_contentPanel.ClientSize.Width - 40) / (CoverCardWidth + CoverCardMargin));
 
                 int col = (e.X - startX) / (CoverCardWidth + CoverCardMargin);
@@ -614,24 +675,34 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 if (!_isLoading && _games.Count > 0)
                 {
-                    if (up && !_lastUp)
+                    if (up || down)
                     {
-                        if (_focusedGameIndex > 0)
+                        bool isNewPress = (up && !_lastUp) || (down && !_lastDown);
+                        long requiredDelay = _repeatCount == 0 ? InitialRepeatDelayMs : RepeatIntervalMs;
+
+                        if (isNewPress || (nowMs - _lastDirectionTime >= requiredDelay))
                         {
-                            _focusedGameIndex--;
-                            EnsureVisibleGame(_focusedGameIndex);
-                            _contentPanel.Invalidate();
+                            if (isNewPress) _repeatCount = 0;
+                            else _repeatCount++;
+                            _lastDirectionTime = nowMs;
+
+                            if (up && _focusedGameIndex > 0)
+                            {
+                                _focusedGameIndex--;
+                                EnsureVisibleGame(_focusedGameIndex);
+                                _contentPanel.Invalidate();
+                            }
+                            else if (down && _focusedGameIndex < _games.Count - 1)
+                            {
+                                _focusedGameIndex++;
+                                EnsureVisibleGame(_focusedGameIndex);
+                                _contentPanel.Invalidate();
+                            }
                         }
                     }
-
-                    if (down && !_lastDown)
+                    else
                     {
-                        if (_focusedGameIndex < _games.Count - 1)
-                        {
-                            _focusedGameIndex++;
-                            EnsureVisibleGame(_focusedGameIndex);
-                            _contentPanel.Invalidate();
-                        }
+                        _repeatCount = 0;
                     }
 
                     // Botão A seleciona o jogo
@@ -645,6 +716,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 else
                 {
                     _lastA = state.IsPressed(GamepadButtons.A);
+                    _repeatCount = 0;
                 }
                 _lastUp = up;
                 _lastDown = down;
@@ -679,50 +751,55 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
                 if (!_isLoading && _covers.Count > 0)
                 {
-                    if (left && !_lastLeft)
+                    if (up || down || left || right)
                     {
-                        if (_focusedCoverIndex > 0)
+                        bool isNewPress = (up && !_lastUp) || (down && !_lastDown) || (left && !_lastLeft) || (right && !_lastRight);
+                        long requiredDelay = _repeatCount == 0 ? InitialRepeatDelayMs : RepeatIntervalMs;
+
+                        if (isNewPress || (nowMs - _lastDirectionTime >= requiredDelay))
                         {
-                            _focusedCoverIndex--;
-                            EnsureVisibleCover(_focusedCoverIndex);
-                            _contentPanel.Invalidate();
+                            if (isNewPress) _repeatCount = 0;
+                            else _repeatCount++;
+                            _lastDirectionTime = nowMs;
+
+                            if (left && _focusedCoverIndex > 0)
+                            {
+                                _focusedCoverIndex--;
+                                EnsureVisibleCover(_focusedCoverIndex);
+                                _contentPanel.Invalidate();
+                            }
+                            else if (right && _focusedCoverIndex < _covers.Count - 1)
+                            {
+                                _focusedCoverIndex++;
+                                EnsureVisibleCover(_focusedCoverIndex);
+                                _contentPanel.Invalidate();
+                            }
+                            else if (up && _focusedCoverIndex - columns >= 0)
+                            {
+                                _focusedCoverIndex -= columns;
+                                EnsureVisibleCover(_focusedCoverIndex);
+                                _contentPanel.Invalidate();
+                            }
+                            else if (down)
+                            {
+                                if (_focusedCoverIndex + columns < _covers.Count)
+                                {
+                                    _focusedCoverIndex += columns;
+                                    EnsureVisibleCover(_focusedCoverIndex);
+                                    _contentPanel.Invalidate();
+                                }
+                                else if (_focusedCoverIndex < _covers.Count - 1)
+                                {
+                                    _focusedCoverIndex = _covers.Count - 1;
+                                    EnsureVisibleCover(_focusedCoverIndex);
+                                    _contentPanel.Invalidate();
+                                }
+                            }
                         }
                     }
-
-                    if (right && !_lastRight)
+                    else
                     {
-                        if (_focusedCoverIndex < _covers.Count - 1)
-                        {
-                            _focusedCoverIndex++;
-                            EnsureVisibleCover(_focusedCoverIndex);
-                            _contentPanel.Invalidate();
-                        }
-                    }
-
-                    if (up && !_lastUp)
-                    {
-                        if (_focusedCoverIndex - columns >= 0)
-                        {
-                            _focusedCoverIndex -= columns;
-                            EnsureVisibleCover(_focusedCoverIndex);
-                            _contentPanel.Invalidate();
-                        }
-                    }
-
-                    if (down && !_lastDown)
-                    {
-                        if (_focusedCoverIndex + columns < _covers.Count)
-                        {
-                            _focusedCoverIndex += columns;
-                            EnsureVisibleCover(_focusedCoverIndex);
-                            _contentPanel.Invalidate();
-                        }
-                        else if (_focusedCoverIndex < _covers.Count - 1)
-                        {
-                            _focusedCoverIndex = _covers.Count - 1;
-                            EnsureVisibleCover(_focusedCoverIndex);
-                            _contentPanel.Invalidate();
-                        }
+                        _repeatCount = 0;
                     }
 
                     // Botão A seleciona a capa
@@ -736,6 +813,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 else
                 {
                     _lastA = state.IsPressed(GamepadButtons.A);
+                    _repeatCount = 0;
                 }
                 _lastLeft = left;
                 _lastRight = right;
@@ -748,6 +826,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 {
                     _mode = SteamGridBrowserMode.GameList;
                     _isLoading = false;
+                    _scrollY = 0;
                     if (_games.Count == 0)
                     {
                         ShowStatusMessage(Strings.SteamGridNoGamesFound);
@@ -756,9 +835,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     {
                         HideStatusMessage();
                     }
-                    UpdateScrollSize();
+                    ClampScroll();
                     UpdateHeader();
-                    _contentPanel.AutoScrollPosition = new Point(0, 0);
                     _contentPanel.Invalidate();
                 }
                 _lastB = b;
@@ -771,19 +849,15 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             int itemHeight = 56;
             int itemY = 16 + index * (itemHeight + 8);
-
-            int currentScroll = _contentPanel.VerticalScroll.Value;
             int viewportHeight = Math.Max(1, _contentPanel.ClientSize.Height);
 
-            if (itemY < currentScroll)
+            if (itemY < _scrollY + 16)
             {
-                int targetY = Math.Max(0, itemY - 16);
-                _contentPanel.AutoScrollPosition = new Point(0, targetY);
+                SetScrollY(Math.Max(0, itemY - 16));
             }
-            else if (itemY + itemHeight > currentScroll + viewportHeight)
+            else if (itemY + itemHeight > _scrollY + viewportHeight - 16)
             {
-                int targetY = itemY + itemHeight - viewportHeight + 16;
-                _contentPanel.AutoScrollPosition = new Point(0, Math.Max(0, targetY));
+                SetScrollY(itemY + itemHeight - viewportHeight + 16);
             }
         }
 
@@ -795,19 +869,15 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             int row = index / columns;
             int cardY = 16 + row * (CoverCardHeight + CoverCardMargin);
             int cardHeight = CoverCardHeight;
-
-            int currentScroll = _contentPanel.VerticalScroll.Value;
             int viewportHeight = Math.Max(1, _contentPanel.ClientSize.Height);
 
-            if (cardY < currentScroll)
+            if (cardY < _scrollY + 16)
             {
-                int targetY = Math.Max(0, cardY - 16);
-                _contentPanel.AutoScrollPosition = new Point(0, targetY);
+                SetScrollY(Math.Max(0, cardY - 16));
             }
-            else if (cardY + cardHeight > currentScroll + viewportHeight)
+            else if (cardY + cardHeight > _scrollY + viewportHeight - 16)
             {
-                int targetY = cardY + cardHeight - viewportHeight + 16;
-                _contentPanel.AutoScrollPosition = new Point(0, Math.Max(0, targetY));
+                SetScrollY(cardY + cardHeight - viewportHeight + 16);
             }
         }
 
@@ -821,6 +891,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _lastB = false;
             _lastX = false;
             _lastY = false;
+            _repeatCount = 0;
+            _lastDirectionTime = 0;
         }
 
         protected override void Dispose(bool disposing)
