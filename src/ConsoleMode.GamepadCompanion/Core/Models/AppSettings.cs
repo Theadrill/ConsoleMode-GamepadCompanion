@@ -23,5 +23,8 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 
         /// <summary>Limiar dos gatilhos no valor bruto do XInput (0-255).</summary>
         public byte TriggerThreshold => (byte)(TriggerThresholdPercent * 255 / 100);
+
+        /// <summary>Chave de API do SteamGridDB para download de capas.</summary>
+        public string SteamGridDbApiKey { get; set; } = string.Empty;
     }
 }
