@@ -105,8 +105,8 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             var r4 = new List<VirtualKeyDefinition>
             {
                 new VirtualKeyDefinition { KeyId = "copy", PrimaryLabel = "Copiar", ShiftLabel = "Copiar", SymbolsLabel = "Copiar", KeyType = VirtualKeyType.Copy, WidthWeight = 1.3f },
-                new VirtualKeyDefinition { KeyId = "paste", PrimaryLabel = "Colar", ShiftLabel = "Colar", SymbolsLabel = "Colar", KeyType = VirtualKeyType.Paste, WidthWeight = 1.3f },
                 new VirtualKeyDefinition { KeyId = "space", PrimaryLabel = "Espaço", ShiftLabel = "Espaço", SymbolsLabel = "Espaço", KeyType = VirtualKeyType.Space, WidthWeight = 4.8f },
+                new VirtualKeyDefinition { KeyId = "paste", PrimaryLabel = "Colar", ShiftLabel = "Colar", SymbolsLabel = "Colar", KeyType = VirtualKeyType.Paste, WidthWeight = 1.3f },
                 new VirtualKeyDefinition { KeyId = "left", PrimaryLabel = "←", ShiftLabel = "←", SymbolsLabel = "←", KeyType = VirtualKeyType.CursorLeft, WidthWeight = 1.0f },
                 new VirtualKeyDefinition { KeyId = "right", PrimaryLabel = "→", ShiftLabel = "→", SymbolsLabel = "→", KeyType = VirtualKeyType.CursorRight, WidthWeight = 1.0f },
                 new VirtualKeyDefinition { KeyId = "clear", PrimaryLabel = "Limpar [LT]", ShiftLabel = "Limpar [LT]", SymbolsLabel = "Limpar [LT]", KeyType = VirtualKeyType.ClearAll, WidthWeight = 1.6f }

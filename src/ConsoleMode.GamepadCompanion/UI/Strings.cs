@@ -57,7 +57,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string GameConfigArguments = "Argumentos de Linha de Comando:";
         public const string GameConfigCoverImage = "Caminho da Capa (PNG / JPG):";
         public const string BtnBrowse = "Procurar...";
-        public const string BtnSave = "[A] Salvar";
+        public const string BtnSave = "[RT] Salvar";
         public const string BtnCancel = "[B] Cancelar";
         public const string BtnDelete = "Excluir Jogo";
         public const string ConfirmDeleteTitle = "Excluir Jogo";

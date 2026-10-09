@@ -439,6 +439,11 @@ namespace ConsoleMode.GamepadCompanion.UI
                 onConfirm: searchQuery =>
                 {
                     _lastSteamGridSearchTerm = searchQuery;
+                    _configPanel.SetSteamGridDbSearchTerm(searchQuery);
+                    if (!string.IsNullOrWhiteSpace(_configPanel.CurrentGameId))
+                    {
+                        _gameRepo.UpdateSearchTerm(_configPanel.CurrentGameId, searchQuery);
+                    }
                     _configPanel.ResetInputState();
                     ShowSteamGridBrowser(searchQuery);
                 },

@@ -52,6 +52,10 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
         private bool _lastBtnB;
         private bool _lastBtnX;
         private bool _lastBtnY;
+        private bool _btnANeedsRelease;
+        private bool _btnBNeedsRelease;
+        private bool _btnXNeedsRelease;
+        private bool _btnYNeedsRelease;
         private bool _lastBtnLB;
         private bool _lastBtnRB;
         private bool _lastTriggerLT;
@@ -140,10 +144,14 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             _lastDpadDown = false;
             _lastDpadLeft = false;
             _lastDpadRight = false;
-            _lastBtnA = true; // Previne clique residual do acionador
+            _lastBtnA = true;
             _lastBtnB = true;
-            _lastBtnX = true; // Previne apagar imediatamente se o teclado foi aberto com o botão X
-            _lastBtnY = true; // Previne inserir espaço se o teclado foi aberto com o botão Y
+            _lastBtnX = true;
+            _lastBtnY = true;
+            _btnANeedsRelease = true;
+            _btnBNeedsRelease = true;
+            _btnXNeedsRelease = true;
+            _btnYNeedsRelease = true;
             _lastBtnLB = false;
             _lastBtnRB = false;
             _lastTriggerLT = false;
@@ -341,16 +349,38 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             _lastBtnLB = btnLB;
             _lastBtnRB = btnRB;
 
-            // 2. Botão B cancela / fecha
-            if (btnB && !_lastBtnB)
+            // 2. Botão B cancela / fecha (com release guard de abertura)
+            if (_btnBNeedsRelease)
             {
-                Cancelled?.Invoke();
-                return;
+                if (!btnB) _btnBNeedsRelease = false;
+                _lastBtnB = btnB;
             }
-            _lastBtnB = btnB;
+            else
+            {
+                if (btnB && !_lastBtnB)
+                {
+                    Cancelled?.Invoke();
+                    return;
+                }
+                _lastBtnB = btnB;
+            }
 
-            // 3. Botão X apaga (Backspace) com auto-repeat ao segurar
-            if (btnX)
+            // 3. Botão X apaga (Backspace) com auto-repeat ao segurar e release guard de abertura estrito
+            if (_btnXNeedsRelease)
+            {
+                if (!btnX)
+                {
+                    _btnXNeedsRelease = false;
+                    _lastBtnX = false;
+                    _lastBtnXTime = 0;
+                    _btnXRepeatCount = 0;
+                }
+                else
+                {
+                    _lastBtnX = true;
+                }
+            }
+            else if (btnX)
             {
                 if (!_lastBtnX)
                 {
@@ -360,7 +390,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
                     _btnXRepeatCount = 0;
                     Invalidate();
                 }
-                else
+                else if (_lastBtnXTime > 0)
                 {
                     long elapsed = currentTimeMs - _lastBtnXTime;
                     long required = _btnXRepeatCount == 0 ? BtnXInitialRepeatDelayMs : BtnXRepeatIntervalMs;
@@ -373,30 +403,47 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
                         Invalidate();
                     }
                 }
+                _lastBtnX = true;
             }
             else
             {
                 _btnXRepeatCount = 0;
                 _lastBtnXTime = 0;
+                _lastBtnX = false;
             }
-            _lastBtnX = btnX;
 
-            // 3.5. Botão Y insere Espaço
-            if (btnY && !_lastBtnY)
+            // 3.5. Botão Y insere Espaço (com release guard de abertura)
+            if (_btnYNeedsRelease)
             {
-                _buffer.Insert(" ");
-                GamepadVibrationService.Instance.Pulse(0, 20);
-                ResetCursorBlink();
-                Invalidate();
+                if (!btnY) _btnYNeedsRelease = false;
+                _lastBtnY = btnY;
             }
-            _lastBtnY = btnY;
+            else
+            {
+                if (btnY && !_lastBtnY)
+                {
+                    _buffer.Insert(" ");
+                    GamepadVibrationService.Instance.Pulse(0, 20);
+                    ResetCursorBlink();
+                    Invalidate();
+                }
+                _lastBtnY = btnY;
+            }
 
-            // 4. Botão A digita a tecla focada
-            if (btnA && !_lastBtnA)
+            // 4. Botão A digita a tecla focada (com release guard de abertura)
+            if (_btnANeedsRelease)
             {
-                ExecuteFocusedKey();
+                if (!btnA) _btnANeedsRelease = false;
+                _lastBtnA = btnA;
             }
-            _lastBtnA = btnA;
+            else
+            {
+                if (btnA && !_lastBtnA)
+                {
+                    ExecuteFocusedKey();
+                }
+                _lastBtnA = btnA;
+            }
 
             // 4. Navegação direcional 2D com auto-repeat
             bool isMoving = dpadUp || dpadDown || dpadLeft || dpadRight;
@@ -508,6 +555,17 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
                 {
                     bestDist = dist;
                     bestCol = i;
+                }
+            }
+
+            // Prevenção inteligente de missclick: ao descer da linha superior (letras),
+            // prioriza o botão de Espaço em vez de Colar acidental
+            if (rowIdx == 4 && row[bestCol].KeyType == VirtualKeyType.Paste)
+            {
+                int spaceCol = row.FindIndex(k => k.KeyType == VirtualKeyType.Space);
+                if (spaceCol >= 0)
+                {
+                    bestCol = spaceCol;
                 }
             }
 

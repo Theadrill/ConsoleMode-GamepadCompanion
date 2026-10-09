@@ -814,6 +814,129 @@ namespace ConsoleMode.GamepadCompanion.Tests
             }
         }
 
+        [Fact]
+        public void GameConfigPanel_RightTrigger_SavesGameDirectly()
+        {
+            using var panel = new ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel();
+            var game = new GameEntry
+            {
+                Name = "Portal",
+                MainExecutable = "portal.exe",
+                TargetPath = "C:\\Games\\Portal\\portal.exe"
+            };
+            panel.EditGame(game);
+            panel.ResetInputState();
+
+            GameEntry saved = null;
+            panel.SaveRequested += g => saved = g;
+
+            // Envia neutro para liberar debounce
+            var stateNeutral = new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            panel.ProcessGamepad(stateNeutral, 50);
+
+            // Pressiona o gatilho RT
+            var stateRT = new GamepadState(true, 2, GamepadButtons.None, 0, 200, 0, 0, 0, 0);
+            panel.ProcessGamepad(stateRT, 100);
+
+            Assert.NotNull(saved);
+            Assert.Equal("Portal", saved.Name);
+            Assert.Equal("portal.exe", saved.MainExecutable);
+        }
+
+        [Fact]
+        public void GameConfigPanel_SteamGridDbSearchTerm_PreservedAndRetrieved()
+        {
+            using var panel = new ConsoleMode.GamepadCompanion.UI.Controls.GameConfigPanel();
+            var game = new GameEntry
+            {
+                Name = "OctoWoW",
+                MainExecutable = "OctoWoW.exe",
+                TargetPath = "C:\\Games\\OctoWoW\\OctoWoW.exe",
+                SteamGridDbSearchTerm = "World of Warcraft"
+            };
+            panel.EditGame(game);
+
+            // Termo inicial deve ser o termo customizado salvo
+            Assert.Equal("World of Warcraft", panel.GetSteamGridDbSearchTerm());
+
+            // Altera o termo
+            panel.SetSteamGridDbSearchTerm("Warcraft III");
+            Assert.Equal("Warcraft III", panel.GetSteamGridDbSearchTerm());
+
+            // Ao salvar, o termo deve persistir no GameEntry
+            GameEntry saved = null;
+            panel.SaveRequested += g => saved = g;
+
+            var stateNeutral = new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            panel.ProcessGamepad(stateNeutral, 50);
+
+            var stateRT = new GamepadState(true, 2, GamepadButtons.None, 0, 200, 0, 0, 0, 0);
+            panel.ProcessGamepad(stateRT, 100);
+
+            Assert.NotNull(saved);
+            Assert.Equal("Warcraft III", saved.SteamGridDbSearchTerm);
+        }
+
+        [Fact]
+        public void GameRepository_SaveAndGetAll_PersistsSteamGridDbSearchTerm()
+        {
+            string tempIni = Path.Combine(Path.GetTempPath(), $"games_test_{Guid.NewGuid():N}.ini");
+            try
+            {
+                var repo = new Hardware.GameRepository(tempIni);
+                var game = new GameEntry
+                {
+                    Id = "test-game-1",
+                    Name = "OctoWoW",
+                    MainExecutable = "OctoWoW.exe",
+                    SteamGridDbSearchTerm = "World of Warcraft"
+                };
+
+                repo.Save(game);
+
+                var loaded = repo.GetById("test-game-1");
+                Assert.NotNull(loaded);
+                Assert.Equal("World of Warcraft", loaded.SteamGridDbSearchTerm);
+            }
+            finally
+            {
+                if (File.Exists(tempIni)) File.Delete(tempIni);
+            }
+        }
+
+        [Fact]
+        public void GameRepository_UpdateSearchTerm_UpdatesOnlySearchTermInFile()
+        {
+            string tempIni = Path.Combine(Path.GetTempPath(), $"games_test_{Guid.NewGuid():N}.ini");
+            try
+            {
+                var repo = new Hardware.GameRepository(tempIni);
+                var game = new GameEntry
+                {
+                    Id = "test-game-2",
+                    Name = "OctoWoW",
+                    MainExecutable = "OctoWoW.exe",
+                    TargetPath = "C:\\Games\\OctoWoW.exe",
+                    SteamGridDbSearchTerm = ""
+                };
+
+                repo.Save(game);
+
+                // Atualiza de forma atômica e imediata apenas o termo pesquisado
+                repo.UpdateSearchTerm("test-game-2", "Warcraft III: The Frozen Throne");
+
+                var loaded = repo.GetById("test-game-2");
+                Assert.NotNull(loaded);
+                Assert.Equal("Warcraft III: The Frozen Throne", loaded.SteamGridDbSearchTerm);
+                Assert.Equal("OctoWoW", loaded.Name);
+                Assert.Equal("OctoWoW.exe", loaded.MainExecutable);
+            }
+            finally
+            {
+                if (File.Exists(tempIni)) File.Delete(tempIni);
+            }
+        }
+
         private sealed class MockWindowTracker : IWindowTracker
         {
             public System.Collections.Generic.List<string> RegisteredExecutables = new System.Collections.Generic.List<string>();

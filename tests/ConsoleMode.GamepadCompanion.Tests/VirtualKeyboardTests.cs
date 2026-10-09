@@ -570,5 +570,75 @@ namespace ConsoleMode.GamepadCompanion.Tests
             kb.HandlePhysicalKeyDown(new KeyEventArgs(Keys.Escape));
             Assert.True(cancelled);
         }
+
+        [Fact]
+        public void KeyboardLayout_Row4_HasSpaceBeforePaste()
+        {
+            var layout = ConsoleMode.GamepadCompanion.UI.VirtualKeyboard.KeyboardLayoutProvider.CreateLayout();
+            var row4 = layout[4];
+
+            int spaceIdx = row4.FindIndex(k => k.KeyType == VirtualKeyType.Space);
+            int pasteIdx = row4.FindIndex(k => k.KeyType == VirtualKeyType.Paste);
+
+            Assert.True(spaceIdx >= 0);
+            Assert.True(pasteIdx >= 0);
+            Assert.True(spaceIdx < pasteIdx, "O botão de Espaço deve vir antes do botão de Colar para prevenir missclicks");
+        }
+
+        [Fact]
+        public void VirtualKeyboardControl_MovingDownFromLetters_LandsOnSpaceNotPaste()
+        {
+            using var kb = new VirtualKeyboardControl("Test");
+            kb.SetBounds(0, 0, 800, 360);
+
+            // Simula foco na tecla 'c' ou 'v' na linha 3 (linha do ZXCVBN)
+            // Navega para baixo
+            var layout = ConsoleMode.GamepadCompanion.UI.VirtualKeyboard.KeyboardLayoutProvider.CreateLayout();
+            var row4 = layout[4];
+
+            // Pressiona para baixo até a linha 4
+            var stateNeutral = new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            kb.ResetGamepadState();
+            kb.ProcessGamepad(stateNeutral, 50);
+
+            var stateDown = new GamepadState(true, 2, GamepadButtons.DPadDown, 0, 0, 0, 0, 0, 0);
+            kb.ProcessGamepad(stateDown, 100);
+
+            // Se atingiu a linha 4, a tecla focada NÃO pode ser Paste
+            if (kb.FocusedRow == 4)
+            {
+                var focusedKey = row4[kb.FocusedCol];
+                Assert.NotEqual(VirtualKeyType.Paste, focusedKey.KeyType);
+            }
+        }
+
+        [Fact]
+        public void VirtualKeyboardControl_OpenWithBtnXHeld_DoesNotBackspaceInitialText()
+        {
+            // Simula o usuário abrindo o teclado virtual a partir do botão X (ex: Nova Busca [X])
+            using var kb = new VirtualKeyboardControl("world of warcraft");
+            kb.ResetGamepadState();
+
+            // O botão X ainda está pressionado no momento imediato após a abertura
+            var stateXHeld = new GamepadState(true, 1, GamepadButtons.X, 0, 0, 0, 0, 0, 0);
+            kb.ProcessGamepad(stateXHeld, 100);
+            kb.ProcessGamepad(stateXHeld, 200);
+            kb.ProcessGamepad(stateXHeld, 500);
+
+            // O texto NÃO deve perder o 't' final!
+            Assert.Equal("world of warcraft", kb.Buffer.Text);
+
+            // O usuário solta o botão X
+            var stateNeutral = new GamepadState(true, 2, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            kb.ProcessGamepad(stateNeutral, 600);
+            Assert.Equal("world of warcraft", kb.Buffer.Text);
+
+            // Agora o usuário aperta X deliberadamente para apagar
+            var stateXPress = new GamepadState(true, 3, GamepadButtons.X, 0, 0, 0, 0, 0, 0);
+            kb.ProcessGamepad(stateXPress, 700);
+
+            // Agora sim o 't' foi apagado deliberadamente
+            Assert.Equal("world of warcraf", kb.Buffer.Text);
+        }
     }
 }

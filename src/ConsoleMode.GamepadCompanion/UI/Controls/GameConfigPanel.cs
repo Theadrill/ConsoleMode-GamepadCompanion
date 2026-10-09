@@ -57,6 +57,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private bool _lastDpadRight;
         private bool _lastBtnA;
         private bool _lastBtnB;
+        private bool _lastTriggerRT;
         private long _lastMoveTime;
         private int _repeatCount;
         private const long InitialRepeatDelayMs = 250;
@@ -107,7 +108,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _txtTargetPath.Leave += (s, e) => AutoFillFromTargetPath();
             currentY = AddFieldWithBrowse(_contentPanel, Strings.GameConfigWorkingDir, _txtWorkingDir, _btnBrowseWorkingDir, currentY, BrowseFolder);
             currentY = AddField(_contentPanel, Strings.GameConfigArguments, _txtArguments, currentY);
-            currentY = AddCoverField(_contentPanel, Strings.GameConfigCoverImage, _txtCoverPath, _btnBrowseCover, _btnSteamGridDb, currentY, BrowseImage, () => SteamGridDbRequested?.Invoke(_txtName.Text));
+            currentY = AddCoverField(_contentPanel, Strings.GameConfigCoverImage, _txtCoverPath, _btnBrowseCover, _btnSteamGridDb, currentY, BrowseImage, () => SteamGridDbRequested?.Invoke(GetSteamGridDbSearchTerm()));
 
             // Painel de botões de ação na base
             var actionsPanel = new Panel
@@ -267,6 +268,25 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         public void SetCoverPath(string path)
         {
             _txtCoverPath.Text = path ?? string.Empty;
+        }
+
+        public string CurrentGameId => _currentGame?.Id;
+
+        public void SetSteamGridDbSearchTerm(string term)
+        {
+            if (_currentGame != null)
+            {
+                _currentGame.SteamGridDbSearchTerm = term ?? string.Empty;
+            }
+        }
+
+        public string GetSteamGridDbSearchTerm()
+        {
+            if (_currentGame != null && !string.IsNullOrWhiteSpace(_currentGame.SteamGridDbSearchTerm))
+            {
+                return _currentGame.SteamGridDbSearchTerm;
+            }
+            return _txtName.Text;
         }
 
         private static void StyleTextBox(TextBox tb)
@@ -639,6 +659,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         {
             _lastBtnA = true;
             _lastBtnB = true;
+            _lastTriggerRT = true;
             _lastDpadUp = false;
             _lastDpadDown = false;
             _lastDpadLeft = false;
@@ -659,6 +680,16 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             bool btnA = state.IsPressed(GamepadButtons.A);
             bool btnB = state.IsPressed(GamepadButtons.B);
+            bool triggerRT = state.RightTrigger > 120;
+
+            // Gatilho RT confirma e salva o jogo imediatamente no estilo Couch Gaming
+            if (triggerRT && !_lastTriggerRT)
+            {
+                _lastTriggerRT = triggerRT;
+                OnSaveClicked();
+                return;
+            }
+            _lastTriggerRT = triggerRT;
 
             // Botão B sempre cancela
             if (btnB && !_lastBtnB)
@@ -774,7 +805,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
             else if (ctrl == _btnSteamGridDb)
             {
-                SteamGridDbRequested?.Invoke(_txtName.Text);
+                SteamGridDbRequested?.Invoke(GetSteamGridDbSearchTerm());
             }
             else if (ctrl == _btnSave)
             {

@@ -16,6 +16,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         public string WorkingDirectory { get; set; } = string.Empty;
         public string Arguments { get; set; } = string.Empty;
         public string CoverImagePath { get; set; } = string.Empty;
+        public string SteamGridDbSearchTerm { get; set; } = string.Empty;
 
         public GameEntry Clone()
         {
@@ -28,7 +29,8 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
                 TargetPath = this.TargetPath,
                 WorkingDirectory = this.WorkingDirectory,
                 Arguments = this.Arguments,
-                CoverImagePath = this.CoverImagePath
+                CoverImagePath = this.CoverImagePath,
+                SteamGridDbSearchTerm = this.SteamGridDbSearchTerm
             };
         }
     }

@@ -62,7 +62,8 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     TargetPath = ini.GetValue(section, "TargetPath"),
                     WorkingDirectory = ini.GetValue(section, "WorkingDirectory"),
                     Arguments = ini.GetValue(section, "Arguments"),
-                    CoverImagePath = ini.GetValue(section, "CoverImagePath")
+                    CoverImagePath = ini.GetValue(section, "CoverImagePath"),
+                    SteamGridDbSearchTerm = ini.GetValue(section, "SteamGridDbSearchTerm")
                 });
             }
 
@@ -99,7 +100,23 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             ini.SetValue(section, "WorkingDirectory", game.WorkingDirectory ?? string.Empty);
             ini.SetValue(section, "Arguments", game.Arguments ?? string.Empty);
             ini.SetValue(section, "CoverImagePath", game.CoverImagePath ?? string.Empty);
+            ini.SetValue(section, "SteamGridDbSearchTerm", game.SteamGridDbSearchTerm ?? string.Empty);
 
+            ini.Save(_filePath);
+        }
+
+        public void UpdateSearchTerm(string id, string searchTerm)
+        {
+            if (string.IsNullOrWhiteSpace(id)) return;
+
+            var ini = new IniFile();
+            if (!File.Exists(_filePath)) return;
+            ini.Load(_filePath);
+
+            string section = SectionPrefix + id;
+            if (string.IsNullOrWhiteSpace(ini.GetValue(section, "Id"))) return;
+
+            ini.SetValue(section, "SteamGridDbSearchTerm", searchTerm ?? string.Empty);
             ini.Save(_filePath);
         }
 
@@ -137,6 +154,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 ini.SetValue(section, "WorkingDirectory", g.WorkingDirectory ?? string.Empty);
                 ini.SetValue(section, "Arguments", g.Arguments ?? string.Empty);
                 ini.SetValue(section, "CoverImagePath", g.CoverImagePath ?? string.Empty);
+                ini.SetValue(section, "SteamGridDbSearchTerm", g.SteamGridDbSearchTerm ?? string.Empty);
             }
             ini.Save(_filePath);
         }
