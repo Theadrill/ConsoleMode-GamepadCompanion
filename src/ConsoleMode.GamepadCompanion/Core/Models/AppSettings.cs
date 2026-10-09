@@ -26,5 +26,8 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 
         /// <summary>Chave de API do SteamGridDB para download de capas.</summary>
         public string SteamGridDbApiKey { get; set; } = string.Empty;
+
+        /// <summary>Prende o cursor na janela do jogo em foco para evitar que o mouse escape para outros monitores ou janelas.</summary>
+        public bool ClipCursorToGameWindow { get; set; } = true;
     }
 }

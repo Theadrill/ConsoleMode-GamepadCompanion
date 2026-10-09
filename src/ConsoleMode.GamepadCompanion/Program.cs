@@ -38,7 +38,7 @@ namespace ConsoleMode.GamepadCompanion
                     gamepad.Start();
 
                     using (var profileEngine = new ProfileEngine(gamepad, desktopProfile))
-                    using (var profileManager = new ProfileManager(profileEngine, gamingProfile, desktopProfile, windowTracker, gamepad))
+                    using (var profileManager = new ProfileManager(profileEngine, gamingProfile, desktopProfile, windowTracker, gamepad, settings))
                     using (var trayContext = new TrayAppContext(gamepad, settings, profileManager, configRepo, windowTracker))
                     {
                         Application.Run(trayContext);

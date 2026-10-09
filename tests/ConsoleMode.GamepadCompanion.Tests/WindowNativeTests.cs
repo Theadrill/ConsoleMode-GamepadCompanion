@@ -24,5 +24,34 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(0x0002u, WindowNative.SWP_NOMOVE);
             Assert.Equal(0x0040u, WindowNative.SWP_SHOWWINDOW);
         }
+
+        [Fact]
+        public void ClipCursorToWindow_ZeroHandle_DoesNotThrow()
+        {
+            var ex = Record.Exception(() => WindowNative.ClipCursorToWindow(IntPtr.Zero));
+            Assert.Null(ex);
+        }
+
+        [Fact]
+        public void ReleaseCursorClip_DoesNotThrow()
+        {
+            var ex = Record.Exception(() => WindowNative.ReleaseCursorClip());
+            Assert.Null(ex);
+        }
+
+        [Fact]
+        public void RECT_CalculatesWidthAndHeightCorrectly()
+        {
+            var rect = new WindowNative.RECT
+            {
+                Left = 100,
+                Top = 50,
+                Right = 900,
+                Bottom = 650
+            };
+
+            Assert.Equal(800, rect.Width);
+            Assert.Equal(600, rect.Height);
+        }
     }
 }

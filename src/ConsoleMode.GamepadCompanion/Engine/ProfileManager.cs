@@ -1,12 +1,14 @@
 using System;
 using ConsoleMode.GamepadCompanion.Core.Interfaces;
 using ConsoleMode.GamepadCompanion.Core.Models;
+using ConsoleMode.GamepadCompanion.Hardware;
 using ConsoleMode.GamepadCompanion.Profiles;
 
 namespace ConsoleMode.GamepadCompanion.Engine
 {
     /// <summary>
     /// Gerencia os perfis (Gaming vs Desktop) baseado no foco da janela e no estado do botão Guide/Home.
+    /// Controla o isolamento de instâncias e o confinamento de cursor (ClipCursor) na janela em foco.
     /// </summary>
     public sealed class ProfileManager : IDisposable
     {
@@ -15,6 +17,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         private readonly DesktopProfile _desktopProfile;
         private readonly IWindowTracker _windowTracker;
         private readonly IGamepadService _gamepad;
+        private readonly AppSettings _settings;
 
         private bool _lastGuideButton;
 
@@ -23,15 +26,18 @@ namespace ConsoleMode.GamepadCompanion.Engine
             GamingProfile gamingProfile,
             DesktopProfile desktopProfile,
             IWindowTracker windowTracker,
-            IGamepadService gamepad)
+            IGamepadService gamepad,
+            AppSettings settings = null)
         {
             _profileEngine = profileEngine ?? throw new ArgumentNullException(nameof(profileEngine));
             _gamingProfile = gamingProfile ?? throw new ArgumentNullException(nameof(gamingProfile));
             _desktopProfile = desktopProfile ?? throw new ArgumentNullException(nameof(desktopProfile));
             _windowTracker = windowTracker ?? throw new ArgumentNullException(nameof(windowTracker));
             _gamepad = gamepad ?? throw new ArgumentNullException(nameof(gamepad));
+            _settings = settings;
 
             _windowTracker.FocusChanged += OnFocusChanged;
+            _windowTracker.ActiveWindowChanged += OnActiveWindowChanged;
             _gamepad.StateUpdated += OnGamepadStateUpdated;
 
             // Define perfil inicial baseado no foco atual
@@ -49,15 +55,36 @@ namespace ConsoleMode.GamepadCompanion.Engine
             UpdateActiveProfile(isGameFocused);
         }
 
+        private void OnActiveWindowChanged(IntPtr activeHwnd)
+        {
+            // Sempre que a janela alvo muda (inclusive entre duas instâncias do mesmo jogo),
+            // reseta o perfil atual para que nenhuma tecla permaneça pressionada na instância anterior
+            _profileEngine.CurrentProfile?.Reset();
+
+            if (activeHwnd != IntPtr.Zero && (_settings == null || _settings.ClipCursorToGameWindow))
+            {
+                WindowNative.ClipCursorToWindow(activeHwnd);
+            }
+            else
+            {
+                WindowNative.ReleaseCursorClip();
+            }
+        }
+
         private void UpdateActiveProfile(bool isGameFocused)
         {
             if (isGameFocused)
             {
                 _profileEngine.CurrentProfile = _gamingProfile;
+                if (_settings == null || _settings.ClipCursorToGameWindow)
+                {
+                    WindowNative.ClipCursorToWindow(_windowTracker.ActiveWindowHandle);
+                }
             }
             else
             {
                 _profileEngine.CurrentProfile = _desktopProfile;
+                WindowNative.ReleaseCursorClip();
             }
         }
 
@@ -76,7 +103,9 @@ namespace ConsoleMode.GamepadCompanion.Engine
         public void Dispose()
         {
             _windowTracker.FocusChanged -= OnFocusChanged;
+            _windowTracker.ActiveWindowChanged -= OnActiveWindowChanged;
             _gamepad.StateUpdated -= OnGamepadStateUpdated;
+            WindowNative.ReleaseCursorClip();
         }
     }
 }

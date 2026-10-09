@@ -7,7 +7,9 @@ namespace ConsoleMode.GamepadCompanion.Core.Interfaces
     {
         bool IsGameFocused { get; }
         string ActiveProcessName { get; }
+        IntPtr ActiveWindowHandle { get; }
         event Action<bool> FocusChanged;
+        event Action<IntPtr> ActiveWindowChanged;
         void CheckActiveWindow();
         void RegisterGameExecutable(string executableName);
     }

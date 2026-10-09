@@ -70,6 +70,90 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool AllowSetForegroundWindow(int dwProcessId);
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+
+            public int Width => Right - Left;
+            public int Height => Bottom - Top;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool IsIconic(IntPtr hWnd);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool ClipCursor(ref RECT lpRect);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool ClipCursor(IntPtr lpRect);
+
+        private static RECT _lastClippedRect;
+        private static IntPtr _lastClippedHwnd = IntPtr.Zero;
+        private static readonly object _clipLock = new object();
+
+        /// <summary>
+        /// Prende o cursor do mouse dentro dos limites da janela fornecida.
+        /// Se a janela for inválida, minimizada ou invisível, libera o cursor.
+        /// </summary>
+        public static void ClipCursorToWindow(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero || IsIconic(hWnd))
+            {
+                ReleaseCursorClip();
+                return;
+            }
+
+            if (GetWindowRect(hWnd, out RECT rect))
+            {
+                if (rect.Right > rect.Left && rect.Bottom > rect.Top)
+                {
+                    lock (_clipLock)
+                    {
+                        if (_lastClippedHwnd != hWnd ||
+                            _lastClippedRect.Left != rect.Left ||
+                            _lastClippedRect.Top != rect.Top ||
+                            _lastClippedRect.Right != rect.Right ||
+                            _lastClippedRect.Bottom != rect.Bottom)
+                        {
+                            _lastClippedHwnd = hWnd;
+                            _lastClippedRect = rect;
+                            ClipCursor(ref rect);
+                        }
+                    }
+                    return;
+                }
+            }
+
+            ReleaseCursorClip();
+        }
+
+        /// <summary>
+        /// Libera o cursor do mouse para mover-se livremente em todos os monitores.
+        /// </summary>
+        public static void ReleaseCursorClip()
+        {
+            lock (_clipLock)
+            {
+                if (_lastClippedHwnd != IntPtr.Zero)
+                {
+                    _lastClippedHwnd = IntPtr.Zero;
+                    _lastClippedRect = default;
+                    ClipCursor(IntPtr.Zero);
+                }
+            }
+        }
+
         /// <summary>
         /// Traz a janela especificada para o primeiro plano (Foreground) acima de todas as outras janelas,
         /// restaurando-a se estiver minimizada e superando restrições do LockSetForegroundWindow do Windows.

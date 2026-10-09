@@ -58,8 +58,15 @@ namespace ConsoleMode.GamepadCompanion.UI
             // Botão Guide/Home no controle faz o Toggle estilo Steam Overlay
             _profileManager.GuidePressed += OnGuidePressed;
 
-            // Timer leve para verificar janela em foco do Windows
-            _windowCheckTimer.Tick += (s, e) => windowTracker.CheckActiveWindow();
+            // Timer leve para verificar janela em foco do Windows e manter o cursor clip atualizado se necessário
+            _windowCheckTimer.Tick += (s, e) =>
+            {
+                windowTracker.CheckActiveWindow();
+                if (_profileManager.IsGameFocused && settings.ClipCursorToGameWindow)
+                {
+                    WindowNative.ClipCursorToWindow(windowTracker.ActiveWindowHandle);
+                }
+            };
             _windowCheckTimer.Start();
 
             // Abre a janela inicialmente para o usuário ver
@@ -80,6 +87,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         public void ShowOrToggleWindow()
         {
+            WindowNative.ReleaseCursorClip();
             if (_settingsForm.Visible && _settingsForm.IsAppForeground())
             {
                 _settingsForm.Hide();
@@ -92,6 +100,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void ExitApplication()
         {
+            WindowNative.ReleaseCursorClip();
             _windowCheckTimer.Stop();
             _windowCheckTimer.Dispose();
             _trayIcon.Visible = false;

@@ -20,6 +20,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
         private bool _isWowActive;
         private string _lastProcessName = string.Empty;
+        private IntPtr _activeHwnd = IntPtr.Zero;
 
         private readonly System.Collections.Generic.HashSet<string> _customGameExecutables =
             new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -28,7 +29,11 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
         public string ActiveProcessName => _lastProcessName;
 
+        public IntPtr ActiveWindowHandle => _activeHwnd;
+
         public event Action<bool> FocusChanged;
+
+        public event Action<IntPtr> ActiveWindowChanged;
 
         public void RegisterGameExecutable(string executableName)
         {
@@ -67,14 +72,14 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             IntPtr hwnd = GetForegroundWindow();
             if (hwnd == IntPtr.Zero)
             {
-                UpdateFocus(false, string.Empty);
+                UpdateFocus(false, string.Empty, IntPtr.Zero);
                 return;
             }
 
             GetWindowThreadProcessId(hwnd, out uint pid);
             if (pid == 0)
             {
-                UpdateFocus(false, string.Empty);
+                UpdateFocus(false, string.Empty, IntPtr.Zero);
                 return;
             }
 
@@ -104,16 +109,27 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 }
             }
 
-            UpdateFocus(wowFocused, procName);
+            UpdateFocus(wowFocused, procName, hwnd);
         }
 
-        private void UpdateFocus(bool focused, string procName)
+        private void UpdateFocus(bool focused, string procName, IntPtr hwnd)
         {
             _lastProcessName = procName;
-            if (_isWowActive != focused)
+            bool focusStateChanged = _isWowActive != focused;
+            IntPtr targetHwnd = focused ? hwnd : IntPtr.Zero;
+            bool hwndChanged = _activeHwnd != targetHwnd;
+
+            _isWowActive = focused;
+            _activeHwnd = targetHwnd;
+
+            if (focusStateChanged)
             {
-                _isWowActive = focused;
                 FocusChanged?.Invoke(focused);
+            }
+
+            if (hwndChanged)
+            {
+                ActiveWindowChanged?.Invoke(_activeHwnd);
             }
         }
     }

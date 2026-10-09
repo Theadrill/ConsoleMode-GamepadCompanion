@@ -22,6 +22,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
                 Assert.Equal(20, settings.TriggerThresholdPercent);
                 Assert.Equal(-1, settings.SelectedSlot);
                 Assert.True(settings.MappingEnabled);
+                Assert.True(settings.ClipCursorToGameWindow);
                 Assert.Equal(string.Empty, settings.SteamGridDbApiKey);
             }
             finally
@@ -44,6 +45,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
                     StickDeadzonePercent = 15,
                     TriggerThresholdPercent = 35,
                     MappingEnabled = false,
+                    ClipCursorToGameWindow = false,
                     SteamGridDbApiKey = "test_api_key_12345"
                 };
 
@@ -55,6 +57,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
                 Assert.Equal(15, loaded.StickDeadzonePercent);
                 Assert.Equal(35, loaded.TriggerThresholdPercent);
                 Assert.False(loaded.MappingEnabled);
+                Assert.False(loaded.ClipCursorToGameWindow);
                 Assert.Equal("test_api_key_12345", loaded.SteamGridDbApiKey);
             }
             finally

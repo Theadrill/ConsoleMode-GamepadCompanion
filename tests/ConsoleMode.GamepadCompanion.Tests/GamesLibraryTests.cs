@@ -943,7 +943,9 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             public bool IsGameFocused => false;
             public string ActiveProcessName => string.Empty;
+            public IntPtr ActiveWindowHandle => IntPtr.Zero;
             public event Action<bool> FocusChanged { add { } remove { } }
+            public event Action<IntPtr> ActiveWindowChanged { add { } remove { } }
 
             public void CheckActiveWindow() { }
 
