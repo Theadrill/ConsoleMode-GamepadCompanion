@@ -52,12 +52,6 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly FocusOverlayPanel _focusOverlay = new FocusOverlayPanel();
         private readonly GamepadNavigationManager _navManager = new GamepadNavigationManager();
 
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
         private Panel _sidePanel;
         private string _slotSignature = string.Empty;
         private bool _updatingCombo;
@@ -68,12 +62,12 @@ namespace ConsoleMode.GamepadCompanion.UI
         private string _lastSteamGridSearchTerm;
         private ContentViewMode _viewMode = ContentViewMode.Debugger;
 
-        private bool IsAppForeground()
+        public bool IsAppForeground()
         {
             if (!Visible || WindowState == FormWindowState.Minimized)
                 return false;
 
-            IntPtr fg = GetForegroundWindow();
+            IntPtr fg = WindowNative.GetForegroundWindow();
             if (fg == IntPtr.Zero)
                 return false;
 
@@ -82,13 +76,31 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             try
             {
-                GetWindowThreadProcessId(fg, out uint fgPid);
+                WindowNative.GetWindowThreadProcessId(fg, out uint fgPid);
                 return fgPid == (uint)Process.GetCurrentProcess().Id;
             }
             catch
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Exibe e traz a janela de configurações para a frente de todas as outras janelas em primeiro plano,
+        /// restaurando o estado normal da janela caso esteja minimizada.
+        /// </summary>
+        public void BringToForeground()
+        {
+            if (WindowState == FormWindowState.Minimized)
+            {
+                WindowState = FormWindowState.Normal;
+            }
+
+            Show();
+            WindowNative.BringWindowToForeground(Handle);
+            BringToFront();
+            Activate();
+            Focus();
         }
 
         public SettingsForm(

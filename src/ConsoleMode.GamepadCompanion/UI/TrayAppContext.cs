@@ -32,7 +32,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             // Menu de contexto rápido da bandeja
             var contextMenu = new ContextMenuStrip();
-            var openItem = new ToolStripMenuItem(Strings.OpenSettings, null, (s, e) => ShowOrToggleWindow());
+            var openItem = new ToolStripMenuItem(Strings.OpenSettings, null, (s, e) => _settingsForm.BringToForeground());
             var exitItem = new ToolStripMenuItem(Strings.Exit, null, (s, e) => ExitApplication());
             contextMenu.Items.Add(openItem);
             contextMenu.Items.Add(new ToolStripSeparator());
@@ -63,7 +63,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _windowCheckTimer.Start();
 
             // Abre a janela inicialmente para o usuário ver
-            _settingsForm.Show();
+            _settingsForm.BringToForeground();
         }
 
         private void OnGuidePressed()
@@ -80,16 +80,13 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         public void ShowOrToggleWindow()
         {
-            if (_settingsForm.Visible)
+            if (_settingsForm.Visible && _settingsForm.IsAppForeground())
             {
                 _settingsForm.Hide();
             }
             else
             {
-                _settingsForm.Show();
-                _settingsForm.WindowState = FormWindowState.Normal;
-                _settingsForm.BringToFront();
-                _settingsForm.Activate();
+                _settingsForm.BringToForeground();
             }
         }
 
