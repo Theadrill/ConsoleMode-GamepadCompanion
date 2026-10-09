@@ -89,6 +89,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string VirtualKeyboardDefaultTitle = "Digitar Texto";
         public const string VirtualKeyboardSearchTitle = "Pesquisar Jogos";
         public const string KbHintType = "[A] Digitar";
+        public const string KbHintSpace = "[Y] Espaço";
         public const string KbHintBackspace = "[X] Apagar";
         public const string KbHintCancel = "[B] Cancelar";
         public const string KbHintConfirm = "[RT] Concluir";

@@ -111,6 +111,16 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             }
         }
 
+        public void MoveCursorHome()
+        {
+            CursorPosition = 0;
+        }
+
+        public void MoveCursorEnd()
+        {
+            CursorPosition = _text.Length;
+        }
+
         public bool CopyToClipboard()
         {
             if (string.IsNullOrEmpty(_text)) return false;

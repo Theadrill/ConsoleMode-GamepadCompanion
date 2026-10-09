@@ -767,6 +767,53 @@ namespace ConsoleMode.GamepadCompanion.Tests
             }
         }
 
+        [Fact]
+        public void HeroBackgroundService_EnsureHeroBackground_ForceRecreatesHeroBackground()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), $"hero_force_test_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string coverFile = Path.Combine(tempDir, "game_cover.png");
+                using (var bmp = new System.Drawing.Bitmap(400, 600))
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                {
+                    g.Clear(System.Drawing.Color.Red);
+                    bmp.Save(coverFile, System.Drawing.Imaging.ImageFormat.Png);
+                }
+
+                var service = new Engine.Services.HeroBackgroundService();
+                string heroPath = service.EnsureHeroBackground(coverFile);
+                Assert.True(File.Exists(heroPath));
+                DateTime firstWrite = File.GetLastWriteTimeUtc(heroPath);
+
+                // Aguarda 50ms para garantir timestamp posterior
+                System.Threading.Thread.Sleep(50);
+
+                // Modifica a capa de origem
+                using (var bmp = new System.Drawing.Bitmap(400, 600))
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                {
+                    g.Clear(System.Drawing.Color.Blue);
+                    bmp.Save(coverFile, System.Drawing.Imaging.ImageFormat.Png);
+                }
+
+                // Força regeneração com force: true
+                string regeneratedPath = service.EnsureHeroBackground(coverFile, force: true);
+                Assert.Equal(heroPath, regeneratedPath);
+                DateTime secondWrite = File.GetLastWriteTimeUtc(heroPath);
+
+                Assert.True(secondWrite >= firstWrite);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
         private sealed class MockWindowTracker : IWindowTracker
         {
             public System.Collections.Generic.List<string> RegisteredExecutables = new System.Collections.Generic.List<string>();

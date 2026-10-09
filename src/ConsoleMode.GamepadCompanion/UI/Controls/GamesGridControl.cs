@@ -638,6 +638,32 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
         }
 
+        public void InvalidateHeroCache(string heroPath = null)
+        {
+            if (string.IsNullOrEmpty(heroPath))
+            {
+                foreach (var kvp in _heroCache)
+                {
+                    try { kvp.Value?.Dispose(); } catch { }
+                }
+                _heroCache.Clear();
+                _currentHeroBitmap = null;
+            }
+            else
+            {
+                if (_heroCache.TryGetValue(heroPath, out var bmp))
+                {
+                    _heroCache.Remove(heroPath);
+                    try { bmp?.Dispose(); } catch { }
+                }
+                if (_currentHeroBitmap == bmp)
+                {
+                    _currentHeroBitmap = null;
+                }
+            }
+            UpdateHeroBackground();
+        }
+
         private void UpdateHeroBackground()
         {
             if (_focusedIndex < 0 || _focusedIndex >= _cards.Count)

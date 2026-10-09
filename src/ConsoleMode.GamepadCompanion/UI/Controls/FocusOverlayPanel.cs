@@ -470,6 +470,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
             BringToFront();
             Visible = true;
+            _keyboardControl.Focus();
             Invalidate();
         }
 
@@ -569,6 +570,24 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         {
             if (!state.IsConnected || !_isVirtualKeyboard || _keyboardControl == null) return;
             _keyboardControl.ProcessGamepad(state, nowMs);
+        }
+
+        public bool HandleKeyboardKeyPress(char keyChar)
+        {
+            if (_isVirtualKeyboard && _keyboardControl != null && _keyboardControl.Visible)
+            {
+                return _keyboardControl.HandlePhysicalKeyPress(keyChar);
+            }
+            return false;
+        }
+
+        public bool HandleKeyboardKeyDown(KeyEventArgs e)
+        {
+            if (_isVirtualKeyboard && _keyboardControl != null && _keyboardControl.Visible)
+            {
+                return _keyboardControl.HandlePhysicalKeyDown(e);
+            }
+            return false;
         }
 
         public void ShowSteamGridApiKeyDialog(

@@ -501,5 +501,74 @@ namespace ConsoleMode.GamepadCompanion.Tests
             kb.ExecuteKey(backKey);
             Assert.True(kb.CursorVisible);
         }
+
+        [Fact]
+        public void VirtualKeyboardControl_GamepadY_InsertsSpace()
+        {
+            using var kb = new VirtualKeyboardControl("Hello");
+            kb.ResetGamepadState();
+
+            // Libera estado de abertura (neutro)
+            var stateNeutral = new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+            kb.ProcessGamepad(stateNeutral, 50);
+
+            // Pressionar Y no gamepad deve inserir espaço
+            var stateY = new GamepadState(true, 2, GamepadButtons.Y, 0, 0, 0, 0, 0, 0);
+            kb.ProcessGamepad(stateY, 100);
+
+            Assert.Equal("Hello ", kb.Buffer.Text);
+
+            // Soltar Y e pressionar novamente insere outro espaço
+            kb.ProcessGamepad(stateNeutral, 150);
+
+            var stateY2 = new GamepadState(true, 3, GamepadButtons.Y, 0, 0, 0, 0, 0, 0);
+            kb.ProcessGamepad(stateY2, 200);
+
+            Assert.Equal("Hello  ", kb.Buffer.Text);
+        }
+
+        [Fact]
+        public void VirtualKeyboardControl_PhysicalKeyboard_TypingAndControlsWork()
+        {
+            using var kb = new VirtualKeyboardControl("Steam");
+
+            // 1. Digitação de caracteres físicos via HandlePhysicalKeyPress
+            kb.HandlePhysicalKeyPress(' ');
+            kb.HandlePhysicalKeyPress('D');
+            kb.HandlePhysicalKeyPress('B');
+            Assert.Equal("Steam DB", kb.Buffer.Text);
+
+            // 2. Backspace via HandlePhysicalKeyDown
+            kb.HandlePhysicalKeyDown(new KeyEventArgs(Keys.Back));
+            Assert.Equal("Steam D", kb.Buffer.Text);
+
+            // 3. Espaço via KeyDown
+            kb.HandlePhysicalKeyDown(new KeyEventArgs(Keys.Space));
+            Assert.Equal("Steam D ", kb.Buffer.Text);
+
+            // 4. Navegação do cursor
+            kb.HandlePhysicalKeyDown(new KeyEventArgs(Keys.Home));
+            Assert.Equal(0, kb.Buffer.CursorPosition);
+
+            kb.HandlePhysicalKeyPress('X');
+            Assert.Equal("XSteam D ", kb.Buffer.Text);
+
+            // 5. Delete (apaga o caractere à frente)
+            kb.HandlePhysicalKeyDown(new KeyEventArgs(Keys.Home));
+            kb.HandlePhysicalKeyDown(new KeyEventArgs(Keys.Delete));
+            Assert.Equal("Steam D ", kb.Buffer.Text);
+
+            // 6. Enter para confirmar
+            string confirmedText = null;
+            kb.Confirmed += text => confirmedText = text;
+            kb.HandlePhysicalKeyDown(new KeyEventArgs(Keys.Enter));
+            Assert.Equal("Steam D ", confirmedText);
+
+            // 7. Escape para cancelar
+            bool cancelled = false;
+            kb.Cancelled += () => cancelled = true;
+            kb.HandlePhysicalKeyDown(new KeyEventArgs(Keys.Escape));
+            Assert.True(cancelled);
+        }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using ConsoleMode.GamepadCompanion.Core.Interfaces;
 using ConsoleMode.GamepadCompanion.Core.Models;
@@ -123,6 +124,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             BackColor = Color.FromArgb(30, 32, 40);
             ForeColor = Color.FromArgb(230, 232, 240);
             Font = new Font("Segoe UI", 9.5f);
+            KeyPreview = true;
 
             _sidePanel = new Panel { Dock = DockStyle.Left, Width = 260, Padding = new Padding(16) };
             _sidePanel.Paint += (s, e) => _navManager.DrawFocusHighlight(e.Graphics);
@@ -520,6 +522,29 @@ namespace ConsoleMode.GamepadCompanion.UI
             if (game == null) return;
             _gameRepo.Save(game);
             RegisterGameWithTracker(game);
+
+            if (!string.IsNullOrWhiteSpace(game.CoverImagePath))
+            {
+                string heroPath = Engine.Services.HeroBackgroundService.GetHeroBackgroundPath(game.CoverImagePath);
+                _gamesGrid.InvalidateHeroCache(heroPath);
+                _ = Task.Run(() =>
+                {
+                    _heroBackgroundService.EnsureHeroBackground(game.CoverImagePath, force: true);
+                    if (_gamesGrid.IsHandleCreated)
+                    {
+                        try
+                        {
+                            _gamesGrid.BeginInvoke((Action)(() => _gamesGrid.InvalidateHeroCache(heroPath)));
+                        }
+                        catch { }
+                    }
+                });
+            }
+            else
+            {
+                _gamesGrid.InvalidateHeroCache();
+            }
+
             ShowGamesLibrary();
         }
 
@@ -747,6 +772,53 @@ namespace ConsoleMode.GamepadCompanion.UI
                 return;
             }
             base.OnFormClosing(e);
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (_focusOverlay != null && _focusOverlay.IsVirtualKeyboardOpen)
+            {
+                var key = keyData & Keys.KeyCode;
+                if (key == Keys.Enter || key == Keys.Escape || key == Keys.Tab ||
+                    key == Keys.Left || key == Keys.Right ||
+                    key == Keys.Back || key == Keys.Delete || key == Keys.Space ||
+                    key == Keys.Home || key == Keys.End ||
+                    keyData == (Keys.Control | Keys.V) || keyData == (Keys.Control | Keys.C))
+                {
+                    var ke = new KeyEventArgs(keyData);
+                    if (_focusOverlay.HandleKeyboardKeyDown(ke))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        protected override void OnKeyPress(KeyPressEventArgs e)
+        {
+            if (_focusOverlay != null && _focusOverlay.IsVirtualKeyboardOpen)
+            {
+                if (_focusOverlay.HandleKeyboardKeyPress(e.KeyChar))
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+            base.OnKeyPress(e);
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            if (_focusOverlay != null && _focusOverlay.IsVirtualKeyboardOpen)
+            {
+                if (_focusOverlay.HandleKeyboardKeyDown(e))
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+            base.OnKeyDown(e);
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)

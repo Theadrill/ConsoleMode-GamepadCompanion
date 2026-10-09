@@ -51,6 +51,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
         private bool _lastBtnA;
         private bool _lastBtnB;
         private bool _lastBtnX;
+        private bool _lastBtnY;
         private bool _lastBtnLB;
         private bool _lastBtnRB;
         private bool _lastTriggerLT;
@@ -142,6 +143,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             _lastBtnA = true; // Previne clique residual do acionador
             _lastBtnB = true;
             _lastBtnX = true; // Previne apagar imediatamente se o teclado foi aberto com o botão X
+            _lastBtnY = true; // Previne inserir espaço se o teclado foi aberto com o botão Y
             _lastBtnLB = false;
             _lastBtnRB = false;
             _lastTriggerLT = false;
@@ -308,6 +310,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
             bool btnA = state.IsPressed(GamepadButtons.A);
             bool btnB = state.IsPressed(GamepadButtons.B);
             bool btnX = state.IsPressed(GamepadButtons.X);
+            bool btnY = state.IsPressed(GamepadButtons.Y);
             bool btnLB = state.IsPressed(GamepadButtons.LeftShoulder);
             bool btnRB = state.IsPressed(GamepadButtons.RightShoulder);
             bool triggerLT = state.LeftTrigger > 120;
@@ -377,6 +380,16 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
                 _lastBtnXTime = 0;
             }
             _lastBtnX = btnX;
+
+            // 3.5. Botão Y insere Espaço
+            if (btnY && !_lastBtnY)
+            {
+                _buffer.Insert(" ");
+                GamepadVibrationService.Instance.Pulse(0, 20);
+                ResetCursorBlink();
+                Invalidate();
+            }
+            _lastBtnY = btnY;
 
             // 4. Botão A digita a tecla focada
             if (btnA && !_lastBtnA)
@@ -788,7 +801,7 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
         private void DrawGamepadHints(Graphics g)
         {
             int footerY = Height - 30;
-            string hints = $"{Strings.KbHintType}   {Strings.KbHintBackspace}   {Strings.KbHintCancel}   {Strings.KbHintConfirm}   {Strings.KbHintCaps}   {Strings.KbHintClear}   {Strings.KbHintCursor}";
+            string hints = $"{Strings.KbHintType}   {Strings.KbHintSpace}   {Strings.KbHintBackspace}   {Strings.KbHintCancel}   {Strings.KbHintConfirm}   {Strings.KbHintCaps}   {Strings.KbHintClear}   {Strings.KbHintCursor}";
 
             using (var font = new Font("Segoe UI", 8.5f, FontStyle.Regular))
             using (var brush = new SolidBrush(MutedText))
@@ -801,6 +814,141 @@ namespace ConsoleMode.GamepadCompanion.UI.VirtualKeyboard
                 var footerRect = new Rectangle(0, footerY, Width, 24);
                 g.DrawString(hints, font, brush, footerRect, sf);
             }
+        }
+
+        public bool HandlePhysicalKeyPress(char keyChar)
+        {
+            if (!char.IsControl(keyChar))
+            {
+                _buffer.Insert(keyChar.ToString());
+                ResetCursorBlink();
+                Invalidate();
+                return true;
+            }
+            return false;
+        }
+
+        public bool HandlePhysicalKeyDown(KeyEventArgs e)
+        {
+            if (e == null) return false;
+
+            if (e.Control && e.KeyCode == Keys.V)
+            {
+                _buffer.PasteFromClipboard();
+                ResetCursorBlink();
+                Invalidate();
+                e.Handled = true;
+                return true;
+            }
+            if (e.Control && e.KeyCode == Keys.C)
+            {
+                _buffer.CopyToClipboard();
+                e.Handled = true;
+                return true;
+            }
+            if (e.KeyCode == Keys.Back)
+            {
+                _buffer.Backspace();
+                ResetCursorBlink();
+                Invalidate();
+                e.Handled = true;
+                return true;
+            }
+            if (e.KeyCode == Keys.Delete)
+            {
+                _buffer.Delete();
+                ResetCursorBlink();
+                Invalidate();
+                e.Handled = true;
+                return true;
+            }
+            if (e.KeyCode == Keys.Left)
+            {
+                _buffer.MoveCursorLeft();
+                ResetCursorBlink();
+                Invalidate();
+                e.Handled = true;
+                return true;
+            }
+            if (e.KeyCode == Keys.Right)
+            {
+                _buffer.MoveCursorRight();
+                ResetCursorBlink();
+                Invalidate();
+                e.Handled = true;
+                return true;
+            }
+            if (e.KeyCode == Keys.Home)
+            {
+                _buffer.MoveCursorHome();
+                ResetCursorBlink();
+                Invalidate();
+                e.Handled = true;
+                return true;
+            }
+            if (e.KeyCode == Keys.End)
+            {
+                _buffer.MoveCursorEnd();
+                ResetCursorBlink();
+                Invalidate();
+                e.Handled = true;
+                return true;
+            }
+            if (e.KeyCode == Keys.Enter)
+            {
+                Confirmed?.Invoke(_buffer.Text);
+                e.Handled = true;
+                return true;
+            }
+            if (e.KeyCode == Keys.Escape)
+            {
+                Cancelled?.Invoke();
+                e.Handled = true;
+                return true;
+            }
+            if (e.KeyCode == Keys.Space)
+            {
+                _buffer.Insert(" ");
+                ResetCursorBlink();
+                Invalidate();
+                e.Handled = true;
+                return true;
+            }
+            return false;
+        }
+
+        protected override bool IsInputKey(Keys keyData)
+        {
+            switch (keyData & Keys.KeyCode)
+            {
+                case Keys.Left:
+                case Keys.Right:
+                case Keys.Up:
+                case Keys.Down:
+                case Keys.Tab:
+                case Keys.Enter:
+                case Keys.Escape:
+                case Keys.Home:
+                case Keys.End:
+                    return true;
+                default:
+                    return base.IsInputKey(keyData);
+            }
+        }
+
+        protected override void OnKeyPress(KeyPressEventArgs e)
+        {
+            base.OnKeyPress(e);
+            if (HandlePhysicalKeyPress(e.KeyChar))
+            {
+                e.Handled = true;
+            }
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            HandlePhysicalKeyDown(e);
         }
 
         private static void FillRoundedRectangle(Graphics g, Brush brush, Rectangle r, int radius)

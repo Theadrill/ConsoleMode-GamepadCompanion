@@ -34,9 +34,9 @@ namespace ConsoleMode.GamepadCompanion.Engine.Services
 
         /// <summary>
         /// Garante que o fundo widescreen exista no disco para a capa especificada.
-        /// Se já existir, retorna o caminho existente imediatamente sem reprocessar.
+        /// Se já existir e não for forçado nem modificado, retorna o caminho existente imediatamente sem reprocessar.
         /// </summary>
-        public string EnsureHeroBackground(string coverPath)
+        public string EnsureHeroBackground(string coverPath, bool force = false)
         {
             if (string.IsNullOrWhiteSpace(coverPath) || !File.Exists(coverPath))
                 return string.Empty;
@@ -46,9 +46,20 @@ namespace ConsoleMode.GamepadCompanion.Engine.Services
                 return coverPath;
 
             string heroPath = GetHeroBackgroundPath(coverPath);
-            if (File.Exists(heroPath))
+            if (!force && File.Exists(heroPath))
             {
-                return heroPath;
+                try
+                {
+                    // Se a capa de origem não foi modificada após a geração do hero blur, reaproveita
+                    if (File.GetLastWriteTimeUtc(coverPath) <= File.GetLastWriteTimeUtc(heroPath))
+                    {
+                        return heroPath;
+                    }
+                }
+                catch
+                {
+                    return heroPath;
+                }
             }
 
             try
@@ -117,9 +128,9 @@ namespace ConsoleMode.GamepadCompanion.Engine.Services
                 cropRect = new Rectangle(0, cropY, srcW, cropH);
             }
 
-            // 2. Extrai recorte em resolução moderada (480x270) para preservar silhuetas e detalhes reconhecíveis
-            int blurW = 480;
-            int blurH = 270;
+            // 2. Extrai recorte em resolução moderada intermediária (400x225)
+            int blurW = 400;
+            int blurH = 225;
             using (var smallBmp = new Bitmap(blurW, blurH, PixelFormat.Format32bppArgb))
             {
                 using (var gSmall = Graphics.FromImage(smallBmp))
@@ -129,8 +140,8 @@ namespace ConsoleMode.GamepadCompanion.Engine.Services
                     gSmall.DrawImage(srcImage, new Rectangle(0, 0, blurW, blurH), cropRect, GraphicsUnit.Pixel);
                 }
 
-                // 3. Aplica Box Blur moderado (2 passadas, raio 3) preservando a forma e arte da capa
-                ApplyFastBoxBlur(smallBmp, radius: 3, passes: 2);
+                // 3. Aplica Box Blur balanceado (3 passadas, raio 3) preservando a forma e arte da capa
+                ApplyFastBoxBlur(smallBmp, radius: 3, passes: 3);
 
                 // 4. Renderiza em resolução final (960x540) com interpolação bicúbica suave
                 var result = new Bitmap(targetWidth, targetHeight, PixelFormat.Format32bppArgb);
@@ -142,7 +153,7 @@ namespace ConsoleMode.GamepadCompanion.Engine.Services
 
                     gFinal.DrawImage(smallBmp, new Rectangle(0, 0, targetWidth, targetHeight));
 
-                    // 5. Aplica Camada Atmosférica balanceada (~35% a 50% de escurecimento)
+                    // 5. Aplica Camada Atmosférica intermediária equilibrada
                     ApplyVignetteOverlay(gFinal, targetWidth, targetHeight);
                 }
 
@@ -152,23 +163,23 @@ namespace ConsoleMode.GamepadCompanion.Engine.Services
 
         private static void ApplyVignetteOverlay(Graphics g, int width, int height)
         {
-            // Camada 1: Tint escuro base sutil (33% de escurecimento para harmonizar cores)
-            using (var brushBase = new SolidBrush(Color.FromArgb(85, 18, 20, 26)))
+            // Camada 1: Tint escuro base equilibrado (~40% de escurecimento)
+            using (var brushBase = new SolidBrush(Color.FromArgb(102, 18, 20, 26)))
             {
                 g.FillRectangle(brushBase, 0, 0, width, height);
             }
 
-            // Camada 2: Gradiente Linear Vertical (topo quase livre 6%, base moderada 53% para leitura de cards)
+            // Camada 2: Gradiente Linear Vertical (topo sutil ~9%, base ~63% para leitura perfeita de cards)
             using (var linBrush = new LinearGradientBrush(
                 new Point(0, 0),
                 new Point(0, height),
-                Color.FromArgb(15, 15, 17, 22),
-                Color.FromArgb(135, 12, 14, 18)))
+                Color.FromArgb(22, 15, 17, 22),
+                Color.FromArgb(162, 12, 14, 18)))
             {
                 g.FillRectangle(linBrush, 0, 0, width, height);
             }
 
-            // Camada 3: Vinheta Radial suave nos cantos
+            // Camada 3: Vinheta Radial suave nos cantos (~49%)
             using (var path = new GraphicsPath())
             {
                 path.AddRectangle(new Rectangle(0, 0, width, height));
@@ -176,7 +187,7 @@ namespace ConsoleMode.GamepadCompanion.Engine.Services
                 {
                     pgb.CenterPoint = new PointF(width / 2f, height * 0.4f);
                     pgb.CenterColor = Color.FromArgb(0, 0, 0, 0); // Centro transparente
-                    pgb.SurroundColors = new[] { Color.FromArgb(100, 10, 12, 16) }; // Bordas suaves
+                    pgb.SurroundColors = new[] { Color.FromArgb(125, 10, 12, 16) }; // Bordas equilibradas
                     g.FillRectangle(pgb, 0, 0, width, height);
                 }
             }
