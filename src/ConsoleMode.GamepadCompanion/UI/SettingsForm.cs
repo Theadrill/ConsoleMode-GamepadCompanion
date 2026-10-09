@@ -505,6 +505,8 @@ namespace ConsoleMode.GamepadCompanion.UI
             {
                 _gameLauncher.Launch(game);
                 _windowTracker?.CheckActiveWindow();
+                ResetAllUiInputStates();
+                Hide();
             }
             catch (Exception ex)
             {
