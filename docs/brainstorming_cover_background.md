@@ -12,14 +12,19 @@ Transformar o visual da biblioteca de jogos (`GamesGridControl`) em uma experiê
    - O painel lateral esquerdo (`_sidePanel`, com sliders de deadzone, botões e status) permanece sólido e intocado.
 2. **Comportamento em Jogos Sem Capa e Botão "[+] Adicionar Jogo":**
    - Retorna suavemente ao fundo neutro escuro sólido padrão (24, 26, 32). Sem fundos aleatórios ou mantidos incorretamente.
-3. **Bug Pendente da Barra de Pesquisa em Fullscreen:**
+3. **Transição Visual e Navegação Rápida:**
+   - **Crossfade Suave com Debounce (~150ms a 200ms):** Ao repousar o foco em um card por ~150ms, dispara o fade suave entre os fundos. Durante scrolls contínuos ou navegação veloz pelo direcional, não repinta nem troca a cada micro-passo, evitando flickering e mantendo taxa de quadros a 60 FPS.
+4. **Intensidade do Efeito Visual (Desfoque & Vinheta Escura):**
+   - **Atmosférico / Ambient Glow (Blur Acentuado + 70% Escurecimento / Vinheta):** Estilo PS5 / Steam Big Picture. Preserva a paleta de cores, brilho e atmosfera da arte do jogo sem gerar conflito visual ou tirar legibilidade dos cards, títulos e contornos.
+5. **Controle de Configuração (Ativação e Persistência):**
+   - **Ativo por Padrão com Chave no INI (`DynamicHeroBackground: true`):** A experiência rica vem habilitada por padrão, com propriedade em `AppSettings` e persistência no arquivo INI, permitindo ligar/desligar caso o usuário queira um visual escuro neutro.
+6. **Bug Pendente da Barra de Pesquisa em Fullscreen:**
    - Em tela cheia, a barra de pesquisa apresenta artefato visual de caixa menor interna desalinhada com a barra externa. Resolver assim que o fundo dinâmico for concluído.
 
 ---
 
-## Questões Futuras do Grill Me (Pausadas temporariamente)
-- Tipo e duração da animação de transição (Crossfade suave de opacidade).
-- Algoritmo exato de recorte e opacidade da vinheta para legibilidade dos cards.
+## Status do Grill Me: CONCLUÍDO
+Todas as decisões de design, comportamento, arquitetura e performance foram alinhadas.
 
 ---
 
