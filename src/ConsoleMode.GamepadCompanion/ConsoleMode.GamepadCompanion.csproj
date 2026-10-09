@@ -11,6 +11,7 @@
     <RootNamespace>ConsoleMode.GamepadCompanion</RootNamespace>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

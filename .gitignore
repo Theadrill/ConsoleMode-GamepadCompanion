@@ -2,3 +2,6 @@ bin/
 obj/
 .vs/
 *.user
+
+# Backup de imagens, icones e scripts de geracao
+icon_backup/

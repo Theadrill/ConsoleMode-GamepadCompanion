@@ -40,7 +40,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             _trayIcon = new NotifyIcon
             {
-                Icon = SystemIcons.Application,
+                Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
                 Text = Strings.WindowTitle,
                 ContextMenuStrip = contextMenu,
                 Visible = true

@@ -118,6 +118,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void BuildLayout()
         {
             Text = Strings.WindowTitle;
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new Size(880, 540);
             MinimumSize = new Size(760, 550);
