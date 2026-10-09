@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using ConsoleMode.GamepadCompanion.Core.Models;
 using ConsoleMode.GamepadCompanion.Engine.Search;
@@ -19,11 +21,15 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private static readonly Color TextPrimary = Color.FromArgb(230, 232, 240);
         private static readonly Color TextSecondary = Color.FromArgb(160, 170, 185);
 
-        private readonly Panel _headerPanel = new Panel();
-        private readonly FlowLayoutPanel _cardsContainer = new FlowLayoutPanel();
+        private readonly DoubleBufferedPanel _headerPanel = new DoubleBufferedPanel();
+        private readonly DoubleBufferedFlowLayoutPanel _cardsContainer = new DoubleBufferedFlowLayoutPanel();
         private readonly Label _titleLabel = new Label();
         private readonly Label _hintsLabel = new Label();
         private readonly SearchBarControl _searchBar = new SearchBarControl();
+
+        private readonly Engine.Services.HeroBackgroundService _heroService = new Engine.Services.HeroBackgroundService();
+        private readonly Dictionary<string, Bitmap> _heroCache = new Dictionary<string, Bitmap>(StringComparer.OrdinalIgnoreCase);
+        private Bitmap _currentHeroBitmap;
 
         private readonly Panel _emptyStatePanel = new Panel();
         private readonly Panel _emptyIconPanel = new Panel();
@@ -105,16 +111,19 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _headerPanel.Dock = DockStyle.Top;
             _headerPanel.Height = 88;
             _headerPanel.BackColor = HeaderBg;
+            _headerPanel.Paint += HeaderPanel_Paint;
 
             _titleLabel.Text = Strings.GamesLibraryTitle;
             _titleLabel.Font = new Font("Segoe UI", 11.5f, FontStyle.Bold);
             _titleLabel.ForeColor = TextPrimary;
+            _titleLabel.BackColor = Color.Transparent;
             _titleLabel.AutoSize = true;
             _titleLabel.Location = new Point(16, 12);
 
             _hintsLabel.Text = $"{Strings.ActionLaunch}   {Strings.ActionConfigure}   {Strings.ActionSearch}   {Strings.NavHintBack}";
             _hintsLabel.Font = new Font("Segoe UI", 8.5f);
             _hintsLabel.ForeColor = TextSecondary;
+            _hintsLabel.BackColor = Color.Transparent;
             _hintsLabel.AutoSize = true;
             _hintsLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _hintsLabel.Location = new Point(Math.Max(200, Width - 360), 14);
@@ -147,6 +156,15 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _cardsContainer.BackColor = BgColor;
             _cardsContainer.Padding = new Padding(16);
             _cardsContainer.WrapContents = true;
+            _cardsContainer.Paint += CardsContainer_Paint;
+            _cardsContainer.Scroll += (s, e) => _cardsContainer.Invalidate();
+            _cardsContainer.MouseWheel += (s, e) => _cardsContainer.Invalidate();
+
+            Resize += (s, e) =>
+            {
+                _headerPanel.Invalidate();
+                _cardsContainer.Invalidate();
+            };
 
             BuildEmptyState();
 
@@ -304,10 +322,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 if (idx >= 0 && _focusedIndex != idx)
                 {
                     _focusedIndex = idx;
-                    for (int i = 0; i < _cards.Count; i++)
-                    {
-                        _cards[i].IsFocusedCard = (i == _focusedIndex);
-                    }
+                    UpdateCardFocus();
                 }
             };
 
@@ -369,6 +384,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 _cardsContainer.ScrollControlIntoView(_cards[_focusedIndex]);
             }
+
+            UpdateHeroBackground();
         }
 
         private void ClearCardsFocus()
@@ -619,6 +636,184 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 ConfigureRequested?.Invoke(card.Game);
             }
+        }
+
+        private void UpdateHeroBackground()
+        {
+            if (_focusedIndex < 0 || _focusedIndex >= _cards.Count)
+            {
+                SetHeroBackgroundBitmap(null);
+                return;
+            }
+
+            var card = _cards[_focusedIndex];
+            if (card.IsAddSlot || card.Game == null || string.IsNullOrWhiteSpace(card.Game.CoverImagePath))
+            {
+                // Regra alinhada no Grill Me (Decisão 2): Sem capa ou slot [+] retorna ao fundo neutro escuro sólido
+                SetHeroBackgroundBitmap(null);
+                return;
+            }
+
+            var game = card.Game;
+            string coverPath = game.CoverImagePath;
+            string heroPath = Engine.Services.HeroBackgroundService.GetHeroBackgroundPath(coverPath);
+
+            if (File.Exists(heroPath))
+            {
+                var bmp = GetOrCreateHeroBitmap(heroPath);
+                SetHeroBackgroundBitmap(bmp);
+            }
+            else if (File.Exists(coverPath))
+            {
+                // Se ainda não foi gerado, dispara em background para não travar a UI
+                Task.Run(() =>
+                {
+                    string generated = _heroService.EnsureHeroBackground(coverPath);
+                    if (!string.IsNullOrEmpty(generated) && IsHandleCreated)
+                    {
+                        try
+                        {
+                            BeginInvoke((Action)(() =>
+                            {
+                                if (_focusedIndex >= 0 && _focusedIndex < _cards.Count && _cards[_focusedIndex].Game == game)
+                                {
+                                    var bmp = GetOrCreateHeroBitmap(generated);
+                                    SetHeroBackgroundBitmap(bmp);
+                                }
+                            }));
+                        }
+                        catch
+                        {
+                        }
+                    }
+                });
+            }
+            else
+            {
+                SetHeroBackgroundBitmap(null);
+            }
+        }
+
+        private void SetHeroBackgroundBitmap(Bitmap bmp)
+        {
+            if (_currentHeroBitmap == bmp) return;
+            _currentHeroBitmap = bmp;
+            _headerPanel.Invalidate();
+            _cardsContainer.Invalidate();
+        }
+
+        private Bitmap GetOrCreateHeroBitmap(string heroPath)
+        {
+            if (string.IsNullOrEmpty(heroPath) || !File.Exists(heroPath))
+                return null;
+
+            if (_heroCache.TryGetValue(heroPath, out var cached) && cached != null)
+                return cached;
+
+            try
+            {
+                using (var stream = new FileStream(heroPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var img = Image.FromStream(stream))
+                {
+                    var bmp = new Bitmap(img);
+                    _heroCache[heroPath] = bmp;
+                    return bmp;
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void HeaderPanel_Paint(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.InterpolationMode = InterpolationMode.Bilinear;
+            if (_currentHeroBitmap != null)
+            {
+                // Desenha a porção superior do hero background com alinhamento contínuo
+                g.DrawImage(_currentHeroBitmap, new Rectangle(0, 0, Width, Height), new Rectangle(0, 0, _currentHeroBitmap.Width, _currentHeroBitmap.Height), GraphicsUnit.Pixel);
+
+                // Overlay sutil sobre o cabeçalho para garantir contraste dos textos
+                using (var overlay = new SolidBrush(Color.FromArgb(45, 18, 20, 26)))
+                {
+                    g.FillRectangle(overlay, _headerPanel.ClientRectangle);
+                }
+            }
+            else
+            {
+                using (var brush = new SolidBrush(HeaderBg))
+                {
+                    g.FillRectangle(brush, _headerPanel.ClientRectangle);
+                }
+            }
+        }
+
+        private void CardsContainer_Paint(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.InterpolationMode = InterpolationMode.Bilinear;
+            int headerH = _headerPanel.Height;
+            int viewX = -_cardsContainer.AutoScrollPosition.X;
+            int viewY = -_cardsContainer.AutoScrollPosition.Y;
+
+            if (_currentHeroBitmap != null)
+            {
+                // Desenha a continuação do hero background perfeitamente fixo no viewport da tela
+                g.DrawImage(_currentHeroBitmap, new Rectangle(viewX, viewY - headerH, Width, Height), new Rectangle(0, 0, _currentHeroBitmap.Width, _currentHeroBitmap.Height), GraphicsUnit.Pixel);
+            }
+            else
+            {
+                using (var brush = new SolidBrush(BgColor))
+                {
+                    g.FillRectangle(brush, new Rectangle(viewX, viewY, _cardsContainer.ClientSize.Width, _cardsContainer.ClientSize.Height));
+                }
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                foreach (var kvp in _heroCache)
+                {
+                    try { kvp.Value?.Dispose(); } catch { }
+                }
+                _heroCache.Clear();
+                _currentHeroBitmap = null;
+            }
+            base.Dispose(disposing);
+        }
+
+        private sealed class DoubleBufferedPanel : Panel
+        {
+            public DoubleBufferedPanel()
+            {
+                DoubleBuffered = true;
+                SetStyle(ControlStyles.AllPaintingInWmPaint |
+                         ControlStyles.UserPaint |
+                         ControlStyles.OptimizedDoubleBuffer |
+                         ControlStyles.ResizeRedraw, true);
+                UpdateStyles();
+            }
+
+            protected override void OnPaintBackground(PaintEventArgs e) { }
+        }
+
+        private sealed class DoubleBufferedFlowLayoutPanel : FlowLayoutPanel
+        {
+            public DoubleBufferedFlowLayoutPanel()
+            {
+                DoubleBuffered = true;
+                SetStyle(ControlStyles.AllPaintingInWmPaint |
+                         ControlStyles.UserPaint |
+                         ControlStyles.OptimizedDoubleBuffer |
+                         ControlStyles.ResizeRedraw, true);
+                UpdateStyles();
+            }
+
+            protected override void OnPaintBackground(PaintEventArgs e) { }
         }
     }
 }

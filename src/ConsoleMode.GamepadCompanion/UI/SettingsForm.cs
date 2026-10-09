@@ -47,6 +47,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly GameConfigPanel _configPanel = new GameConfigPanel();
         private readonly SteamGridDbBrowserControl _steamGridBrowser = new SteamGridDbBrowserControl();
         private readonly Engine.Services.SteamGridDbService _steamGridService = new Engine.Services.SteamGridDbService();
+        private readonly Engine.Services.HeroBackgroundService _heroBackgroundService = new Engine.Services.HeroBackgroundService();
         private readonly FocusOverlayPanel _focusOverlay = new FocusOverlayPanel();
         private readonly GamepadNavigationManager _navManager = new GamepadNavigationManager();
 
@@ -323,6 +324,9 @@ namespace ConsoleMode.GamepadCompanion.UI
                     RegisterGameWithTracker(g);
                 }
             }
+
+            string coversDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "covers");
+            _ = _heroBackgroundService.ScanAndGenerateMissingHeroBackgroundsAsync(coversDir, games);
         }
 
         private void RegisterGameWithTracker(GameEntry game)

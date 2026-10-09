@@ -312,6 +312,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
                 string savedPath = await _service.DownloadCoverAsync(cover.url, destFile).ConfigureAwait(false);
 
+                // Gera o fundo widescreen atmosférico em background imediatamente
+                _ = Task.Run(() => new Engine.Services.HeroBackgroundService().EnsureHeroBackground(savedPath));
+
                 RunOnUi(() =>
                 {
                     _isLoading = false;

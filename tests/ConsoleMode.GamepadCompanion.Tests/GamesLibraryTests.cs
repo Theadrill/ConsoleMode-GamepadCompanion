@@ -720,6 +720,53 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.True(validationFired);
         }
 
+        [Fact]
+        public void HeroBackgroundService_GetHeroBackgroundPath_ReturnsExpectedPath()
+        {
+            string coverPath = @"C:\Games\covers\mygame.png";
+            string heroPath = Engine.Services.HeroBackgroundService.GetHeroBackgroundPath(coverPath);
+
+            Assert.Equal(@"C:\Games\covers\mygame_hero_blur.jpg", heroPath);
+        }
+
+        [Fact]
+        public void HeroBackgroundService_EnsureHeroBackground_GeneratesValidWidescreenJpeg()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), $"hero_test_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string coverFile = Path.Combine(tempDir, "sample_cover.png");
+                // Cria imagem de teste 600x900 simulando capa do SteamGridDB
+                using (var bmp = new System.Drawing.Bitmap(600, 900))
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                {
+                    g.Clear(System.Drawing.Color.MediumPurple);
+                    bmp.Save(coverFile, System.Drawing.Imaging.ImageFormat.Png);
+                }
+
+                var service = new Engine.Services.HeroBackgroundService();
+                string heroPath = service.EnsureHeroBackground(coverFile);
+
+                Assert.True(File.Exists(heroPath));
+                Assert.EndsWith(Engine.Services.HeroBackgroundService.HeroBlurSuffix, heroPath);
+
+                // Verifica dimensões 16:9 widescreen
+                using (var heroImg = System.Drawing.Image.FromFile(heroPath))
+                {
+                    Assert.Equal(Engine.Services.HeroBackgroundService.HeroWidth, heroImg.Width);
+                    Assert.Equal(Engine.Services.HeroBackgroundService.HeroHeight, heroImg.Height);
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
+
         private sealed class MockWindowTracker : IWindowTracker
         {
             public System.Collections.Generic.List<string> RegisteredExecutables = new System.Collections.Generic.List<string>();
