@@ -41,8 +41,44 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private const int VK_LMENU = 0xA4;
         private const int VK_RMENU = 0xA5;
 
+        // Low-Level Keyboard Hook (WH_KEYBOARD_LL) para sequestro temporário de atalhos do Windows (Win+R, Alt+Tab, etc.)
+        private const int WH_KEYBOARD_LL = 13;
+        private const int WM_KEYDOWN = 0x0100;
+        private const int WM_KEYUP = 0x0101;
+        private const int WM_SYSKEYDOWN = 0x0104;
+        private const int WM_SYSKEYUP = 0x0105;
+        private const uint LLKHF_INJECTED = 0x00000010;
+
+        private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct KBDLLHOOKSTRUCT
+        {
+            public uint vkCode;
+            public uint scanCode;
+            public uint flags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
+
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
+
+        private IntPtr _keyboardHookHandle = IntPtr.Zero;
+        private readonly LowLevelKeyboardProc _keyboardHookDelegate;
 
         private ProfileEditorSlot _targetSlot;
         private string _slotTitle = string.Empty;
@@ -88,6 +124,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 true);
 
             TabStop = true;
+            _keyboardHookDelegate = KeyboardHookCallback;
             BuildLogicalBounds();
         }
 
@@ -148,6 +185,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _capturedCombo.Clear();
             _currentlyHeldKeys.Clear();
             _currentlyHeldMouseButtons.Clear();
+            InstallKeyboardHook();
             if (IsHandleCreated)
             {
                 Focus();
@@ -157,11 +195,94 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         public void StopListening()
         {
+            UninstallKeyboardHook();
             _isListening = false;
             _capturedCombo.Clear();
             _currentlyHeldKeys.Clear();
             _currentlyHeldMouseButtons.Clear();
             Invalidate();
+        }
+
+        private void InstallKeyboardHook()
+        {
+            if (_keyboardHookHandle != IntPtr.Zero) return;
+            try
+            {
+                using (var curProcess = System.Diagnostics.Process.GetCurrentProcess())
+                using (var curModule = curProcess.MainModule)
+                {
+                    IntPtr hMod = curModule != null ? GetModuleHandle(curModule.ModuleName) : IntPtr.Zero;
+                    _keyboardHookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, _keyboardHookDelegate, hMod, 0);
+                }
+            }
+            catch
+            {
+                _keyboardHookHandle = IntPtr.Zero;
+            }
+        }
+
+        private void UninstallKeyboardHook()
+        {
+            if (_keyboardHookHandle == IntPtr.Zero) return;
+            try
+            {
+                UnhookWindowsHookEx(_keyboardHookHandle);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                _keyboardHookHandle = IntPtr.Zero;
+            }
+        }
+
+        private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0 && _isListening)
+            {
+                int msg = wParam.ToInt32();
+                bool isKeyDown = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
+                bool isKeyUp = (msg == WM_KEYUP || msg == WM_SYSKEYUP);
+
+                if (isKeyDown || isKeyUp)
+                {
+                    var kb = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
+
+                    // Ignora eventos injetados sinteticamente pelo próprio SendInput
+                    if ((kb.flags & LLKHF_INJECTED) == 0)
+                    {
+                        VirtualKey vk = MapRawVkToVirtualKey((int)kb.vkCode);
+                        if (vk != VirtualKey.None)
+                        {
+                            if (isKeyDown)
+                            {
+                                RegisterPhysicalVirtualKeyDown(vk);
+                            }
+                            else
+                            {
+                                RegisterPhysicalVirtualKeyUp(vk);
+                            }
+
+                            // Retorna 1 (não-zero) para engolir a tecla antes que o Windows processe Win+R, Alt+Tab, Menu Iniciar, etc.
+                            return (IntPtr)1;
+                        }
+                    }
+                }
+            }
+
+            return CallNextHookEx(_keyboardHookHandle, nCode, wParam, lParam);
+        }
+
+        private static VirtualKey MapRawVkToVirtualKey(int rawVk)
+        {
+            if (Enum.IsDefined(typeof(VirtualKey), (ushort)rawVk))
+            {
+                var vk = (VirtualKey)(ushort)rawVk;
+                if (vk != VirtualKey.None) return vk;
+            }
+
+            return MapKeysToVirtualKey((Keys)rawVk);
         }
 
         public void ProcessGamepad(GamepadState state, long nowMs)
@@ -381,6 +502,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void FinalizeCapture()
         {
+            UninstallKeyboardHook();
             var result = CloneList(_capturedCombo);
             _isListening = false;
             _capturedCombo.Clear();
@@ -799,6 +921,21 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             if (e.Button == MouseButtons.Left) RegisterPhysicalMouseUp(MouseButton.Left);
             else if (e.Button == MouseButtons.Right) RegisterPhysicalMouseUp(MouseButton.Right);
             else if (e.Button == MouseButtons.Middle) RegisterPhysicalMouseUp(MouseButton.Middle);
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (!Visible && _isListening)
+            {
+                StopListening();
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            UninstallKeyboardHook();
+            base.Dispose(disposing);
         }
 
         protected override void OnMouseWheel(MouseEventArgs e)

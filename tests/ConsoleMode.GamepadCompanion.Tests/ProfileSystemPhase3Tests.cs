@@ -149,5 +149,34 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.NotNull(confirmedActions);
             Assert.Empty(confirmedActions);
         }
+        [Fact]
+        public void InputBindingCaptureControl_WinPlusRCombo_CapturesBothKeysProperly()
+        {
+            var capture = new InputBindingCaptureControl();
+            capture.OpenForSlot(ProfileEditorSlot.ButtonBack, "SELECT / VIEW", "Turtle WoW", null);
+
+            List<InputAction> confirmedActions = null;
+            capture.BindingConfirmed += (slot, actions) => confirmedActions = actions;
+
+            capture.StartListening();
+            Assert.True(capture.IsListening);
+
+            // Segura LeftWindows (0x5B) e depois R (0x52)
+            capture.RegisterPhysicalVirtualKeyDown(VirtualKey.LeftWindows);
+            capture.RegisterPhysicalVirtualKeyDown(VirtualKey.R);
+            Assert.Equal(2, capture.CapturedCombo.Count);
+            Assert.Null(confirmedActions);
+
+            // Solta R e depois LeftWindows
+            capture.RegisterPhysicalVirtualKeyUp(VirtualKey.R);
+            capture.RegisterPhysicalVirtualKeyUp(VirtualKey.LeftWindows);
+
+            Assert.False(capture.IsListening);
+            Assert.NotNull(confirmedActions);
+            Assert.Equal(2, confirmedActions.Count);
+            Assert.Equal(VirtualKey.LeftWindows, confirmedActions[0].Key);
+            Assert.Equal(VirtualKey.R, confirmedActions[1].Key);
+            Assert.Equal("Win + R", InputAction.FormatComboDisplay(confirmedActions));
+        }
     }
 }
