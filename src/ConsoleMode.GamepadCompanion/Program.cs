@@ -31,6 +31,8 @@ namespace ConsoleMode.GamepadCompanion
                 var desktopProfile = new Profiles.DesktopProfile();
 
                 var windowTracker = new WindowTracker();
+                var initialGames = new GameRepository().GetAll();
+                windowTracker.SetGames(initialGames);
 
                 using (IGamepadService gamepad = new GamepadService())
                 {

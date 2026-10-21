@@ -14,11 +14,24 @@ namespace ConsoleMode.GamepadCompanion.Hardware
     /// </summary>
     public sealed class WindowTracker : IWindowTracker
     {
+        private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwProcessId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool QueryFullProcessImageName(IntPtr hProcess, uint dwFlags, System.Text.StringBuilder lpExeName, ref uint lpdwSize);
 
         private bool _isGameActive;
         private string _lastProcessName = string.Empty;
@@ -28,6 +41,8 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         private readonly object _lock = new object();
         private readonly List<GameEntry> _registeredGames = new List<GameEntry>();
         private readonly Dictionary<string, GameEntry> _exeToGameMap =
+            new Dictionary<string, GameEntry>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, GameEntry> _dirToGameMap =
             new Dictionary<string, GameEntry>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _customGameExecutables =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -53,6 +68,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             {
                 _registeredGames.Clear();
                 _exeToGameMap.Clear();
+                _dirToGameMap.Clear();
                 foreach (var g in games)
                 {
                     if (g != null)
@@ -87,6 +103,26 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             MapExecutable(game.MainExecutable, game);
             MapExecutable(game.TargetPath, game);
             MapExecutable(game.LauncherName, game);
+            MapDirectory(game.WorkingDirectory, game);
+            if (!string.IsNullOrWhiteSpace(game.TargetPath))
+            {
+                try
+                {
+                    string targetDir = Path.GetDirectoryName(game.TargetPath.Trim().Trim('"', '\''));
+                    MapDirectory(targetDir, game);
+                }
+                catch { }
+            }
+        }
+
+        private void MapDirectory(string rawDir, GameEntry game)
+        {
+            if (string.IsNullOrWhiteSpace(rawDir) || game == null) return;
+            string clean = rawDir.Trim().Trim('"', '\'').TrimEnd('\\', '/');
+            if (!string.IsNullOrEmpty(clean))
+            {
+                _dirToGameMap[clean] = game;
+            }
         }
 
         private void MapExecutable(string rawPathOrName, GameEntry game)
@@ -169,16 +205,29 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             }
 
             string procName = string.Empty;
-            try
+            string procFullPath = GetProcessFullPath(pid);
+            if (!string.IsNullOrEmpty(procFullPath))
             {
-                using (var proc = Process.GetProcessById((int)pid))
+                try
                 {
-                    procName = proc.ProcessName;
+                    procName = Path.GetFileNameWithoutExtension(procFullPath);
                 }
+                catch { }
             }
-            catch
+
+            if (string.IsNullOrEmpty(procName))
             {
-                // Processo pode ter finalizado ou acesso restrito
+                try
+                {
+                    using (var proc = Process.GetProcessById((int)pid))
+                    {
+                        procName = proc.ProcessName;
+                    }
+                }
+                catch
+                {
+                    // Processo pode ter finalizado ou acesso restrito
+                }
             }
 
             GameEntry matchedGame = null;
@@ -186,7 +235,38 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
             lock (_lock)
             {
-                if (!string.IsNullOrEmpty(procName))
+                // 1. Prioridade Máxima: Match pelo diretório onde o executável em foco está rodando!
+                if (!string.IsNullOrEmpty(procFullPath))
+                {
+                    try
+                    {
+                        string procDir = Path.GetDirectoryName(procFullPath)?.TrimEnd('\\', '/');
+                        if (!string.IsNullOrEmpty(procDir))
+                        {
+                            if (_dirToGameMap.TryGetValue(procDir, out var dirGame))
+                            {
+                                matchedGame = dirGame;
+                                isGameFocused = true;
+                            }
+                            else
+                            {
+                                foreach (var kvp in _dirToGameMap)
+                                {
+                                    if (procDir.StartsWith(kvp.Key + "\\", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        matchedGame = kvp.Value;
+                                        isGameFocused = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                // 2. Match pelo nome do executável
+                if (!isGameFocused && !string.IsNullOrEmpty(procName))
                 {
                     if (_exeToGameMap.TryGetValue(procName, out var game) ||
                         _exeToGameMap.TryGetValue(procName + ".exe", out game))
@@ -201,6 +281,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     }
                 }
 
+                // 3. Fallback para clientes WoW Classic / VanillaFixes (ex: VanillaFixes.exe que spawna WoW.exe na mesma pasta)
                 if (!isGameFocused && !string.IsNullOrEmpty(procName))
                 {
                     bool isDefaultWow = string.Equals(procName, "turtle-wow", StringComparison.OrdinalIgnoreCase) ||
@@ -211,12 +292,42 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     {
                         isGameFocused = true;
                         matchedGame = _registeredGames.Find(g => string.Equals(g.Id, "turtle-wow", StringComparison.OrdinalIgnoreCase))
-                                      ?? _registeredGames.Find(g => g.MainExecutable != null && g.MainExecutable.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0);
+                                      ?? _registeredGames.Find(g => g.MainExecutable != null &&
+                                          (g.MainExecutable.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                           g.MainExecutable.IndexOf("vanilla", StringComparison.OrdinalIgnoreCase) >= 0));
                     }
                 }
             }
 
             UpdateFocus(isGameFocused, procName, hwnd, matchedGame);
+        }
+
+        private static string GetProcessFullPath(uint pid)
+        {
+            IntPtr hProc = IntPtr.Zero;
+            try
+            {
+                hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+                if (hProc == IntPtr.Zero) return string.Empty;
+
+                var sb = new System.Text.StringBuilder(1024);
+                uint size = (uint)sb.Capacity;
+                if (QueryFullProcessImageName(hProc, 0, sb, ref size))
+                {
+                    return sb.ToString();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+                if (hProc != IntPtr.Zero)
+                {
+                    CloseHandle(hProc);
+                }
+            }
+            return string.Empty;
         }
 
         private void UpdateFocus(bool focused, string procName, IntPtr hwnd, GameEntry matchedGame)
@@ -225,7 +336,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             bool focusStateChanged = _isGameActive != focused;
             IntPtr targetHwnd = focused ? hwnd : IntPtr.Zero;
             bool hwndChanged = _activeHwnd != targetHwnd;
-            bool gameChanged = !ReferenceEquals(_activeGame, matchedGame) && (_activeGame?.Id != matchedGame?.Id);
+            bool gameChanged = !ReferenceEquals(_activeGame, matchedGame) || (_activeGame?.Id != matchedGame?.Id);
 
             _isGameActive = focused;
             _activeHwnd = targetHwnd;

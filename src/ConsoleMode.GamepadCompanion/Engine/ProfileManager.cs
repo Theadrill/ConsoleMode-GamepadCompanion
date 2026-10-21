@@ -44,6 +44,9 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
             _gamingProfile.CenterCursorRequested += OnCenterCursorRequested;
             _gamingProfile.ToggleClipCursorRequested += OnToggleClipCursorRequested;
+            _gamingProfile.ScreenClipRequested += OnScreenClipRequested;
+            _gamingProfile.AltTabRequested += OnAltTabRequested;
+            _gamingProfile.ShowDesktopRequested += OnShowDesktopRequested;
 
             // Define perfil inicial baseado no foco atual
             _windowTracker.CheckActiveWindow();
@@ -51,6 +54,9 @@ namespace ConsoleMode.GamepadCompanion.Engine
         }
 
         public event Action GuidePressed;
+        public event Action ScreenClipRequested;
+        public event Action AltTabRequested;
+        public event Action ShowDesktopRequested;
 
         public bool IsGameFocused => _windowTracker.IsGameFocused;
 
@@ -79,6 +85,14 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 }
 
                 return _gamingProfile.Name;
+            }
+        }
+
+        public void RefreshActiveGameProfile()
+        {
+            if (_windowTracker.IsGameFocused)
+            {
+                UpdateActiveProfile(true);
             }
         }
 
@@ -184,6 +198,56 @@ namespace ConsoleMode.GamepadCompanion.Engine
             }
         }
 
+        private void OnScreenClipRequested()
+        {
+            // Libera o ClipCursor temporariamente para o usuário poder selecionar a área de recorte na tela
+            WindowNative.ReleaseCursorClip();
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-screenclip:")
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+            }
+            ScreenClipRequested?.Invoke();
+        }
+
+        private void OnAltTabRequested()
+        {
+            WindowNative.ReleaseCursorClip();
+            try
+            {
+                // shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257} é o Window Switcher nativo do Windows (não bloqueado por UIPI)
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", "shell:::{3080F90E-D7AD-11D9-BD98-0000947B0257}")
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+            }
+            AltTabRequested?.Invoke();
+        }
+
+        private void OnShowDesktopRequested()
+        {
+            WindowNative.ReleaseCursorClip();
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", "shell:::{3080F90D-D7AD-11D9-BD98-0000947B0257}")
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+            }
+            ShowDesktopRequested?.Invoke();
+        }
+
         private void OnGamepadStateUpdated(GamepadState state)
         {
             if (!state.IsConnected) return;
@@ -205,6 +269,9 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
             _gamingProfile.CenterCursorRequested -= OnCenterCursorRequested;
             _gamingProfile.ToggleClipCursorRequested -= OnToggleClipCursorRequested;
+            _gamingProfile.ScreenClipRequested -= OnScreenClipRequested;
+            _gamingProfile.AltTabRequested -= OnAltTabRequested;
+            _gamingProfile.ShowDesktopRequested -= OnShowDesktopRequested;
 
             WindowNative.ReleaseCursorClip();
         }

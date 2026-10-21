@@ -178,5 +178,55 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(VirtualKey.R, confirmedActions[1].Key);
             Assert.Equal("Win + R", InputAction.FormatComboDisplay(confirmedActions));
         }
+
+        [Fact]
+        public void SendInputNative_LeftWindowsKey_IsRecognizedAsExtendedKey()
+        {
+            ushort vkWin = (ushort)VirtualKey.LeftWindows;
+            Assert.True(ConsoleMode.GamepadCompanion.Hardware.SendInputNative.IsExtendedKey(vkWin));
+            Assert.True(ConsoleMode.GamepadCompanion.Hardware.SendInputNative.ScanCodeFor(vkWin) > 0);
+        }
+
+        [Fact]
+        public void GamingProfile_WinShiftSCombo_TriggersScreenClipRequestedOnceOnPress()
+        {
+            var sim = new FakeSim();
+            var settings = new AppSettings();
+            var profile = GameProfilePresets.CreateWowClassic();
+            profile.ActivePage.SetActions(
+                ControllerButton.Y,
+                new[]
+                {
+                    InputAction.FromKey(VirtualKey.LeftWindows),
+                    InputAction.FromKey(VirtualKey.LeftShift),
+                    InputAction.FromKey(VirtualKey.S)
+                });
+
+            var gaming = new ConsoleMode.GamepadCompanion.Profiles.GamingProfile(sim, settings, profile);
+            int screenClipTriggered = 0;
+            gaming.ScreenClipRequested += () => screenClipTriggered++;
+
+            // Frame 1: Aperta Y
+            gaming.Update(MakeState(1, GamepadButtons.Y), 0.016f);
+            Assert.Equal(1, screenClipTriggered);
+
+            // Frame 2: Mantém Y pressionado (não deve disparar repetidamente)
+            gaming.Update(MakeState(2, GamepadButtons.Y), 0.016f);
+            Assert.Equal(1, screenClipTriggered);
+
+            // Frame 3: Solta Y
+            gaming.Update(MakeState(3, GamepadButtons.None), 0.016f);
+            Assert.Equal(1, screenClipTriggered);
+        }
+
+        private sealed class FakeSim : ConsoleMode.GamepadCompanion.Core.Interfaces.IInputSimulator
+        {
+            public void KeyDown(VirtualKey key) { }
+            public void KeyUp(VirtualKey key) { }
+            public void MouseButtonDown(MouseButton button) { }
+            public void MouseButtonUp(MouseButton button) { }
+            public void MouseMoveRelative(int dx, int dy) { }
+            public void MouseWheel(int delta) { }
+        }
     }
 }

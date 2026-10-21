@@ -21,14 +21,22 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         private readonly object _syncLock = new object();
 
         private GameProfile _activeProfile;
-        private readonly HashSet<VirtualKey> _currentlyHeldKeys = new HashSet<VirtualKey>();
-        private readonly HashSet<MouseButton> _currentlyHeldMouseButtons = new HashSet<MouseButton>();
+        private readonly List<VirtualKey> _currentlyHeldKeys = new List<VirtualKey>();
+        private readonly List<MouseButton> _currentlyHeldMouseButtons = new List<MouseButton>();
 
         private float _remainderX;
         private float _remainderY;
 
+        private bool _wasScreenClipActive;
+        private bool _wasAltTabActive;
+        private bool _wasShowDesktopActive;
+        private readonly HashSet<CompanionActionType> _currentlyHeldSpecial = new HashSet<CompanionActionType>();
+
         public event Action CenterCursorRequested;
         public event Action ToggleClipCursorRequested;
+        public event Action ScreenClipRequested;
+        public event Action AltTabRequested;
+        public event Action ShowDesktopRequested;
 
         public GamingProfile(IInputSimulator input, AppSettings settings, GameProfile initialProfile = null)
         {
@@ -82,9 +90,9 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             byte triggerThreshold = profile.UseGlobalTriggerThreshold ? _settings.TriggerThreshold : (byte)(profile.CustomTriggerThresholdPercent * 255 / 100);
             int sensitivity = page.MouseSensitivity > 0 ? page.MouseSensitivity : _settings.MouseSensitivity;
 
-            // 2. Acumuladores de estado para união de estados no frame atual
-            var frameKeys = new HashSet<VirtualKey>();
-            var frameMouseButtons = new HashSet<MouseButton>();
+            // 2. Acumuladores de estado para união de estados no frame atual (preservando a ordem exata dos combos!)
+            var frameKeys = new List<VirtualKey>();
+            var frameMouseButtons = new List<MouseButton>();
             int frameWheelDelta = 0;
             float frameDx = 0f;
             float frameDy = 0f;
@@ -99,13 +107,16 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                     switch (action.Type)
                     {
                         case InputActionType.Key:
-                            if (action.Key != VirtualKey.None)
+                            if (action.Key != VirtualKey.None && !frameKeys.Contains(action.Key))
                             {
                                 frameKeys.Add(action.Key);
                             }
                             break;
                         case InputActionType.MouseButton:
-                            frameMouseButtons.Add(action.MouseButton);
+                            if (!frameMouseButtons.Contains(action.MouseButton))
+                            {
+                                frameMouseButtons.Add(action.MouseButton);
+                            }
                             break;
                         case InputActionType.MouseWheel:
                             frameWheelDelta += action.WheelDelta;
@@ -222,7 +233,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                 }
             }
 
-            // 6. Aplicação da União de Estados (Diff por frame)
+            // 6. Aplicação da União de Estados (Diff por frame preservando ordem de combo)
             List<VirtualKey> keysToRelease;
             List<VirtualKey> keysToPress;
             List<MouseButton> mouseToRelease;
@@ -230,13 +241,15 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
             lock (_syncLock)
             {
-                keysToRelease = _currentlyHeldKeys.Where(k => !frameKeys.Contains(k)).ToList();
+                // Solta na ordem inversa (tecla final antes dos modificadores)
+                keysToRelease = _currentlyHeldKeys.Where(k => !frameKeys.Contains(k)).Reverse().ToList();
+                // Pressiona na ordem exata do combo (modificadores antes da tecla final)
                 keysToPress = frameKeys.Where(k => !_currentlyHeldKeys.Contains(k)).ToList();
 
                 foreach (var k in keysToRelease) _currentlyHeldKeys.Remove(k);
                 foreach (var k in keysToPress) _currentlyHeldKeys.Add(k);
 
-                mouseToRelease = _currentlyHeldMouseButtons.Where(b => !frameMouseButtons.Contains(b)).ToList();
+                mouseToRelease = _currentlyHeldMouseButtons.Where(b => !frameMouseButtons.Contains(b)).Reverse().ToList();
                 mouseToPress = frameMouseButtons.Where(b => !_currentlyHeldMouseButtons.Contains(b)).ToList();
 
                 foreach (var b in mouseToRelease) _currentlyHeldMouseButtons.Remove(b);
@@ -289,21 +302,67 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
             _input.MouseMoveRelative(moveX, moveY);
 
-            // 6.7 Ações Especiais do Companion
+            // 6.7 Detecção de Atalhos de Sistema do Windows (Win+Shift+S, Alt+Tab, Win+D) e Ações Especiais
+            bool hasWin = frameKeys.Contains(VirtualKey.LeftWindows) || frameKeys.Contains(VirtualKey.RightWindows);
+            bool hasShift = frameKeys.Contains(VirtualKey.LeftShift) || frameKeys.Contains(VirtualKey.RightShift);
+            bool hasAlt = frameKeys.Contains(VirtualKey.LeftAlt) || frameKeys.Contains(VirtualKey.RightAlt);
+
+            bool isScreenClipCombo = hasWin && hasShift && frameKeys.Contains(VirtualKey.S) && frameKeys.Count == 3;
+            if (isScreenClipCombo && !_wasScreenClipActive)
+            {
+                ScreenClipRequested?.Invoke();
+            }
+            _wasScreenClipActive = isScreenClipCombo;
+
+            bool isAltTabCombo = (hasAlt && frameKeys.Contains(VirtualKey.Tab) && frameKeys.Count == 2) ||
+                                 frameSpecial.Contains(CompanionActionType.AltTab);
+            if (isAltTabCombo && !_wasAltTabActive)
+            {
+                AltTabRequested?.Invoke();
+            }
+            _wasAltTabActive = isAltTabCombo;
+
+            bool isShowDesktopCombo = (hasWin && frameKeys.Contains(VirtualKey.D) && frameKeys.Count == 2) ||
+                                      frameSpecial.Contains(CompanionActionType.ShowDesktop);
+            if (isShowDesktopCombo && !_wasShowDesktopActive)
+            {
+                ShowDesktopRequested?.Invoke();
+            }
+            _wasShowDesktopActive = isShowDesktopCombo;
+
             if (frameSpecial.Count > 0)
             {
                 foreach (var sp in frameSpecial)
                 {
-                    if (sp == CompanionActionType.CenterCursor)
+                    if (!_currentlyHeldSpecial.Contains(sp))
                     {
-                        CenterCursorRequested?.Invoke();
-                    }
-                    else if (sp == CompanionActionType.ToggleClipCursor)
-                    {
-                        ToggleClipCursorRequested?.Invoke();
+                        _currentlyHeldSpecial.Add(sp);
+                        if (sp == CompanionActionType.CenterCursor)
+                        {
+                            CenterCursorRequested?.Invoke();
+                        }
+                        else if (sp == CompanionActionType.ToggleClipCursor)
+                        {
+                            ToggleClipCursorRequested?.Invoke();
+                        }
+                        else if (sp == CompanionActionType.AltF4)
+                        {
+                            _input.KeyDown(VirtualKey.LeftAlt);
+                            _input.KeyDown(VirtualKey.F4);
+                            _input.KeyUp(VirtualKey.F4);
+                            _input.KeyUp(VirtualKey.LeftAlt);
+                        }
+                        else if (sp == CompanionActionType.AltEnter)
+                        {
+                            _input.KeyDown(VirtualKey.LeftAlt);
+                            _input.KeyDown(VirtualKey.Enter);
+                            _input.KeyUp(VirtualKey.Enter);
+                            _input.KeyUp(VirtualKey.LeftAlt);
+                        }
                     }
                 }
             }
+            _currentlyHeldSpecial.RemoveWhere(sp => !frameSpecial.Contains(sp));
         }
 
         public void Reset()
@@ -334,6 +393,10 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
             _remainderX = 0f;
             _remainderY = 0f;
+            _wasScreenClipActive = false;
+            _wasAltTabActive = false;
+            _wasShowDesktopActive = false;
+            _currentlyHeldSpecial.Clear();
         }
     }
 }

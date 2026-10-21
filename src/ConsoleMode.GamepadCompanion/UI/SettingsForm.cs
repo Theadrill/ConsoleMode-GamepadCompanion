@@ -541,6 +541,8 @@ namespace ConsoleMode.GamepadCompanion.UI
             if (game == null) return;
             _gameRepo.Save(game);
             RegisterGameWithTracker(game);
+            _windowTracker?.CheckActiveWindow();
+            _profileManager?.RefreshActiveGameProfile();
 
             if (!string.IsNullOrWhiteSpace(game.CoverImagePath))
             {
@@ -805,6 +807,8 @@ namespace ConsoleMode.GamepadCompanion.UI
                     existing.Profile = updatedProfile?.Clone();
                     _gameRepo.Save(existing);
                     RegisterGameWithTracker(existing);
+                    _windowTracker?.CheckActiveWindow();
+                    _profileManager?.RefreshActiveGameProfile();
                 }
             }
 

@@ -69,18 +69,58 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         private static void SendKey(VirtualKey key, bool keyUp)
         {
             ushort vk = (ushort)key;
-            uint flags = SendInputNative.KeyEventScanCode | (keyUp ? SendInputNative.KeyEventKeyUp : 0u);
+            if (vk == 0) return;
+
+            ushort scan = SendInputNative.ScanCodeFor(vk);
+            bool isExtended = SendInputNative.IsExtendedKey(vk);
+
+            uint flags = keyUp ? SendInputNative.KeyEventKeyUp : 0u;
+            if (isExtended)
+            {
+                flags |= SendInputNative.KeyEventExtendedKey;
+            }
+
+            // A documentação oficial da Microsoft especifica que se KEYEVENTF_SCANCODE for usado, o Windows ignora wVk!
+            // Atalhos da Shell do Windows (Win+Shift+S, Win+D, Win+R, Volume, PrintScreen) exigem wVk sem KEYEVENTF_SCANCODE.
+            // Já teclas normais de gameplay DirectInput funcionam perfeitamente preenchendo ambos wVk e wScan sem KEYEVENTF_SCANCODE,
+            // ou usando KEYEVENTF_SCANCODE apenas quando não for tecla do Windows/Mídia.
+            if (!IsWindowsShellOrMediaKey(key) && scan != 0)
+            {
+                // Mantém wVk preenchido e wScan preenchido sem KEYEVENTF_SCANCODE para que tanto a Shell do Windows
+                // (Win+Shift+S, Alt+Tab, etc.) quanto os jogos recebam o VirtualKey e o ScanCode simultaneamente!
+            }
 
             var input = new SendInputNative.Input { type = SendInputNative.InputKeyboard };
             input.u.ki = new SendInputNative.KeyboardInput
             {
-                wVk = 0,
-                wScan = SendInputNative.ScanCodeFor(vk),
+                wVk = vk,
+                wScan = scan,
                 dwFlags = flags,
                 time = 0,
                 dwExtraInfo = IntPtr.Zero
             };
             SendInputNative.Send(input);
+        }
+
+        private static bool IsWindowsShellOrMediaKey(VirtualKey key)
+        {
+            switch (key)
+            {
+                case VirtualKey.LeftWindows:
+                case VirtualKey.RightWindows:
+                case VirtualKey.Apps:
+                case VirtualKey.PrintScreen:
+                case VirtualKey.VolumeMute:
+                case VirtualKey.VolumeDown:
+                case VirtualKey.VolumeUp:
+                case VirtualKey.MediaNextTrack:
+                case VirtualKey.MediaPrevTrack:
+                case VirtualKey.MediaStop:
+                case VirtualKey.MediaPlayPause:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private static void SendMouse(int dx, int dy, uint mouseData, uint flags)
