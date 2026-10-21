@@ -145,6 +145,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _btnConfigureControls.Click += (s, e) =>
             {
                 SetFocusToControl(_btnConfigureControls);
+                SyncFormFieldsToCurrentGame();
                 ConfigureControlsRequested?.Invoke(_currentGame);
             };
             _contentPanel.Controls.Add(_btnConfigureControls);
@@ -360,6 +361,29 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _navRow = 0;
             _navCol = 0;
             UpdateFocusVisual();
+        }
+
+        public void UpdateCurrentGameProfile(GameProfile profile)
+        {
+            if (_currentGame != null && profile != null)
+            {
+                _currentGame.Profile = profile.Clone();
+            }
+        }
+
+        private void SyncFormFieldsToCurrentGame()
+        {
+            if (_currentGame == null) return;
+            if (!string.IsNullOrWhiteSpace(_txtName.Text))
+            {
+                _currentGame.Name = _txtName.Text.Trim();
+            }
+            _currentGame.LauncherName = CleanPathQuotes(_txtLauncher.Text);
+            _currentGame.MainExecutable = CleanPathQuotes(_txtExecutable.Text);
+            _currentGame.TargetPath = CleanPathQuotes(_txtTargetPath.Text);
+            _currentGame.WorkingDirectory = CleanPathQuotes(_txtWorkingDir.Text);
+            _currentGame.Arguments = _txtArguments.Text.Trim();
+            _currentGame.CoverImagePath = CleanPathQuotes(_txtCoverPath.Text);
         }
 
         private void ToggleCompanionInput()
@@ -907,6 +931,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
             else if (ctrl == _btnConfigureControls)
             {
+                SyncFormFieldsToCurrentGame();
                 ConfigureControlsRequested?.Invoke(_currentGame);
             }
             else if (ctrl == _btnSave)

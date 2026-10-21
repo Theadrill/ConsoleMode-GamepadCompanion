@@ -82,6 +82,36 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string PresetRpgName = "RPG / MMO (Câmera Botão Direito)";
         public const string PresetStandardPcName = "Padrão PC (WASD + Mouse)";
 
+        // Editor Visual de Perfil do Jogo (Fase 2)
+        public const string ProfileImportPresetOrCopy = "Importar Preset / Copiar Jogo ▼";
+        public const string ProfileMenuSectionPresets = "PRESETS PRONTOS";
+        public const string ProfileMenuSectionCopyGames = "COPIAR DE OUTRO JOGO";
+        public const string ProfileMenuCopyFromFormat = "Copiar de: {0}";
+        public const string ProfileMenuCloseHint = "(▲/▼) Navegar   (A) Aplicar   (B) Fechar";
+        public const string ProfileSensitivityLabel = "Sensibilidade Mouse (Página 1):";
+        public const string ProfileDeadzoneLabel = "Deadzone Analógicos:";
+        public const string ProfileTriggerThresholdLabel = "Limiar de Gatilhos (LT/RT):";
+        public const string ProfileGlobalToggle = "Global";
+        public const string ProfileCardLeftStick = "STICK ESQUERDO";
+        public const string ProfileCardRightStick = "STICK DIREITO";
+        public const string ProfileCardDPad = "D-PAD (SETAS)";
+        public const string ProfileCardFaceButtons = "BOTÕES FACIAIS";
+        public const string ProfileStickModeLabel = "Modo:";
+        public const string ProfileStickModeDirectional = "4 Direções";
+        public const string ProfileStickModeMouse = "Mov. Mouse";
+        public const string ProfileStickModeDisabled = "Desativado";
+        public const string ProfileDirUp = "Cima:";
+        public const string ProfileDirDown = "Baixo:";
+        public const string ProfileDirLeft = "Esq:";
+        public const string ProfileDirRight = "Dir:";
+        public const string ProfileAdditionalAction = "Adicional:";
+        public const string ProfileClickL3 = "Clique L3:";
+        public const string ProfileClickR3 = "Clique R3:";
+        public const string ProfileActionNone = "Nenhum";
+        public const string ProfileFooterLegend = "(A) Editar / Alternar    (X) Limpar Entrada    (RT) Salvar Perfil    (B) Voltar";
+        public const string ProfileBtnSave = "[RT] Salvar Perfil";
+        public const string ProfileBtnBack = "[B] Voltar";
+
         // Diálogos modais Couch Gaming
         public const string DialogOk = "OK";
         public const string DialogConfirm = "Confirmar";

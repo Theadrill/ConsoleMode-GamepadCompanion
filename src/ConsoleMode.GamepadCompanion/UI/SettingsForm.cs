@@ -24,6 +24,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             Debugger,
             GamesGrid,
             GameConfig,
+            GameProfileEditor,
             SteamGridDb
         }
 
@@ -45,6 +46,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly GamepadVisualDebugger _debugger = new GamepadVisualDebugger();
         private readonly GamesGridControl _gamesGrid = new GamesGridControl();
         private readonly GameConfigPanel _configPanel = new GameConfigPanel();
+        private readonly GameProfileEditorControl _profileEditor = new GameProfileEditorControl();
         private readonly SteamGridDbBrowserControl _steamGridBrowser = new SteamGridDbBrowserControl();
         private readonly Engine.Services.SteamGridDbService _steamGridService = new Engine.Services.SteamGridDbService();
         private readonly Engine.Services.HeroBackgroundService _heroBackgroundService = new Engine.Services.HeroBackgroundService();
@@ -223,6 +225,8 @@ namespace ConsoleMode.GamepadCompanion.UI
             _gamesGrid.Visible = false;
             _configPanel.Dock = DockStyle.Fill;
             _configPanel.Visible = false;
+            _profileEditor.Dock = DockStyle.Fill;
+            _profileEditor.Visible = false;
             _steamGridBrowser.Dock = DockStyle.Fill;
             _steamGridBrowser.Visible = false;
 
@@ -287,12 +291,16 @@ namespace ConsoleMode.GamepadCompanion.UI
             _configPanel.SteamGridDbRequested += OnSteamGridDbRequested;
             _configPanel.ConfigureControlsRequested += OnConfigureControls;
 
+            _profileEditor.SaveRequested += OnSaveProfileEditor;
+            _profileEditor.CancelRequested += ShowGameConfigFromProfileEditor;
+
             _steamGridBrowser.CoverSelected += OnSteamGridCoverSelected;
             _steamGridBrowser.BackToConfigRequested += ShowGameConfigFromSteamGrid;
             _steamGridBrowser.NewSearchRequested += () => PromptSteamGridSearch(_lastSteamGridSearchTerm);
             _steamGridBrowser.ChangeApiKeyRequested += () => ShowSteamGridApiKeyModal(_lastSteamGridSearchTerm);
 
             Controls.Add(_focusOverlay);
+            Controls.Add(_profileEditor);
             Controls.Add(_steamGridBrowser);
             Controls.Add(_configPanel);
             Controls.Add(_gamesGrid);
@@ -336,6 +344,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _debugger.Visible = true;
             _gamesGrid.Visible = false;
             _configPanel.Visible = false;
+            _profileEditor.Visible = false;
             _steamGridBrowser.Visible = false;
             _debugger.BringToFront();
             _focusOverlay.BringToFront();
@@ -351,6 +360,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _debugger.Visible = false;
             _gamesGrid.Visible = true;
             _configPanel.Visible = false;
+            _profileEditor.Visible = false;
             _steamGridBrowser.Visible = false;
             _gamesGrid.BringToFront();
             _focusOverlay.BringToFront();
@@ -363,6 +373,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _configPanel.ResetInputState();
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
+            _profileEditor.Visible = false;
             _steamGridBrowser.Visible = false;
             _configPanel.Visible = true;
             _configPanel.EditGame(game);
@@ -647,6 +658,10 @@ namespace ConsoleMode.GamepadCompanion.UI
                 {
                     _focusOverlay.ProcessVirtualKeyboardGamepad(state, _stopwatch.ElapsedMilliseconds);
                 }
+                else if (_viewMode == ContentViewMode.GameProfileEditor)
+                {
+                    _profileEditor.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
                 else if (_viewMode == ContentViewMode.GameConfig)
                 {
                     _configPanel.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
@@ -699,6 +714,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             _gamesGrid.ResetInputState();
             _configPanel.ResetInputState();
+            _profileEditor.ResetInputState();
             _steamGridBrowser.ResetInputState();
             _navManager.ResetInputState();
             _lastStateY = true;
@@ -744,7 +760,47 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void OnConfigureControls(GameEntry game)
         {
-            // Na Fase 2, abrirá o GameProfileEditorControl ocupando 100% da área de conteúdo
+            if (game == null) return;
+            _viewMode = ContentViewMode.GameProfileEditor;
+            _debugger.Visible = false;
+            _gamesGrid.Visible = false;
+            _configPanel.Visible = false;
+            _steamGridBrowser.Visible = false;
+            _profileEditor.Visible = true;
+            _profileEditor.LoadGameProfile(game, _settings, _gameRepo.GetAll());
+            _profileEditor.BringToFront();
+            _focusOverlay.BringToFront();
+        }
+
+        private void OnSaveProfileEditor(GameEntry game, GameProfile updatedProfile)
+        {
+            if (updatedProfile != null)
+            {
+                _configPanel.UpdateCurrentGameProfile(updatedProfile);
+            }
+
+            if (game != null && !string.IsNullOrWhiteSpace(game.Id))
+            {
+                var existing = _gameRepo.GetById(game.Id);
+                if (existing != null)
+                {
+                    existing.Profile = updatedProfile?.Clone();
+                    _gameRepo.Save(existing);
+                    RegisterGameWithTracker(existing);
+                }
+            }
+
+            ShowGameConfigFromProfileEditor();
+        }
+
+        private void ShowGameConfigFromProfileEditor()
+        {
+            _viewMode = ContentViewMode.GameConfig;
+            _profileEditor.Visible = false;
+            _configPanel.Visible = true;
+            _configPanel.BringToFront();
+            _focusOverlay.BringToFront();
+            _configPanel.ResetInputState();
         }
 
         protected override void OnResize(EventArgs e)
