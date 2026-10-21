@@ -41,7 +41,6 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly ComboBox _slotCombo = new ComboBox();
         private readonly Label _statusLabel = new Label();
         private readonly Label _profileLabel = new Label();
-        private readonly Button _toggleButton = new Button();
         private readonly Button _gamesButton = new Button();
         private readonly GamepadVisualDebugger _debugger = new GamepadVisualDebugger();
         private readonly GamesGridControl _gamesGrid = new GamesGridControl();
@@ -120,7 +119,6 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             BuildLayout();
             RefreshSlotCombo(force: true);
-            ApplyToggleVisual();
             RefreshGamesList();
 
             _refreshTimer.Tick += (s, e) => Refresh_Tick();
@@ -161,36 +159,14 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             _profileLabel.SetBounds(16, currentY, 228, 18);
             _profileLabel.ForeColor = Color.FromArgb(120, 190, 255);
-            currentY = _profileLabel.Bottom + 10;
+            currentY = _profileLabel.Bottom + 20;
 
-            _toggleButton.SetBounds(16, currentY, 228, 38);
-            _toggleButton.FlatStyle = FlatStyle.Flat;
-            _toggleButton.FlatAppearance.BorderSize = 1;
-            _toggleButton.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
-            _toggleButton.Click += (s, e) =>
-            {
-                _settings.MappingEnabled = !_settings.MappingEnabled;
-                _configRepo.Save(_settings);
-                ApplyToggleVisual();
-            };
-            currentY = _toggleButton.Bottom + 14;
-
-            _sidePanel.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _profileLabel, _toggleButton });
+            _sidePanel.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _profileLabel });
 
             // Registro sequencial dos controles para navegação D-Pad (topo -> base)
             var slotNav = new DropdownNavigable("SlotCombo", slotTitle, _slotCombo);
-            var toggleNav = new ButtonNavigable("ToggleButton", _toggleButton);
 
-            var sensNav = AddSlider(_sidePanel, "SensSlider", Strings.MouseSensitivity, ref currentY, 1, 100, _settings.MouseSensitivity,
-                v => { _settings.MouseSensitivity = v; _configRepo.Save(_settings); });
-            var deadNav = AddSlider(_sidePanel, "DeadzoneSlider", Strings.StickDeadzone, ref currentY, 5, 50, _settings.StickDeadzonePercent,
-                v => { _settings.StickDeadzonePercent = v; _configRepo.Save(_settings); });
-            var trigNav = AddSlider(_sidePanel, "TriggerSlider", Strings.TriggerThreshold, ref currentY, 5, 90, _settings.TriggerThresholdPercent,
-                v => { _settings.TriggerThresholdPercent = v; _configRepo.Save(_settings); });
-
-            currentY += 8; // Margem de respiro entre o último slider e os botões de ação
-
-            // Botão GAMES (Biblioteca de Jogos) - Novo na Fase 2
+            // Botão GAMES (Biblioteca de Jogos)
             _gamesButton.Text = Strings.BtnGames;
             _gamesButton.SetBounds(16, currentY, 228, 36);
             _gamesButton.FlatStyle = FlatStyle.Flat;
@@ -208,7 +184,7 @@ namespace ConsoleMode.GamepadCompanion.UI
                     ShowDebugger();
                 }
             };
-            currentY = _gamesButton.Bottom + 10;
+            currentY = _gamesButton.Bottom + 12;
 
             var exit = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat };
             exit.SetBounds(16, currentY, 228, 36);
@@ -235,14 +211,10 @@ namespace ConsoleMode.GamepadCompanion.UI
             var exitNav = new ButtonNavigable("ExitButton", exit);
 
             _navManager.RegisterControl(slotNav);
-            _navManager.RegisterControl(toggleNav);
-            _navManager.RegisterControl(sensNav);
-            _navManager.RegisterControl(deadNav);
-            _navManager.RegisterControl(trigNav);
             _navManager.RegisterControl(gamesNav);
             _navManager.RegisterControl(exitNav);
 
-            // Foco inicial definido no botão GAMES (conforme regra e plano da Fase 2)
+            // Foco inicial definido no botão GAMES (conforme regra do projeto)
             _navManager.SetFocus(gamesNav);
 
             // Views da área de conteúdo à direita
@@ -313,6 +285,7 @@ namespace ConsoleMode.GamepadCompanion.UI
                 });
             };
             _configPanel.SteamGridDbRequested += OnSteamGridDbRequested;
+            _configPanel.ConfigureControlsRequested += OnConfigureControls;
 
             _steamGridBrowser.CoverSelected += OnSteamGridCoverSelected;
             _steamGridBrowser.BackToConfigRequested += ShowGameConfigFromSteamGrid;
@@ -334,6 +307,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             if (_windowTracker != null)
             {
+                _windowTracker.SetGames(games);
                 foreach (var g in games)
                 {
                     RegisterGameWithTracker(g);
@@ -347,6 +321,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void RegisterGameWithTracker(GameEntry game)
         {
             if (game == null || _windowTracker == null) return;
+            _windowTracker.RegisterGame(game);
             if (!string.IsNullOrWhiteSpace(game.TargetPath))
                 _windowTracker.RegisterGameExecutable(game.TargetPath);
             if (!string.IsNullOrWhiteSpace(game.MainExecutable))
@@ -712,9 +687,11 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             if (_profileManager != null)
             {
-                string prof = _profileManager.IsGameFocused ? Strings.ProfileGaming : Strings.ProfileDesktop;
+                string prof = _profileManager.ActiveProfileName;
                 _profileLabel.Text = string.Format(Strings.ProfileFormat, prof);
-                _profileLabel.ForeColor = _profileManager.IsGameFocused ? Color.FromArgb(120, 230, 150) : Color.FromArgb(160, 170, 185);
+                _profileLabel.ForeColor = (_profileManager.IsGameFocused && _profileManager.IsCompanionInputActive)
+                    ? Color.FromArgb(120, 230, 150)
+                    : Color.FromArgb(160, 170, 185);
             }
         }
 
@@ -765,12 +742,9 @@ namespace ConsoleMode.GamepadCompanion.UI
             _configRepo.Save(_settings);
         }
 
-        private void ApplyToggleVisual()
+        private void OnConfigureControls(GameEntry game)
         {
-            bool on = _settings.MappingEnabled;
-            _toggleButton.Text = on ? Strings.DisableCompanion : Strings.EnableCompanion;
-            _toggleButton.BackColor = on ? Color.FromArgb(46, 125, 80) : Color.FromArgb(150, 80, 60);
-            _toggleButton.ForeColor = Color.White;
+            // Na Fase 2, abrirá o GameProfileEditorControl ocupando 100% da área de conteúdo
         }
 
         protected override void OnResize(EventArgs e)

@@ -98,9 +98,27 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool ClipCursor(IntPtr lpRect);
 
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetCursorPos(int x, int y);
+
         private static RECT _lastClippedRect;
         private static IntPtr _lastClippedHwnd = IntPtr.Zero;
         private static readonly object _clipLock = new object();
+
+        /// <summary>
+        /// Centraliza o cursor do mouse no centro exato da janela especificada.
+        /// </summary>
+        public static void CenterCursorInWindow(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero || IsIconic(hWnd)) return;
+            if (GetWindowRect(hWnd, out RECT rect))
+            {
+                int cx = rect.Left + (rect.Right - rect.Left) / 2;
+                int cy = rect.Top + (rect.Bottom - rect.Top) / 2;
+                SetCursorPos(cx, cy);
+            }
+        }
 
         /// <summary>
         /// Prende o cursor do mouse dentro dos limites da janela fornecida.

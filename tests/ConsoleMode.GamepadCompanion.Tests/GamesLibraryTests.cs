@@ -226,6 +226,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             public void MouseButtonDown(MouseButton button) { }
             public void MouseButtonUp(MouseButton button) { }
             public void MouseMoveRelative(int dx, int dy) { }
+            public void MouseWheel(int delta) { }
         }
 
         [Fact]
@@ -944,8 +945,11 @@ namespace ConsoleMode.GamepadCompanion.Tests
             public bool IsGameFocused => false;
             public string ActiveProcessName => string.Empty;
             public IntPtr ActiveWindowHandle => IntPtr.Zero;
+            public GameEntry ActiveGame => null;
+
             public event Action<bool> FocusChanged { add { } remove { } }
             public event Action<IntPtr> ActiveWindowChanged { add { } remove { } }
+            public event Action<GameEntry> ActiveGameChanged { add { } remove { } }
 
             public void CheckActiveWindow() { }
 
@@ -953,6 +957,9 @@ namespace ConsoleMode.GamepadCompanion.Tests
             {
                 RegisteredExecutables.Add(executableName);
             }
+
+            public void RegisterGame(GameEntry game) { }
+            public void SetGames(System.Collections.Generic.IEnumerable<GameEntry> games) { }
         }
     }
 }

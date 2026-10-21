@@ -7,7 +7,7 @@ using ConsoleMode.GamepadCompanion.UI;
 namespace ConsoleMode.GamepadCompanion.Hardware
 {
     /// <summary>
-    /// Gerencia a persistência da lista de jogos no arquivo games.ini.
+    /// Gerencia a persistência da lista de jogos e seus perfis no arquivo games.ini.
     /// Realiza pré-cadastro padrão (Turtle WoW) caso o arquivo ainda não exista.
     /// </summary>
     public sealed class GameRepository
@@ -53,6 +53,15 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(name))
                     continue;
 
+                bool enableInput = ini.GetBool(section, "EnableCompanionInput", true);
+                var profile = ProfileSerializer.DeserializeFromIni(ini, section);
+                if (profile == null)
+                {
+                    profile = string.Equals(id, "turtle-wow", StringComparison.OrdinalIgnoreCase)
+                        ? GameProfilePresets.CreateWowClassic()
+                        : GameProfilePresets.CreateStandardPc();
+                }
+
                 games.Add(new GameEntry
                 {
                     Id = id,
@@ -63,7 +72,9 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     WorkingDirectory = ini.GetValue(section, "WorkingDirectory"),
                     Arguments = ini.GetValue(section, "Arguments"),
                     CoverImagePath = ini.GetValue(section, "CoverImagePath"),
-                    SteamGridDbSearchTerm = ini.GetValue(section, "SteamGridDbSearchTerm")
+                    SteamGridDbSearchTerm = ini.GetValue(section, "SteamGridDbSearchTerm"),
+                    EnableCompanionInput = enableInput,
+                    Profile = profile
                 });
             }
 
@@ -101,6 +112,12 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             ini.SetValue(section, "Arguments", game.Arguments ?? string.Empty);
             ini.SetValue(section, "CoverImagePath", game.CoverImagePath ?? string.Empty);
             ini.SetValue(section, "SteamGridDbSearchTerm", game.SteamGridDbSearchTerm ?? string.Empty);
+            ini.SetValue(section, "EnableCompanionInput", game.EnableCompanionInput.ToString());
+
+            if (game.Profile != null)
+            {
+                ProfileSerializer.SerializeToIni(ini, section, game.Profile);
+            }
 
             ini.Save(_filePath);
         }
@@ -155,6 +172,12 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 ini.SetValue(section, "Arguments", g.Arguments ?? string.Empty);
                 ini.SetValue(section, "CoverImagePath", g.CoverImagePath ?? string.Empty);
                 ini.SetValue(section, "SteamGridDbSearchTerm", g.SteamGridDbSearchTerm ?? string.Empty);
+                ini.SetValue(section, "EnableCompanionInput", g.EnableCompanionInput.ToString());
+
+                if (g.Profile != null)
+                {
+                    ProfileSerializer.SerializeToIni(ini, section, g.Profile);
+                }
             }
             ini.Save(_filePath);
         }
@@ -172,7 +195,9 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     TargetPath = Strings.DefaultGameTargetPath,
                     WorkingDirectory = string.Empty,
                     Arguments = string.Empty,
-                    CoverImagePath = string.Empty
+                    CoverImagePath = string.Empty,
+                    EnableCompanionInput = true,
+                    Profile = GameProfilePresets.CreateWowClassic()
                 }
             };
         }

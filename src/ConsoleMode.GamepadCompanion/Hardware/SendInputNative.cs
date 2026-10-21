@@ -14,6 +14,9 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         public const uint MouseEventLeftUp = 0x0004;
         public const uint MouseEventRightDown = 0x0008;
         public const uint MouseEventRightUp = 0x0010;
+        public const uint MouseEventMiddleDown = 0x0020;
+        public const uint MouseEventMiddleUp = 0x0040;
+        public const uint MouseEventWheel = 0x0800;
 
         public const uint KeyEventKeyUp = 0x0002;
         public const uint KeyEventScanCode = 0x0008;

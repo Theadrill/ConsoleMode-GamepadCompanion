@@ -39,6 +39,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private readonly Button _btnBrowseCover = new Button();
         private readonly Button _btnSteamGridDb = new Button();
 
+        private readonly Label _lblInputSection = new Label();
+        private readonly Button _btnInputToggle = new Button();
+        private readonly Button _btnConfigureControls = new Button();
+
         private readonly Button _btnSave = new Button();
         private readonly Button _btnCancel = new Button();
         private readonly Button _btnDelete = new Button();
@@ -69,6 +73,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         public event Action<string, string> ValidationFailed;
         public event Action<string, string, Action<string>> RequestVirtualKeyboard;
         public event Action<string> SteamGridDbRequested;
+        public event Action<GameEntry> ConfigureControlsRequested;
 
         public GameConfigPanel()
         {
@@ -109,6 +114,41 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             currentY = AddFieldWithBrowse(_contentPanel, Strings.GameConfigWorkingDir, _txtWorkingDir, _btnBrowseWorkingDir, currentY, BrowseFolder);
             currentY = AddField(_contentPanel, Strings.GameConfigArguments, _txtArguments, currentY);
             currentY = AddCoverField(_contentPanel, Strings.GameConfigCoverImage, _txtCoverPath, _btnBrowseCover, _btnSteamGridDb, currentY, BrowseImage, () => SteamGridDbRequested?.Invoke(GetSteamGridDbSearchTerm()));
+
+            // Seção de Input do Companion no Jogo
+            currentY += 8;
+            _lblInputSection.Text = Strings.GameConfigInputSectionTitle;
+            _lblInputSection.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _lblInputSection.ForeColor = Color.FromArgb(120, 190, 255);
+            _lblInputSection.AutoSize = true;
+            _lblInputSection.Location = new Point(20, currentY);
+            _contentPanel.Controls.Add(_lblInputSection);
+            currentY += 24;
+
+            _btnInputToggle.SetBounds(20, currentY, 320, 36);
+            _btnInputToggle.FlatStyle = FlatStyle.Flat;
+            _btnInputToggle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _btnInputToggle.Click += (s, e) =>
+            {
+                SetFocusToControl(_btnInputToggle);
+                ToggleCompanionInput();
+            };
+            _contentPanel.Controls.Add(_btnInputToggle);
+
+            _btnConfigureControls.SetBounds(350, currentY, 200, 36);
+            _btnConfigureControls.FlatStyle = FlatStyle.Flat;
+            _btnConfigureControls.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _btnConfigureControls.BackColor = Color.FromArgb(32, 75, 120);
+            _btnConfigureControls.ForeColor = Color.White;
+            _btnConfigureControls.FlatAppearance.BorderColor = Color.FromArgb(80, 140, 210);
+            _btnConfigureControls.Text = Strings.GameConfigConfigureControls;
+            _btnConfigureControls.Click += (s, e) =>
+            {
+                SetFocusToControl(_btnConfigureControls);
+                ConfigureControlsRequested?.Invoke(_currentGame);
+            };
+            _contentPanel.Controls.Add(_btnConfigureControls);
+            currentY += 46;
 
             // Painel de botões de ação na base
             var actionsPanel = new Panel
@@ -166,6 +206,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _navGrid.Add(new List<Control> { _txtWorkingDir, _btnBrowseWorkingDir });
             _navGrid.Add(new List<Control> { _txtArguments });
             _navGrid.Add(new List<Control> { _txtCoverPath, _btnBrowseCover, _btnSteamGridDb });
+            _navGrid.Add(new List<Control> { _btnInputToggle, _btnConfigureControls });
 
             var actions = new List<Control> { _btnSave, _btnCancel };
             if (!_isNewGame)
@@ -313,10 +354,49 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _txtArguments.Text = _currentGame.Arguments;
             _txtCoverPath.Text = _currentGame.CoverImagePath;
 
+            UpdateInputToggleVisual();
+
             BuildNavGrid();
             _navRow = 0;
             _navCol = 0;
             UpdateFocusVisual();
+        }
+
+        private void ToggleCompanionInput()
+        {
+            if (_currentGame == null) return;
+            _currentGame.EnableCompanionInput = !_currentGame.EnableCompanionInput;
+            UpdateInputToggleVisual();
+        }
+
+        private void UpdateInputToggleVisual()
+        {
+            bool enabled = _currentGame?.EnableCompanionInput ?? true;
+            _btnInputToggle.Text = enabled ? Strings.GameConfigInputEnabled : Strings.GameConfigInputDisabled;
+            _btnInputToggle.BackColor = enabled ? Color.FromArgb(46, 125, 80) : Color.FromArgb(60, 64, 75);
+            _btnInputToggle.ForeColor = enabled ? Color.White : TextSecondary;
+
+            bool isFocused = (GetCurrentControl() == _btnInputToggle);
+            _btnInputToggle.FlatAppearance.BorderSize = isFocused ? 2 : 1;
+            _btnInputToggle.FlatAppearance.BorderColor = isFocused ? BorderFocused : (enabled ? Color.FromArgb(120, 230, 150) : BorderColor);
+            _btnInputToggle.Invalidate();
+            _btnInputToggle.Update();
+        }
+
+        private void SetFocusToControl(Control target)
+        {
+            if (target == null) return;
+            for (int r = 0; r < _navGrid.Count; r++)
+            {
+                int c = _navGrid[r].IndexOf(target);
+                if (c >= 0)
+                {
+                    _navRow = r;
+                    _navCol = c;
+                    UpdateFocusVisual();
+                    break;
+                }
+            }
         }
 
         private void UpdateFocusVisual()
@@ -352,8 +432,22 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                         }
                         else
                         {
-                            btn.FlatAppearance.BorderSize = (btn == _btnCancel || btn.Text == Strings.BtnBrowse) ? 1 : 0;
-                            btn.FlatAppearance.BorderColor = BorderColor;
+                            if (btn == _btnInputToggle)
+                            {
+                                bool enabled = _currentGame?.EnableCompanionInput ?? true;
+                                btn.FlatAppearance.BorderSize = 1;
+                                btn.FlatAppearance.BorderColor = enabled ? Color.FromArgb(120, 230, 150) : BorderColor;
+                            }
+                            else if (btn == _btnConfigureControls)
+                            {
+                                btn.FlatAppearance.BorderSize = 1;
+                                btn.FlatAppearance.BorderColor = Color.FromArgb(80, 140, 210);
+                            }
+                            else
+                            {
+                                btn.FlatAppearance.BorderSize = (btn == _btnCancel || btn.Text == Strings.BtnBrowse) ? 1 : 0;
+                                btn.FlatAppearance.BorderColor = BorderColor;
+                            }
                         }
                     }
                 }
@@ -807,6 +901,14 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 SteamGridDbRequested?.Invoke(GetSteamGridDbSearchTerm());
             }
+            else if (ctrl == _btnInputToggle)
+            {
+                ToggleCompanionInput();
+            }
+            else if (ctrl == _btnConfigureControls)
+            {
+                ConfigureControlsRequested?.Invoke(_currentGame);
+            }
             else if (ctrl == _btnSave)
             {
                 OnSaveClicked();
@@ -818,6 +920,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             else if (ctrl == _btnDelete)
             {
                 OnDeleteClicked();
+            }
+            else if (ctrl is Button btn)
+            {
+                btn.PerformClick();
             }
         }
 

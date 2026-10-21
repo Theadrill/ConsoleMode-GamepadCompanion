@@ -15,10 +15,19 @@ Desenvolvido em C# (.NET Framework 4.8) para Windows, leve, 100% portátil e com
   - Persistência portátil de configurações e jogos via `config.ini` e `games.ini`.
 - **Visual Debugger:** Visualização gráfica em tempo real dos botões, analógicos com zonas mortas calibráveis e sensibilidade de gatilhos.
 
-## 🗺️ Roadmap
+## 🗺️ Roadmap & Próximos Passos (TODO)
 - [x] Mapeamento Gaming 100% idêntico ao layout `Octowow` do Steam Input (com Smart Mouse Look F9 e cliques L3/R3)
 - [x] Visual Gamepad Debugger em tempo real com sliders de Deadzone e Gatilho
 - [x] Persistência local em arquivos `.ini` e ciclo de vida em segundo plano na bandeja (System Tray)
 - [x] Biblioteca de Games (Launcher com navegação 100% por gamepad, configuração de executáveis, SteamGridDB, hero backgrounds e teclado virtual)
+- [x] Fase 1 dos Perfis: Motor de Perfis por Jogo, Limpeza da Barra Lateral e Toggle de Input do Companion por Jogo
+- [ ] Fase 2 dos Perfis: Tela do Editor Visual de Perfil (`GameProfileEditorControl`) com diagrama do controle e slots
+- [ ] Fase 3 dos Perfis: Tela de Escolha de Edição & Captura Física de Combos
+- [ ] Fase 4 dos Perfis: Seletor Visual em 3 Abas (`Teclado` | `Mouse` | `Sistema & Especial`)
+- [ ] **Toggle de Múltiplas Instâncias por Jogo (`Permitir Múltiplas Instâncias`):**
+  - Adicionar no `GameConfigPanel` um botão toggle idêntico ao do Input (`[ (●) PERMITIR MÚLTIPLAS INSTÂNCIAS / (○) INSTÂNCIA ÚNICA (Padrão) ]`).
+  - Se estiver em **Instância Única (Desativado - Padrão)**: ao acionar `[A] INICIAR`, caso o executável principal já esteja em execução, em vez de abrir outro processo, o app traz a janela do jogo já existente para primeiro plano e oculta a interface do Companion.
+  - Se estiver ativado: permite abrir múltiplas instâncias em paralelo.
 - [ ] Overlay estilo Steam acionado pelo botão central do controle (Guide/Home)
 - [ ] Perfil Desktop para usar o gamepad no Windows normalmente
+- [ ] Sistema de Páginas / Camadas por Modificador (alternância de páginas de mapeamento dentro do jogo com sensibilidade própria de mouse)

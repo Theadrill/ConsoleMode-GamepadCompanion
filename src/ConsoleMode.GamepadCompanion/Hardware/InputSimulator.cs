@@ -17,21 +17,53 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         public void MouseMoveRelative(int dx, int dy)
         {
             if (dx == 0 && dy == 0) return;
-            SendMouse(dx, dy, SendInputNative.MouseEventMove);
+            SendMouse(dx, dy, 0, SendInputNative.MouseEventMove);
         }
 
         public void MouseButtonDown(MouseButton button)
         {
-            SendMouse(0, 0, button == MouseButton.Left
-                ? SendInputNative.MouseEventLeftDown
-                : SendInputNative.MouseEventRightDown);
+            uint flag;
+            switch (button)
+            {
+                case MouseButton.Left:
+                    flag = SendInputNative.MouseEventLeftDown;
+                    break;
+                case MouseButton.Right:
+                    flag = SendInputNative.MouseEventRightDown;
+                    break;
+                case MouseButton.Middle:
+                    flag = SendInputNative.MouseEventMiddleDown;
+                    break;
+                default:
+                    return;
+            }
+            SendMouse(0, 0, 0, flag);
         }
 
         public void MouseButtonUp(MouseButton button)
         {
-            SendMouse(0, 0, button == MouseButton.Left
-                ? SendInputNative.MouseEventLeftUp
-                : SendInputNative.MouseEventRightUp);
+            uint flag;
+            switch (button)
+            {
+                case MouseButton.Left:
+                    flag = SendInputNative.MouseEventLeftUp;
+                    break;
+                case MouseButton.Right:
+                    flag = SendInputNative.MouseEventRightUp;
+                    break;
+                case MouseButton.Middle:
+                    flag = SendInputNative.MouseEventMiddleUp;
+                    break;
+                default:
+                    return;
+            }
+            SendMouse(0, 0, 0, flag);
+        }
+
+        public void MouseWheel(int delta)
+        {
+            if (delta == 0) return;
+            SendMouse(0, 0, (uint)delta, SendInputNative.MouseEventWheel);
         }
 
         private static void SendKey(VirtualKey key, bool keyUp)
@@ -51,14 +83,14 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             SendInputNative.Send(input);
         }
 
-        private static void SendMouse(int dx, int dy, uint flags)
+        private static void SendMouse(int dx, int dy, uint mouseData, uint flags)
         {
             var input = new SendInputNative.Input { type = SendInputNative.InputMouse };
             input.u.mi = new SendInputNative.MouseInput
             {
                 dx = dx,
                 dy = dy,
-                mouseData = 0,
+                mouseData = mouseData,
                 dwFlags = flags,
                 time = 0,
                 dwExtraInfo = IntPtr.Zero

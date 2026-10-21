@@ -72,6 +72,16 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string DefaultGameExecutable = "WoW.exe";
         public const string DefaultGameTargetPath = "WoW.exe";
 
+        // Perfis de Controle & Input por Jogo (Fase 1 e 2)
+        public const string GameConfigInputSectionTitle = "INPUT DO COMPANION NESTE JOGO:";
+        public const string GameConfigInputEnabled = "(●) ATIVADO - Emular Teclado/Mouse";
+        public const string GameConfigInputDisabled = "(○) DESATIVADO - Jogo lê Gamepad Nativo";
+        public const string GameConfigConfigureControls = "🎮 Configurar Controles";
+        public const string ProfileEditorTitle = "PERFIL DE CONTROLE: {0}";
+        public const string PresetWowClassicName = "WoW Classic (Octowow)";
+        public const string PresetRpgName = "RPG / MMO (Câmera Botão Direito)";
+        public const string PresetStandardPcName = "Padrão PC (WASD + Mouse)";
+
         // Diálogos modais Couch Gaming
         public const string DialogOk = "OK";
         public const string DialogConfirm = "Confirmar";

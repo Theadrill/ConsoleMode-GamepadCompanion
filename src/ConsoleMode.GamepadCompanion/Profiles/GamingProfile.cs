@@ -8,37 +8,56 @@ using ConsoleMode.GamepadCompanion.Engine;
 namespace ConsoleMode.GamepadCompanion.Profiles
 {
     /// <summary>
-    /// Perfil Gaming 100% idêntico ao layout Octowow do Steam Input para ConsoleModeVanilla:
-    /// - Botões Faciais: A (Espaço + F9), B (3), X (1), Y (2)
-    /// - D-Pad: Cima (7), Baixo (8), Esquerda (9), Direita (0)
-    /// - Bumpers: LB (Tab), RB (Ctrl)
-    /// - Gatilhos Digitais: LT (Shift), RT (Alt)
-    /// - Menus: Select (M), Start (F11)
-    /// - Stick Esquerdo: W, A, S, D + Smart Mouse Look (F9)
-    /// - Stick Direito: Movimento relativo do mouse
-    /// - R3: Clique do botão direito do mouse
+    /// Perfil Gaming dinâmico baseado em GameProfile:
+    /// - Executa qualquer perfil customizado por jogo com união de estados por frame.
+    /// - Garante que comandos compartilhados (ex: F9 entre Stick e Espaço, ou Mouse Right entre Stick e R3)
+    ///   nunca sejam soltos enquanto qualquer entrada ativa ainda precisar deles.
+    /// - Garante que MouseButtonDown ocorra estritamente ANTES de MouseMoveRelative.
     /// </summary>
     public sealed class GamingProfile : IProfile
     {
         private readonly IInputSimulator _input;
         private readonly AppSettings _settings;
-        private readonly SmartMouseLookHandler _smartMouseLook;
         private readonly object _syncLock = new object();
 
-        private readonly HashSet<VirtualKey> _activeKeys = new HashSet<VirtualKey>();
-        private bool _l3Held;
-        private bool _r3Held;
+        private GameProfile _activeProfile;
+        private readonly HashSet<VirtualKey> _currentlyHeldKeys = new HashSet<VirtualKey>();
+        private readonly HashSet<MouseButton> _currentlyHeldMouseButtons = new HashSet<MouseButton>();
+
         private float _remainderX;
         private float _remainderY;
 
-        public GamingProfile(IInputSimulator input, AppSettings settings)
+        public event Action CenterCursorRequested;
+        public event Action ToggleClipCursorRequested;
+
+        public GamingProfile(IInputSimulator input, AppSettings settings, GameProfile initialProfile = null)
         {
             _input = input ?? throw new ArgumentNullException(nameof(input));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            _smartMouseLook = new SmartMouseLookHandler(_input);
+            _activeProfile = initialProfile ?? GameProfilePresets.CreateWowClassic();
         }
 
         public string Name => "Gaming";
+
+        public GameProfile ActiveProfile
+        {
+            get
+            {
+                lock (_syncLock)
+                {
+                    return _activeProfile;
+                }
+            }
+            set
+            {
+                lock (_syncLock)
+                {
+                    if (ReferenceEquals(_activeProfile, value)) return;
+                    ResetInternal();
+                    _activeProfile = value ?? GameProfilePresets.CreateWowClassic();
+                }
+            }
+        }
 
         public void Update(GamepadState state, float deltaSeconds)
         {
@@ -48,156 +67,270 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                 return;
             }
 
-            // 1. Gatilhos analógicos com comportamento digital imediato (LT = Shift, RT = Alt)
-            byte triggerThreshold = _settings.TriggerThreshold;
-            bool ltPressed = state.LeftTrigger >= triggerThreshold;
-            bool rtPressed = state.RightTrigger >= triggerThreshold;
-
-            SetKeyState(VirtualKey.LeftShift, ltPressed);
-            SetKeyState(VirtualKey.LeftAlt, rtPressed);
-
-            // 2. Bumpers (LB = Tab, RB = Ctrl)
-            SetKeyState(VirtualKey.Tab, state.IsPressed(GamepadButtons.LeftShoulder));
-            SetKeyState(VirtualKey.LeftControl, state.IsPressed(GamepadButtons.RightShoulder));
-
-            // 3. Menus (Select = M, Start = F11)
-            SetKeyState(VirtualKey.M, state.IsPressed(GamepadButtons.Back));
-            SetKeyState(VirtualKey.F11, state.IsPressed(GamepadButtons.Start));
-
-            // 4. D-Pad (Cima = 7, Baixo = 8, Esquerda = 9, Direita = 0)
-            SetKeyState(VirtualKey.D7, state.IsPressed(GamepadButtons.DPadUp));
-            SetKeyState(VirtualKey.D8, state.IsPressed(GamepadButtons.DPadDown));
-            SetKeyState(VirtualKey.D9, state.IsPressed(GamepadButtons.DPadLeft));
-            SetKeyState(VirtualKey.D0, state.IsPressed(GamepadButtons.DPadRight));
-
-            // 5. Botões Faciais (B = 3, X = 1, Y = 2, A = Espaço)
-            SetKeyState(VirtualKey.D3, state.IsPressed(GamepadButtons.B));
-            SetKeyState(VirtualKey.D1, state.IsPressed(GamepadButtons.X));
-            SetKeyState(VirtualKey.D2, state.IsPressed(GamepadButtons.Y));
-
-            bool aPressed = state.IsPressed(GamepadButtons.A);
-            SetKeyState(VirtualKey.Space, aPressed);
-
-            // 6. Analógico Esquerdo -> WASD com threshold de deadzone circular
-            float deadzone = _settings.StickDeadzone;
-            float leftNormX = state.LeftThumbX / 32767f;
-            float leftNormY = state.LeftThumbY / 32767f;
-            float leftMagnitude = (float)Math.Sqrt(leftNormX * leftNormX + leftNormY * leftNormY);
-            bool leftActive = leftMagnitude > deadzone;
-
-            bool moveW = false;
-            bool moveS = false;
-            bool moveA = false;
-            bool moveD = false;
-
-            if (leftActive)
+            GameProfile profile;
+            lock (_syncLock)
             {
-                // Limiar direcional de 0.35 para cada eixo quando fora da deadzone
-                if (leftNormY > 0.35f) moveW = true;
-                if (leftNormY < -0.35f) moveS = true;
-                if (leftNormX < -0.35f) moveA = true;
-                if (leftNormX > 0.35f) moveD = true;
+                profile = _activeProfile;
             }
 
-            SetKeyState(VirtualKey.W, moveW);
-            SetKeyState(VirtualKey.S, moveS);
-            SetKeyState(VirtualKey.A, moveA);
-            SetKeyState(VirtualKey.D, moveD);
+            if (profile == null) return;
+            var page = profile.ActivePage;
+            if (page == null) return;
 
-            // 7. Smart Mouse Look Companion (F9 sincronizado com WASD e Espaço/A)
-            _smartMouseLook.Update(leftActive, aPressed);
+            // 1. Configurações de hardware (Deadzone e Limiar de Gatilhos)
+            float deadzone = profile.UseGlobalDeadzone ? _settings.StickDeadzone : (profile.CustomDeadzonePercent / 100f);
+            byte triggerThreshold = profile.UseGlobalTriggerThreshold ? _settings.TriggerThreshold : (byte)(profile.CustomTriggerThresholdPercent * 255 / 100);
+            int sensitivity = page.MouseSensitivity > 0 ? page.MouseSensitivity : _settings.MouseSensitivity;
 
-            // 8. L3 -> Clique do botão esquerdo do mouse
-            bool l3Pressed = state.IsPressed(GamepadButtons.LeftStick);
-            if (l3Pressed && !_l3Held)
+            // 2. Acumuladores de estado para união de estados no frame atual
+            var frameKeys = new HashSet<VirtualKey>();
+            var frameMouseButtons = new HashSet<MouseButton>();
+            int frameWheelDelta = 0;
+            float frameDx = 0f;
+            float frameDy = 0f;
+            var frameSpecial = new List<CompanionActionType>();
+
+            void AccumulateActions(IEnumerable<InputAction> actions)
             {
-                _input.MouseButtonDown(MouseButton.Left);
-                _l3Held = true;
-            }
-            else if (!l3Pressed && _l3Held)
-            {
-                _input.MouseButtonUp(MouseButton.Left);
-                _l3Held = false;
+                if (actions == null) return;
+                foreach (var action in actions)
+                {
+                    if (action == null) continue;
+                    switch (action.Type)
+                    {
+                        case InputActionType.Key:
+                            if (action.Key != VirtualKey.None)
+                            {
+                                frameKeys.Add(action.Key);
+                            }
+                            break;
+                        case InputActionType.MouseButton:
+                            frameMouseButtons.Add(action.MouseButton);
+                            break;
+                        case InputActionType.MouseWheel:
+                            frameWheelDelta += action.WheelDelta;
+                            break;
+                        case InputActionType.SpecialAction:
+                            if (action.SpecialAction != CompanionActionType.None)
+                            {
+                                frameSpecial.Add(action.SpecialAction);
+                            }
+                            break;
+                    }
+                }
             }
 
-            // 9. R3 -> Clique do botão direito do mouse
-            bool r3Pressed = state.IsPressed(GamepadButtons.RightStick);
-            if (r3Pressed && !_r3Held)
+            // 3. Avaliação dos 14 botões físicos
+            if (state.IsPressed(GamepadButtons.A)) AccumulateActions(page.GetActions(ControllerButton.A));
+            if (state.IsPressed(GamepadButtons.B)) AccumulateActions(page.GetActions(ControllerButton.B));
+            if (state.IsPressed(GamepadButtons.X)) AccumulateActions(page.GetActions(ControllerButton.X));
+            if (state.IsPressed(GamepadButtons.Y)) AccumulateActions(page.GetActions(ControllerButton.Y));
+
+            if (state.IsPressed(GamepadButtons.DPadUp)) AccumulateActions(page.GetActions(ControllerButton.DPadUp));
+            if (state.IsPressed(GamepadButtons.DPadDown)) AccumulateActions(page.GetActions(ControllerButton.DPadDown));
+            if (state.IsPressed(GamepadButtons.DPadLeft)) AccumulateActions(page.GetActions(ControllerButton.DPadLeft));
+            if (state.IsPressed(GamepadButtons.DPadRight)) AccumulateActions(page.GetActions(ControllerButton.DPadRight));
+
+            if (state.IsPressed(GamepadButtons.LeftShoulder)) AccumulateActions(page.GetActions(ControllerButton.LeftShoulder));
+            if (state.IsPressed(GamepadButtons.RightShoulder)) AccumulateActions(page.GetActions(ControllerButton.RightShoulder));
+
+            if (state.LeftTrigger >= triggerThreshold) AccumulateActions(page.GetActions(ControllerButton.LeftTrigger));
+            if (state.RightTrigger >= triggerThreshold) AccumulateActions(page.GetActions(ControllerButton.RightTrigger));
+
+            if (state.IsPressed(GamepadButtons.Back)) AccumulateActions(page.GetActions(ControllerButton.Back));
+            if (state.IsPressed(GamepadButtons.Start)) AccumulateActions(page.GetActions(ControllerButton.Start));
+
+            if (state.IsPressed(GamepadButtons.LeftStick))
             {
-                _input.MouseButtonDown(MouseButton.Right);
-                _r3Held = true;
-            }
-            else if (!r3Pressed && _r3Held)
-            {
-                _input.MouseButtonUp(MouseButton.Right);
-                _r3Held = false;
+                AccumulateActions(page.GetActions(ControllerButton.LeftStickClick));
+                if (page.LeftStick?.ClickActions != null) AccumulateActions(page.LeftStick.ClickActions);
             }
 
-            // 10. Analógico Direito -> Emulação de mouse com curva exponencial suave
-            MouseCurveCalculator.Calculate(
-                state.RightThumbX, state.RightThumbY, _settings.MouseSensitivity, deltaSeconds,
-                deadzone, out float dx, out float dy);
+            if (state.IsPressed(GamepadButtons.RightStick))
+            {
+                AccumulateActions(page.GetActions(ControllerButton.RightStickClick));
+                if (page.RightStick?.ClickActions != null) AccumulateActions(page.RightStick.ClickActions);
+            }
 
-            _remainderX += dx;
-            _remainderY += dy;
+            // 4. Avaliação do Analógico Esquerdo
+            if (page.LeftStick != null && page.LeftStick.Mode != StickMode.Disabled)
+            {
+                float leftNormX = state.LeftThumbX / 32767f;
+                float leftNormY = state.LeftThumbY / 32767f;
+                float leftMagnitude = (float)Math.Sqrt(leftNormX * leftNormX + leftNormY * leftNormY);
+                bool leftActive = leftMagnitude > deadzone;
+
+                if (page.LeftStick.Mode == StickMode.DirectionalKeys)
+                {
+                    if (leftActive)
+                    {
+                        if (leftNormY > 0.35f) AccumulateActions(page.LeftStick.Up);
+                        if (leftNormY < -0.35f) AccumulateActions(page.LeftStick.Down);
+                        if (leftNormX < -0.35f) AccumulateActions(page.LeftStick.Left);
+                        if (leftNormX > 0.35f) AccumulateActions(page.LeftStick.Right);
+
+                        AccumulateActions(page.LeftStick.AdditionalActions);
+                    }
+                }
+                else if (page.LeftStick.Mode == StickMode.MouseMove)
+                {
+                    MouseCurveCalculator.Calculate(
+                        state.LeftThumbX, state.LeftThumbY, sensitivity, deltaSeconds,
+                        deadzone, out float ldx, out float ldy);
+                    frameDx += ldx;
+                    frameDy += ldy;
+
+                    if (leftActive)
+                    {
+                        AccumulateActions(page.LeftStick.AdditionalActions);
+                    }
+                }
+            }
+
+            // 5. Avaliação do Analógico Direito
+            if (page.RightStick != null && page.RightStick.Mode != StickMode.Disabled)
+            {
+                float rightNormX = state.RightThumbX / 32767f;
+                float rightNormY = state.RightThumbY / 32767f;
+                float rightMagnitude = (float)Math.Sqrt(rightNormX * rightNormX + rightNormY * rightNormY);
+                bool rightActive = rightMagnitude > deadzone;
+
+                if (page.RightStick.Mode == StickMode.MouseMove)
+                {
+                    MouseCurveCalculator.Calculate(
+                        state.RightThumbX, state.RightThumbY, sensitivity, deltaSeconds,
+                        deadzone, out float rdx, out float rdy);
+                    frameDx += rdx;
+                    frameDy += rdy;
+
+                    if (rightActive)
+                    {
+                        AccumulateActions(page.RightStick.AdditionalActions);
+                    }
+                }
+                else if (page.RightStick.Mode == StickMode.DirectionalKeys)
+                {
+                    if (rightActive)
+                    {
+                        if (rightNormY > 0.35f) AccumulateActions(page.RightStick.Up);
+                        if (rightNormY < -0.35f) AccumulateActions(page.RightStick.Down);
+                        if (rightNormX < -0.35f) AccumulateActions(page.RightStick.Left);
+                        if (rightNormX > 0.35f) AccumulateActions(page.RightStick.Right);
+
+                        AccumulateActions(page.RightStick.AdditionalActions);
+                    }
+                }
+            }
+
+            // 6. Aplicação da União de Estados (Diff por frame)
+            List<VirtualKey> keysToRelease;
+            List<VirtualKey> keysToPress;
+            List<MouseButton> mouseToRelease;
+            List<MouseButton> mouseToPress;
+
+            lock (_syncLock)
+            {
+                keysToRelease = _currentlyHeldKeys.Where(k => !frameKeys.Contains(k)).ToList();
+                keysToPress = frameKeys.Where(k => !_currentlyHeldKeys.Contains(k)).ToList();
+
+                foreach (var k in keysToRelease) _currentlyHeldKeys.Remove(k);
+                foreach (var k in keysToPress) _currentlyHeldKeys.Add(k);
+
+                mouseToRelease = _currentlyHeldMouseButtons.Where(b => !frameMouseButtons.Contains(b)).ToList();
+                mouseToPress = frameMouseButtons.Where(b => !_currentlyHeldMouseButtons.Contains(b)).ToList();
+
+                foreach (var b in mouseToRelease) _currentlyHeldMouseButtons.Remove(b);
+                foreach (var b in mouseToPress) _currentlyHeldMouseButtons.Add(b);
+            }
+
+            // 6.1 Solta teclas que não são mais requisitadas por nenhuma entrada ativa
+            foreach (var k in keysToRelease)
+            {
+                _input.KeyUp(k);
+            }
+
+            // 6.2 Pressiona novas teclas requisitadas
+            foreach (var k in keysToPress)
+            {
+                _input.KeyDown(k);
+            }
+
+            // 6.3 Solta botões de mouse não mais requisitados
+            foreach (var b in mouseToRelease)
+            {
+                _input.MouseButtonUp(b);
+            }
+
+            // 6.4 REGRA ARQUITETURAL: MouseButtonDown ocorre estritamente ANTES de MouseMoveRelative
+            foreach (var b in mouseToPress)
+            {
+                _input.MouseButtonDown(b);
+            }
+
+            // 6.5 Scroll de Mouse
+            if (frameWheelDelta != 0)
+            {
+                _input.MouseWheel(frameWheelDelta);
+            }
+
+            // 6.6 Movimentação Relativa do Mouse com Acumulação de Subpixel
+            _remainderX += frameDx;
+            _remainderY += frameDy;
             int moveX = (int)_remainderX;
             int moveY = (int)_remainderY;
             _remainderX -= moveX;
             _remainderY -= moveY;
 
-            if (dx == 0f && dy == 0f)
+            if (frameDx == 0f && frameDy == 0f)
             {
                 _remainderX = 0f;
                 _remainderY = 0f;
             }
 
             _input.MouseMoveRelative(moveX, moveY);
-        }
 
-        private void SetKeyState(VirtualKey key, bool pressed)
-        {
-            lock (_syncLock)
+            // 6.7 Ações Especiais do Companion
+            if (frameSpecial.Count > 0)
             {
-                if (pressed && !_activeKeys.Contains(key))
+                foreach (var sp in frameSpecial)
                 {
-                    _input.KeyDown(key);
-                    _activeKeys.Add(key);
-                }
-                else if (!pressed && _activeKeys.Contains(key))
-                {
-                    _input.KeyUp(key);
-                    _activeKeys.Remove(key);
+                    if (sp == CompanionActionType.CenterCursor)
+                    {
+                        CenterCursorRequested?.Invoke();
+                    }
+                    else if (sp == CompanionActionType.ToggleClipCursor)
+                    {
+                        ToggleClipCursorRequested?.Invoke();
+                    }
                 }
             }
         }
 
         public void Reset()
         {
-            VirtualKey[] keysToRelease;
             lock (_syncLock)
             {
-                keysToRelease = _activeKeys.ToArray();
-                _activeKeys.Clear();
-
-                if (_l3Held)
-                {
-                    _input.MouseButtonUp(MouseButton.Left);
-                    _l3Held = false;
-                }
-
-                if (_r3Held)
-                {
-                    _input.MouseButtonUp(MouseButton.Right);
-                    _r3Held = false;
-                }
+                ResetInternal();
             }
+        }
 
-            foreach (var key in keysToRelease)
+        private void ResetInternal()
+        {
+            var keys = _currentlyHeldKeys.ToArray();
+            _currentlyHeldKeys.Clear();
+
+            var buttons = _currentlyHeldMouseButtons.ToArray();
+            _currentlyHeldMouseButtons.Clear();
+
+            foreach (var k in keys)
             {
-                _input.KeyUp(key);
+                _input.KeyUp(k);
             }
 
-            _smartMouseLook.Reset();
+            foreach (var b in buttons)
+            {
+                _input.MouseButtonUp(b);
+            }
 
             _remainderX = 0f;
             _remainderY = 0f;

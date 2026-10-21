@@ -1,14 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using ConsoleMode.GamepadCompanion.Core.Interfaces;
+using ConsoleMode.GamepadCompanion.Core.Models;
 
 namespace ConsoleMode.GamepadCompanion.Hardware
 {
     /// <summary>
     /// Monitora a janela em primeiro plano do Windows via Win32 API.
-    /// Detecta se o jogo World of Warcraft (WoW.exe ou turtle-wow.exe) está em foco.
+    /// Identifica qual jogo cadastrado (GameEntry) está ativo em foco no momento.
     /// </summary>
     public sealed class WindowTracker : IWindowTracker
     {
@@ -18,22 +20,105 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
-        private bool _isWowActive;
+        private bool _isGameActive;
         private string _lastProcessName = string.Empty;
         private IntPtr _activeHwnd = IntPtr.Zero;
+        private GameEntry _activeGame;
 
-        private readonly System.Collections.Generic.HashSet<string> _customGameExecutables =
-            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly object _lock = new object();
+        private readonly List<GameEntry> _registeredGames = new List<GameEntry>();
+        private readonly Dictionary<string, GameEntry> _exeToGameMap =
+            new Dictionary<string, GameEntry>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _customGameExecutables =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        public bool IsGameFocused => _isWowActive;
+        public bool IsGameFocused => _isGameActive;
 
         public string ActiveProcessName => _lastProcessName;
 
         public IntPtr ActiveWindowHandle => _activeHwnd;
 
+        public GameEntry ActiveGame => _activeGame;
+
         public event Action<bool> FocusChanged;
 
         public event Action<IntPtr> ActiveWindowChanged;
+
+        public event Action<GameEntry> ActiveGameChanged;
+
+        public void SetGames(IEnumerable<GameEntry> games)
+        {
+            if (games == null) return;
+            lock (_lock)
+            {
+                _registeredGames.Clear();
+                _exeToGameMap.Clear();
+                foreach (var g in games)
+                {
+                    if (g != null)
+                    {
+                        RegisterGameInternal(g);
+                    }
+                }
+            }
+        }
+
+        public void RegisterGame(GameEntry game)
+        {
+            if (game == null) return;
+            lock (_lock)
+            {
+                RegisterGameInternal(game);
+            }
+        }
+
+        private void RegisterGameInternal(GameEntry game)
+        {
+            int existingIdx = _registeredGames.FindIndex(x => string.Equals(x.Id, game.Id, StringComparison.OrdinalIgnoreCase));
+            if (existingIdx >= 0)
+            {
+                _registeredGames[existingIdx] = game;
+            }
+            else
+            {
+                _registeredGames.Add(game);
+            }
+
+            MapExecutable(game.MainExecutable, game);
+            MapExecutable(game.TargetPath, game);
+            MapExecutable(game.LauncherName, game);
+        }
+
+        private void MapExecutable(string rawPathOrName, GameEntry game)
+        {
+            if (string.IsNullOrWhiteSpace(rawPathOrName)) return;
+            string clean = rawPathOrName.Trim().Trim('"', '\'');
+            string cleanName = string.Empty;
+            string fileName = string.Empty;
+            try
+            {
+                cleanName = Path.GetFileNameWithoutExtension(clean);
+                fileName = Path.GetFileName(clean);
+            }
+            catch
+            {
+                int lastSlash = Math.Max(clean.LastIndexOf('\\'), clean.LastIndexOf('/'));
+                fileName = lastSlash >= 0 ? clean.Substring(lastSlash + 1) : clean;
+                int dot = fileName.LastIndexOf('.');
+                cleanName = dot > 0 ? fileName.Substring(0, dot) : fileName;
+            }
+
+            if (!string.IsNullOrEmpty(cleanName))
+            {
+                _exeToGameMap[cleanName] = game;
+                _customGameExecutables.Add(cleanName);
+            }
+            if (!string.IsNullOrEmpty(fileName))
+            {
+                _exeToGameMap[fileName] = game;
+                _customGameExecutables.Add(fileName);
+            }
+        }
 
         public void RegisterGameExecutable(string executableName)
         {
@@ -54,7 +139,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 cleanName = dot > 0 ? fileName.Substring(0, dot) : fileName;
             }
 
-            lock (_customGameExecutables)
+            lock (_lock)
             {
                 if (!string.IsNullOrEmpty(cleanName))
                 {
@@ -72,14 +157,14 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             IntPtr hwnd = GetForegroundWindow();
             if (hwnd == IntPtr.Zero)
             {
-                UpdateFocus(false, string.Empty, IntPtr.Zero);
+                UpdateFocus(false, string.Empty, IntPtr.Zero, null);
                 return;
             }
 
             GetWindowThreadProcessId(hwnd, out uint pid);
             if (pid == 0)
             {
-                UpdateFocus(false, string.Empty, IntPtr.Zero);
+                UpdateFocus(false, string.Empty, IntPtr.Zero, null);
                 return;
             }
 
@@ -96,31 +181,55 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 // Processo pode ter finalizado ou acesso restrito
             }
 
-            bool wowFocused = string.Equals(procName, "turtle-wow", StringComparison.OrdinalIgnoreCase) ||
-                              string.Equals(procName, "WoW", StringComparison.OrdinalIgnoreCase) ||
-                              string.Equals(procName, "VanillaFixes", StringComparison.OrdinalIgnoreCase);
+            GameEntry matchedGame = null;
+            bool isGameFocused = false;
 
-            if (!wowFocused && !string.IsNullOrEmpty(procName))
+            lock (_lock)
             {
-                lock (_customGameExecutables)
+                if (!string.IsNullOrEmpty(procName))
                 {
-                    wowFocused = _customGameExecutables.Contains(procName) ||
-                                 _customGameExecutables.Contains(procName + ".exe");
+                    if (_exeToGameMap.TryGetValue(procName, out var game) ||
+                        _exeToGameMap.TryGetValue(procName + ".exe", out game))
+                    {
+                        matchedGame = game;
+                        isGameFocused = true;
+                    }
+                    else if (_customGameExecutables.Contains(procName) ||
+                             _customGameExecutables.Contains(procName + ".exe"))
+                    {
+                        isGameFocused = true;
+                    }
+                }
+
+                if (!isGameFocused && !string.IsNullOrEmpty(procName))
+                {
+                    bool isDefaultWow = string.Equals(procName, "turtle-wow", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(procName, "WoW", StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(procName, "VanillaFixes", StringComparison.OrdinalIgnoreCase);
+
+                    if (isDefaultWow)
+                    {
+                        isGameFocused = true;
+                        matchedGame = _registeredGames.Find(g => string.Equals(g.Id, "turtle-wow", StringComparison.OrdinalIgnoreCase))
+                                      ?? _registeredGames.Find(g => g.MainExecutable != null && g.MainExecutable.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0);
+                    }
                 }
             }
 
-            UpdateFocus(wowFocused, procName, hwnd);
+            UpdateFocus(isGameFocused, procName, hwnd, matchedGame);
         }
 
-        private void UpdateFocus(bool focused, string procName, IntPtr hwnd)
+        private void UpdateFocus(bool focused, string procName, IntPtr hwnd, GameEntry matchedGame)
         {
             _lastProcessName = procName;
-            bool focusStateChanged = _isWowActive != focused;
+            bool focusStateChanged = _isGameActive != focused;
             IntPtr targetHwnd = focused ? hwnd : IntPtr.Zero;
             bool hwndChanged = _activeHwnd != targetHwnd;
+            bool gameChanged = !ReferenceEquals(_activeGame, matchedGame) && (_activeGame?.Id != matchedGame?.Id);
 
-            _isWowActive = focused;
+            _isGameActive = focused;
             _activeHwnd = targetHwnd;
+            _activeGame = matchedGame;
 
             if (focusStateChanged)
             {
@@ -130,6 +239,11 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             if (hwndChanged)
             {
                 ActiveWindowChanged?.Invoke(_activeHwnd);
+            }
+
+            if (gameChanged)
+            {
+                ActiveGameChanged?.Invoke(_activeGame);
             }
         }
     }

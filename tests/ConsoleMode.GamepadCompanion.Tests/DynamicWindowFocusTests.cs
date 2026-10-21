@@ -15,19 +15,25 @@ namespace ConsoleMode.GamepadCompanion.Tests
             public bool IsGameFocused { get; set; }
             public string ActiveProcessName { get; set; } = string.Empty;
             public IntPtr ActiveWindowHandle { get; set; } = IntPtr.Zero;
+            public GameEntry ActiveGame { get; set; }
 
             public event Action<bool> FocusChanged;
             public event Action<IntPtr> ActiveWindowChanged;
+            public event Action<GameEntry> ActiveGameChanged;
 
             public void CheckActiveWindow() { }
             public void RegisterGameExecutable(string executableName) { }
+            public void RegisterGame(GameEntry game) { }
+            public void SetGames(System.Collections.Generic.IEnumerable<GameEntry> games) { }
 
-            public void SimulateWindowChange(IntPtr newHwnd, bool isGame)
+            public void SimulateWindowChange(IntPtr newHwnd, bool isGame, GameEntry activeGame = null)
             {
                 ActiveWindowHandle = newHwnd;
                 IsGameFocused = isGame;
+                ActiveGame = activeGame;
                 FocusChanged?.Invoke(isGame);
                 ActiveWindowChanged?.Invoke(newHwnd);
+                ActiveGameChanged?.Invoke(activeGame);
             }
         }
 
@@ -64,6 +70,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             public void MouseMoveRelative(int dx, int dy) { }
             public void MouseButtonDown(MouseButton button) { }
             public void MouseButtonUp(MouseButton button) { }
+            public void MouseWheel(int delta) { }
         }
 
         [Fact]

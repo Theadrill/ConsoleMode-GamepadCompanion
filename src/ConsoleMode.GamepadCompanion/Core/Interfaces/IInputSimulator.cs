@@ -10,5 +10,6 @@ namespace ConsoleMode.GamepadCompanion.Core.Interfaces
         void MouseMoveRelative(int dx, int dy);
         void MouseButtonDown(MouseButton button);
         void MouseButtonUp(MouseButton button);
+        void MouseWheel(int delta);
     }
 }

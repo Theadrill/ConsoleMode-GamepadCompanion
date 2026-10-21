@@ -18,6 +18,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             public void MouseButtonDown(MouseButton button) { }
             public void MouseButtonUp(MouseButton button) { }
             public void MouseMoveRelative(int dx, int dy) { }
+            public void MouseWheel(int delta) { }
         }
 
         [Fact]
