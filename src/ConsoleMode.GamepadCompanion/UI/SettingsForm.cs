@@ -134,8 +134,8 @@ namespace ConsoleMode.GamepadCompanion.UI
             Text = Strings.WindowTitle;
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(880, 540);
-            MinimumSize = new Size(760, 550);
+            ClientSize = new Size(1100, 675);
+            MinimumSize = new Size(950, 680);
             BackColor = Color.FromArgb(30, 32, 40);
             ForeColor = Color.FromArgb(230, 232, 240);
             Font = new Font("Segoe UI", 9.5f);
