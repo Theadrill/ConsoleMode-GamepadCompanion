@@ -25,6 +25,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             GamesGrid,
             GameConfig,
             GameProfileEditor,
+            InputBindingCapture,
             SteamGridDb
         }
 
@@ -47,6 +48,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly GamesGridControl _gamesGrid = new GamesGridControl();
         private readonly GameConfigPanel _configPanel = new GameConfigPanel();
         private readonly GameProfileEditorControl _profileEditor = new GameProfileEditorControl();
+        private readonly InputBindingCaptureControl _bindingCapture = new InputBindingCaptureControl();
         private readonly SteamGridDbBrowserControl _steamGridBrowser = new SteamGridDbBrowserControl();
         private readonly Engine.Services.SteamGridDbService _steamGridService = new Engine.Services.SteamGridDbService();
         private readonly Engine.Services.HeroBackgroundService _heroBackgroundService = new Engine.Services.HeroBackgroundService();
@@ -227,6 +229,8 @@ namespace ConsoleMode.GamepadCompanion.UI
             _configPanel.Visible = false;
             _profileEditor.Dock = DockStyle.Fill;
             _profileEditor.Visible = false;
+            _bindingCapture.Dock = DockStyle.Fill;
+            _bindingCapture.Visible = false;
             _steamGridBrowser.Dock = DockStyle.Fill;
             _steamGridBrowser.Visible = false;
 
@@ -293,6 +297,11 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             _profileEditor.SaveRequested += OnSaveProfileEditor;
             _profileEditor.CancelRequested += ShowGameConfigFromProfileEditor;
+            _profileEditor.SlotEditRequested += OnProfileSlotEditRequested;
+
+            _bindingCapture.BindingConfirmed += OnBindingConfirmed;
+            _bindingCapture.CancelRequested += ShowProfileEditorFromBindingCapture;
+            _bindingCapture.OpenVisualSelectorRequested += OnOpenVisualSelectorRequested;
 
             _steamGridBrowser.CoverSelected += OnSteamGridCoverSelected;
             _steamGridBrowser.BackToConfigRequested += ShowGameConfigFromSteamGrid;
@@ -300,6 +309,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _steamGridBrowser.ChangeApiKeyRequested += () => ShowSteamGridApiKeyModal(_lastSteamGridSearchTerm);
 
             Controls.Add(_focusOverlay);
+            Controls.Add(_bindingCapture);
             Controls.Add(_profileEditor);
             Controls.Add(_steamGridBrowser);
             Controls.Add(_configPanel);
@@ -345,6 +355,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _gamesGrid.Visible = false;
             _configPanel.Visible = false;
             _profileEditor.Visible = false;
+            _bindingCapture.Visible = false;
             _steamGridBrowser.Visible = false;
             _debugger.BringToFront();
             _focusOverlay.BringToFront();
@@ -361,6 +372,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _gamesGrid.Visible = true;
             _configPanel.Visible = false;
             _profileEditor.Visible = false;
+            _bindingCapture.Visible = false;
             _steamGridBrowser.Visible = false;
             _gamesGrid.BringToFront();
             _focusOverlay.BringToFront();
@@ -374,6 +386,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
             _profileEditor.Visible = false;
+            _bindingCapture.Visible = false;
             _steamGridBrowser.Visible = false;
             _configPanel.Visible = true;
             _configPanel.EditGame(game);
@@ -658,6 +671,10 @@ namespace ConsoleMode.GamepadCompanion.UI
                 {
                     _focusOverlay.ProcessVirtualKeyboardGamepad(state, _stopwatch.ElapsedMilliseconds);
                 }
+                else if (_viewMode == ContentViewMode.InputBindingCapture)
+                {
+                    _bindingCapture.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
                 else if (_viewMode == ContentViewMode.GameProfileEditor)
                 {
                     _profileEditor.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
@@ -715,6 +732,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _gamesGrid.ResetInputState();
             _configPanel.ResetInputState();
             _profileEditor.ResetInputState();
+            _bindingCapture.ResetInputState();
             _steamGridBrowser.ResetInputState();
             _navManager.ResetInputState();
             _lastStateY = true;
@@ -797,10 +815,44 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             _viewMode = ContentViewMode.GameConfig;
             _profileEditor.Visible = false;
+            _bindingCapture.Visible = false;
             _configPanel.Visible = true;
             _configPanel.BringToFront();
             _focusOverlay.BringToFront();
             _configPanel.ResetInputState();
+        }
+
+        private void OnProfileSlotEditRequested(ProfileEditorSlot slot, string slotTitle, System.Collections.Generic.List<InputAction> currentActions)
+        {
+            _viewMode = ContentViewMode.InputBindingCapture;
+            _profileEditor.Visible = false;
+            _bindingCapture.Visible = true;
+            string gameName = _profileEditor.CurrentGame?.Name ?? Strings.DefaultGameName;
+            _bindingCapture.OpenForSlot(slot, slotTitle, gameName, currentActions);
+            _bindingCapture.BringToFront();
+            _focusOverlay.BringToFront();
+        }
+
+        private void OnBindingConfirmed(ProfileEditorSlot slot, System.Collections.Generic.List<InputAction> newActions)
+        {
+            _profileEditor.SetSlotActions(slot, newActions);
+            ShowProfileEditorFromBindingCapture();
+        }
+
+        private void ShowProfileEditorFromBindingCapture()
+        {
+            _viewMode = ContentViewMode.GameProfileEditor;
+            _bindingCapture.StopListening();
+            _bindingCapture.Visible = false;
+            _profileEditor.Visible = true;
+            _profileEditor.BringToFront();
+            _focusOverlay.BringToFront();
+            _profileEditor.ResetInputState();
+        }
+
+        private void OnOpenVisualSelectorRequested(ProfileEditorSlot slot, string slotTitle, System.Collections.Generic.List<InputAction> currentActions)
+        {
+            // Na Fase 4, abrirá o InputVisualSelectorControl em 3 Abas (Teclado | Mouse | Sistema & Especial)
         }
 
         protected override void OnResize(EventArgs e)
@@ -826,6 +878,15 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            if (_viewMode == ContentViewMode.InputBindingCapture && _bindingCapture != null && _bindingCapture.IsListening)
+            {
+                var key = keyData & Keys.KeyCode;
+                if (_bindingCapture.HandlePhysicalKeyDown(key))
+                {
+                    return true;
+                }
+            }
+
             if (_focusOverlay != null && _focusOverlay.IsVirtualKeyboardOpen)
             {
                 var key = keyData & Keys.KeyCode;
@@ -847,6 +908,12 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         protected override void OnKeyPress(KeyPressEventArgs e)
         {
+            if (_viewMode == ContentViewMode.InputBindingCapture && _bindingCapture != null && _bindingCapture.IsListening)
+            {
+                e.Handled = true;
+                return;
+            }
+
             if (_focusOverlay != null && _focusOverlay.IsVirtualKeyboardOpen)
             {
                 if (_focusOverlay.HandleKeyboardKeyPress(e.KeyChar))
@@ -860,6 +927,16 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (_viewMode == ContentViewMode.InputBindingCapture && _bindingCapture != null && _bindingCapture.IsListening)
+            {
+                if (_bindingCapture.HandlePhysicalKeyDown(e.KeyCode))
+                {
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    return;
+                }
+            }
+
             if (_focusOverlay != null && _focusOverlay.IsVirtualKeyboardOpen)
             {
                 if (_focusOverlay.HandleKeyboardKeyDown(e))
@@ -869,6 +946,19 @@ namespace ConsoleMode.GamepadCompanion.UI
                 }
             }
             base.OnKeyDown(e);
+        }
+
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            if (_viewMode == ContentViewMode.InputBindingCapture && _bindingCapture != null && _bindingCapture.IsListening)
+            {
+                if (_bindingCapture.HandlePhysicalKeyUp(e.KeyCode))
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+            base.OnKeyUp(e);
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
