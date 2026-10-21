@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> **LEITURA OBRIGATÓRIA ANTES DE INICIAR QUALQUER EXECUÇÃO:** É estritamente obrigatório ler os documentos [`docs/REGRAS_DO_PROJETO.md`](./REGRAS_DO_PROJETO.md) e [`docs/BRAINSTORMING.md`](./BRAINSTORMING.md) antes de iniciar ou retomar qualquer fase deste plano.
+
 # Plano de Implementação — Sistema de Perfis por Jogo & Editor Visual de Controles
 
 > **Documento de Arquitetura Técnica, Identidade Visual, UX e Roteiro de Fases Testáveis**  
