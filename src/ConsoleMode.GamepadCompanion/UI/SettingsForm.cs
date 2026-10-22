@@ -66,6 +66,9 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly GamepadNavigationManager _navManager = new GamepadNavigationManager();
 
         private Panel _sidePanel;
+        private Label _slotTitle;
+        private Button _exitButton;
+        private bool _sidePanelInteractive = true;
         private string _slotSignature = string.Empty;
         private bool _updatingCombo;
         private bool _allowClose;
@@ -166,7 +169,8 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             int currentY = 16;
 
-            var slotTitle = MakeTitle(Strings.ActiveController, currentY);
+            _slotTitle = MakeTitle(Strings.ActiveController, currentY);
+            var slotTitle = _slotTitle;
             currentY = slotTitle.Bottom + 6;
 
             _slotCombo.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -208,6 +212,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _gamesButton.ForeColor = Color.FromArgb(230, 232, 240);
             _gamesButton.Click += (s, e) =>
             {
+                if (!_sidePanelInteractive) return;
                 if (_viewMode == ContentViewMode.Debugger)
                 {
                     ShowGamesLibrary();
@@ -228,6 +233,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _desktopButton.ForeColor = Color.FromArgb(230, 232, 240);
             _desktopButton.MouseDown += (s, e) =>
             {
+                if (!_sidePanelInteractive) return;
                 if (e.Button == MouseButtons.Right)
                 {
                     ToggleDesktopMode();
@@ -235,16 +241,19 @@ namespace ConsoleMode.GamepadCompanion.UI
             };
             _desktopButton.Click += (s, e) =>
             {
+                if (!_sidePanelInteractive) return;
                 ShowDesktopProfileEditor();
             };
             UpdateDesktopButtonText();
             currentY = _desktopButton.Bottom + 12;
 
-            var exit = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat, TabStop = false };
+            _exitButton = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat, TabStop = false };
+            var exit = _exitButton;
             exit.SetBounds(16, currentY, 228, 36);
             exit.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
             exit.Click += (s, e) =>
             {
+                if (!_sidePanelInteractive) return;
                 _focusOverlay.ShowExitDialog(
                     this,
                     onCloseApp: () =>
@@ -421,10 +430,71 @@ namespace ConsoleMode.GamepadCompanion.UI
                 _windowTracker.RegisterGameExecutable(game.LauncherName);
         }
 
+
+        private void UpdateSidebarVisualState(bool inConfigMode)
+        {
+            _sidePanelInteractive = !inConfigMode;
+            if (_sidePanel != null)
+            {
+                _sidePanel.Enabled = true;
+            }
+
+            Color textColor = inConfigMode ? Color.FromArgb(185, 195, 210) : Color.FromArgb(245, 245, 250);
+            Color borderColor = inConfigMode ? Color.FromArgb(60, 66, 80) : Color.FromArgb(120, 126, 140);
+            Color btnBg = inConfigMode ? Color.FromArgb(32, 35, 45) : Color.FromArgb(40, 44, 56);
+
+            if (_slotTitle != null)
+            {
+                _slotTitle.ForeColor = textColor;
+            }
+
+            if (_slotCombo != null)
+            {
+                _slotCombo.ForeColor = textColor;
+                _slotCombo.BackColor = btnBg;
+            }
+
+            if (_gamesButton != null)
+            {
+                _gamesButton.ForeColor = textColor;
+                _gamesButton.BackColor = btnBg;
+                _gamesButton.FlatAppearance.BorderColor = borderColor;
+            }
+
+            if (_desktopButton != null)
+            {
+                _desktopButton.ForeColor = textColor;
+                _desktopButton.BackColor = btnBg;
+                _desktopButton.FlatAppearance.BorderColor = borderColor;
+            }
+
+            if (_exitButton != null)
+            {
+                _exitButton.ForeColor = textColor;
+                _exitButton.BackColor = btnBg;
+                _exitButton.FlatAppearance.BorderColor = borderColor;
+            }
+
+            if (inConfigMode)
+            {
+                _statusLabel.ForeColor = Color.FromArgb(120, 180, 130);
+                _profileLabel.ForeColor = Color.FromArgb(100, 150, 205);
+                _deviceLabel.ForeColor = Color.FromArgb(160, 170, 185);
+            }
+            else
+            {
+                _statusLabel.ForeColor = Color.FromArgb(150, 220, 160);
+                _profileLabel.ForeColor = Color.FromArgb(120, 190, 255);
+                _deviceLabel.ForeColor = Color.FromArgb(200, 210, 225);
+            }
+
+            _sidePanel?.Invalidate();
+        }
+
         private void ShowSteamDeckSetup()
         {
             _isEditingDesktopProfile = false;
-            _sidePanel.Enabled = false;
+            UpdateSidebarVisualState(inConfigMode: true);
             _viewMode = ContentViewMode.SteamDeckSetup;
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
@@ -445,7 +515,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowDebugger()
         {
             _isEditingDesktopProfile = false;
-            _sidePanel.Enabled = true;
+            UpdateSidebarVisualState(inConfigMode: false);
             _viewMode = ContentViewMode.Debugger;
             _trackpadConfig.Visible = false;
             _debugger.Visible = true;
@@ -466,7 +536,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowGamesLibrary()
         {
             _isEditingDesktopProfile = false;
-            _sidePanel.Enabled = true;
+            UpdateSidebarVisualState(inConfigMode: false);
             _viewMode = ContentViewMode.GamesGrid;
             _trackpadConfig.Visible = false;
             RefreshGamesList();
@@ -487,7 +557,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowGameConfig(GameEntry game)
         {
             _isEditingDesktopProfile = false;
-            _sidePanel.Enabled = false;
+            UpdateSidebarVisualState(inConfigMode: true);
             _viewMode = ContentViewMode.GameConfig;
             _trackpadConfig.Visible = false;
             _configPanel.ResetInputState();
@@ -951,7 +1021,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void OnSlotChanged()
         {
-            if (_updatingCombo || _slotCombo.SelectedIndex < 0) return;
+            if (_updatingCombo || !_sidePanelInteractive || _slotCombo.SelectedIndex < 0) return;
             _settings.SelectedSlot = _slotCombo.SelectedIndex - 1;
             _gamepad.SelectedSlot = _settings.SelectedSlot;
             _configRepo.Save(_settings);
@@ -983,7 +1053,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowDesktopProfileEditor()
         {
             _isEditingDesktopProfile = true;
-            _sidePanel.Enabled = false;
+            UpdateSidebarVisualState(inConfigMode: true);
             _viewMode = ContentViewMode.GameProfileEditor;
             _trackpadConfig.Visible = false;
             _debugger.Visible = false;
@@ -1015,7 +1085,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             if (game == null) return;
             _isEditingDesktopProfile = false;
-            _sidePanel.Enabled = false;
+            UpdateSidebarVisualState(inConfigMode: true);
             _viewMode = ContentViewMode.GameProfileEditor;
             _trackpadConfig.Visible = false;
             _debugger.Visible = false;
