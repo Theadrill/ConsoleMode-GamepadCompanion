@@ -59,12 +59,14 @@ Para transformá-lo em um controle de console transparente e de alta performance
 
 ---
 
-### FASE 5: Reestruturação da Tela de Mapping para Acomodar Controles Handheld 🚀 (EM ANDAMENTO)
+### FASE 5: Reestruturação da Tela de Mapping para Acomodar Controles Handheld ✅ (CONCLUÍDO)
 * **Objetivo:** Reorganizar a tela de configuração de controles (`GameProfileEditorControl`) para acomodar com elegância os novos controles Handheld:
-  1. **Correção de Bounds (`EnsureLogicalBoundsPopulated`):** Registrar formalmente os limites dos novos botões traseiros no dicionário de bounds para eliminar qualquer `KeyNotFoundException`.
-  2. **Reestruturação do Layout:** Reorganizar os cards e áreas da tela quando em modo `HandheldSteamDeck` para refletir o formato de console portátil (sticks superiores, D-Pad e face buttons, linha unificada inferior de botões traseiros `L4, L5, R5, R4`).
-  3. **Placeholders de Trackpads:** Inserir placeholders visuais/cards de reserva para os trackpads esquerdo e direito, preparando o terreno visual para a configuração expandida.
-  4. **Comutação Dinâmica:** Garantir que ao alternar para um controle tradicional, o layout retorne perfeitamente ao formato de Gamepad clássico.
+* **Tarefas Concluídas:**
+  1. **Correção de Bounds (`EnsureLogicalBoundsPopulated`):** Registro formal dos limites de `ButtonL4, ButtonL5, ButtonR5, ButtonR4`, com checagem defensiva `TryGetValue` eliminando qualquer possibilidade de `KeyNotFoundException`.
+  2. **Reestruturação do Layout Handheld:** Cards redimensionados com simetria vertical (Left Stick, D-Pad, Face Buttons, Right Stick), silhueta handheld compacta com linha centralizada de botões traseiros (`[ L4 ] [ L5 ]   [ R5 ] [ R4 ]`) e botões de ação (Salvar e Voltar).
+  3. **Placeholders de Trackpads:** Cards informativos com badges estilizados para Trackpad Esquerdo e Trackpad Direito (`Configuração Expandida - Planejada Fase 6`).
+  4. **Comutação Dinâmica & Preservação Clássica:** Alternância instantânea de bounds e visual entre `HandheldSteamDeck` e `StandardGamepad`.
+  5. **Bateria de Testes:** 191 testes unitários passando, incluindo validação direta de renderização gráfica sem exceções em ambos os modos visuais.
 
 ---
 

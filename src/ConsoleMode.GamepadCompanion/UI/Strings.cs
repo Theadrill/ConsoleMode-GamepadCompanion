@@ -101,6 +101,11 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string ProfileCardLeftStick = "STICK ESQUERDO";
         public const string ProfileCardRightStick = "STICK DIREITO";
         public const string ProfileCardDPad = "D-PAD (SETAS)";
+        public const string ProfileCardLeftTrackpad = "TRACKPAD ESQUERDO";
+        public const string ProfileCardRightTrackpad = "TRACKPAD DIREITO";
+        public const string ProfileTrackpadExpandedTitle = "Configuração Expandida";
+        public const string ProfileTrackpadExpandedSubtitle = "(Planejada - Fase 6)";
+        public const string ProfileRearButtonsTitle = "BOTÕES TRASEIROS (GRIP)";
         public const string ProfileCardFaceButtons = "BOTÕES FACIAIS";
         public const string ProfileStickModeLabel = "Modo:";
         public const string ProfileStickModeDirectional = "4 Direções";

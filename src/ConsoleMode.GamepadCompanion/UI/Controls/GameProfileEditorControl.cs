@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -160,6 +160,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 if (_visualMode == value) return;
                 _visualMode = value;
+                _slotBounds.Clear();
+                EnsureLogicalBoundsPopulated();
                 Invalidate();
             }
         }
@@ -178,7 +180,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 : GameProfilePresets.CreateWowClassic();
 
             SyncClickActionsToMappings(_workingProfile.ActivePage);
-            _visualMode = Hardware.ControllerVisualModeResolver.Resolve(_settings.SelectedSlot);
+            VisualMode = Hardware.ControllerVisualModeResolver.Resolve(_settings.SelectedSlot);
+            _slotBounds.Clear();
+            EnsureLogicalBoundsPopulated();
 
             _otherGames.Clear();
             if (allGames != null)
@@ -937,39 +941,91 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _slotBounds[ProfileEditorSlot.ButtonRB] = new RectangleF(430, 153, 178, 25);
             _slotBounds[ProfileEditorSlot.ButtonStart] = new RectangleF(430, 182, 178, 25);
 
-            // Stick Esquerdo
-            _slotBounds[ProfileEditorSlot.LeftStickMode] = new RectangleF(20, 236, 162, 22);
-            _slotBounds[ProfileEditorSlot.LeftStickUp] = new RectangleF(20, 262, 78, 22);
-            _slotBounds[ProfileEditorSlot.LeftStickDown] = new RectangleF(104, 262, 78, 22);
-            _slotBounds[ProfileEditorSlot.LeftStickLeft] = new RectangleF(20, 288, 78, 22);
-            _slotBounds[ProfileEditorSlot.LeftStickRight] = new RectangleF(104, 288, 78, 22);
-            _slotBounds[ProfileEditorSlot.LeftStickAdditional] = new RectangleF(20, 314, 162, 22);
-            _slotBounds[ProfileEditorSlot.LeftStickClick] = new RectangleF(20, 340, 162, 22);
+            if (_visualMode == ControllerVisualMode.HandheldSteamDeck)
+            {
+                // Layout otimizado para Handheld Steam Deck:
+                // Coluna Esquerda: Left Stick (Y=214..334), D-Pad (Y=338..422), Left Trackpad Placeholder (Y=428..492)
+                _slotBounds[ProfileEditorSlot.LeftStickMode] = new RectangleF(20, 230, 162, 17);
+                _slotBounds[ProfileEditorSlot.LeftStickUp] = new RectangleF(20, 249, 78, 17);
+                _slotBounds[ProfileEditorSlot.LeftStickDown] = new RectangleF(104, 249, 78, 17);
+                _slotBounds[ProfileEditorSlot.LeftStickLeft] = new RectangleF(20, 268, 78, 17);
+                _slotBounds[ProfileEditorSlot.LeftStickRight] = new RectangleF(104, 268, 78, 17);
+                _slotBounds[ProfileEditorSlot.LeftStickAdditional] = new RectangleF(20, 287, 162, 17);
+                _slotBounds[ProfileEditorSlot.LeftStickClick] = new RectangleF(20, 306, 162, 18);
 
-            // D-Pad
-            _slotBounds[ProfileEditorSlot.DPadUp] = new RectangleF(20, 396, 78, 24);
-            _slotBounds[ProfileEditorSlot.DPadDown] = new RectangleF(104, 396, 78, 24);
-            _slotBounds[ProfileEditorSlot.DPadLeft] = new RectangleF(20, 424, 78, 24);
-            _slotBounds[ProfileEditorSlot.DPadRight] = new RectangleF(104, 424, 78, 24);
+                // D-Pad
+                _slotBounds[ProfileEditorSlot.DPadUp] = new RectangleF(20, 356, 78, 20);
+                _slotBounds[ProfileEditorSlot.DPadDown] = new RectangleF(104, 356, 78, 20);
+                _slotBounds[ProfileEditorSlot.DPadLeft] = new RectangleF(20, 380, 78, 20);
+                _slotBounds[ProfileEditorSlot.DPadRight] = new RectangleF(104, 380, 78, 20);
 
-            // Botões Faciais
-            _slotBounds[ProfileEditorSlot.ButtonY] = new RectangleF(438, 236, 162, 23);
-            _slotBounds[ProfileEditorSlot.ButtonB] = new RectangleF(438, 263, 162, 23);
-            _slotBounds[ProfileEditorSlot.ButtonX] = new RectangleF(438, 290, 162, 23);
-            _slotBounds[ProfileEditorSlot.ButtonA] = new RectangleF(438, 317, 162, 23);
+                // Coluna Direita: Face Buttons (Y=214..304), Right Stick (Y=308..422), Right Trackpad Placeholder (Y=428..492)
+                _slotBounds[ProfileEditorSlot.ButtonY] = new RectangleF(438, 230, 162, 16);
+                _slotBounds[ProfileEditorSlot.ButtonB] = new RectangleF(438, 248, 162, 16);
+                _slotBounds[ProfileEditorSlot.ButtonX] = new RectangleF(438, 266, 162, 16);
+                _slotBounds[ProfileEditorSlot.ButtonA] = new RectangleF(438, 284, 162, 16);
 
-            // Stick Direito
-            _slotBounds[ProfileEditorSlot.RightStickMode] = new RectangleF(438, 372, 162, 22);
-            _slotBounds[ProfileEditorSlot.RightStickUp] = new RectangleF(438, 396, 78, 20);
-            _slotBounds[ProfileEditorSlot.RightStickDown] = new RectangleF(522, 396, 78, 20);
-            _slotBounds[ProfileEditorSlot.RightStickLeft] = new RectangleF(438, 418, 78, 20);
-            _slotBounds[ProfileEditorSlot.RightStickRight] = new RectangleF(522, 418, 78, 20);
-            _slotBounds[ProfileEditorSlot.RightStickAdditional] = new RectangleF(438, 440, 162, 22);
-            _slotBounds[ProfileEditorSlot.RightStickClick] = new RectangleF(438, 464, 162, 22);
+                _slotBounds[ProfileEditorSlot.RightStickMode] = new RectangleF(438, 324, 162, 17);
+                _slotBounds[ProfileEditorSlot.RightStickUp] = new RectangleF(438, 343, 78, 17);
+                _slotBounds[ProfileEditorSlot.RightStickDown] = new RectangleF(522, 343, 78, 17);
+                _slotBounds[ProfileEditorSlot.RightStickLeft] = new RectangleF(438, 362, 78, 17);
+                _slotBounds[ProfileEditorSlot.RightStickRight] = new RectangleF(522, 362, 78, 17);
+                _slotBounds[ProfileEditorSlot.RightStickAdditional] = new RectangleF(438, 381, 162, 17);
+                _slotBounds[ProfileEditorSlot.RightStickClick] = new RectangleF(438, 400, 162, 18);
 
-            // Botões de Rodapé
-            _slotBounds[ProfileEditorSlot.FooterSave] = new RectangleF(204, 456, 112, 30);
-            _slotBounds[ProfileEditorSlot.FooterBack] = new RectangleF(322, 456, 94, 30);
+                // Botões Traseiros Handheld (L4, L5, R5, R4) em linha horizontal centralizada
+                _slotBounds[ProfileEditorSlot.ButtonL4] = new RectangleF(196, 380, 52, 36);
+                _slotBounds[ProfileEditorSlot.ButtonL5] = new RectangleF(252, 380, 52, 36);
+                _slotBounds[ProfileEditorSlot.ButtonR5] = new RectangleF(316, 380, 52, 36);
+                _slotBounds[ProfileEditorSlot.ButtonR4] = new RectangleF(372, 380, 52, 36);
+
+                // Botões de Rodapé Centralizados (Salvar e Voltar)
+                _slotBounds[ProfileEditorSlot.FooterSave] = new RectangleF(204, 436, 112, 32);
+                _slotBounds[ProfileEditorSlot.FooterBack] = new RectangleF(322, 436, 94, 32);
+            }
+            else
+            {
+                // Layout Padrão Gamepad Clássico
+                // Stick Esquerdo
+                _slotBounds[ProfileEditorSlot.LeftStickMode] = new RectangleF(20, 236, 162, 22);
+                _slotBounds[ProfileEditorSlot.LeftStickUp] = new RectangleF(20, 262, 78, 22);
+                _slotBounds[ProfileEditorSlot.LeftStickDown] = new RectangleF(104, 262, 78, 22);
+                _slotBounds[ProfileEditorSlot.LeftStickLeft] = new RectangleF(20, 288, 78, 22);
+                _slotBounds[ProfileEditorSlot.LeftStickRight] = new RectangleF(104, 288, 78, 22);
+                _slotBounds[ProfileEditorSlot.LeftStickAdditional] = new RectangleF(20, 314, 162, 22);
+                _slotBounds[ProfileEditorSlot.LeftStickClick] = new RectangleF(20, 340, 162, 22);
+
+                // D-Pad
+                _slotBounds[ProfileEditorSlot.DPadUp] = new RectangleF(20, 396, 78, 24);
+                _slotBounds[ProfileEditorSlot.DPadDown] = new RectangleF(104, 396, 78, 24);
+                _slotBounds[ProfileEditorSlot.DPadLeft] = new RectangleF(20, 424, 78, 24);
+                _slotBounds[ProfileEditorSlot.DPadRight] = new RectangleF(104, 424, 78, 24);
+
+                // Botões Faciais
+                _slotBounds[ProfileEditorSlot.ButtonY] = new RectangleF(438, 236, 162, 23);
+                _slotBounds[ProfileEditorSlot.ButtonB] = new RectangleF(438, 263, 162, 23);
+                _slotBounds[ProfileEditorSlot.ButtonX] = new RectangleF(438, 290, 162, 23);
+                _slotBounds[ProfileEditorSlot.ButtonA] = new RectangleF(438, 317, 162, 23);
+
+                // Stick Direito
+                _slotBounds[ProfileEditorSlot.RightStickMode] = new RectangleF(438, 372, 162, 22);
+                _slotBounds[ProfileEditorSlot.RightStickUp] = new RectangleF(438, 396, 78, 20);
+                _slotBounds[ProfileEditorSlot.RightStickDown] = new RectangleF(522, 396, 78, 20);
+                _slotBounds[ProfileEditorSlot.RightStickLeft] = new RectangleF(438, 418, 78, 20);
+                _slotBounds[ProfileEditorSlot.RightStickRight] = new RectangleF(522, 418, 78, 20);
+                _slotBounds[ProfileEditorSlot.RightStickAdditional] = new RectangleF(438, 440, 162, 22);
+                _slotBounds[ProfileEditorSlot.RightStickClick] = new RectangleF(438, 464, 162, 22);
+
+                // Rear buttons preenchidos defensivamente
+                _slotBounds[ProfileEditorSlot.ButtonL4] = new RectangleF(196, 380, 52, 36);
+                _slotBounds[ProfileEditorSlot.ButtonL5] = new RectangleF(252, 380, 52, 36);
+                _slotBounds[ProfileEditorSlot.ButtonR5] = new RectangleF(316, 380, 52, 36);
+                _slotBounds[ProfileEditorSlot.ButtonR4] = new RectangleF(372, 380, 52, 36);
+
+                // Botões de Rodapé
+                _slotBounds[ProfileEditorSlot.FooterSave] = new RectangleF(204, 456, 112, 30);
+                _slotBounds[ProfileEditorSlot.FooterBack] = new RectangleF(322, 456, 94, 30);
+            }
         }
 
         private PointF ClientToLogical(Point pt)
@@ -1013,6 +1069,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             DrawDPadCard(g);
             DrawFaceButtonsCard(g);
             DrawRightStickCard(g);
+            if (_visualMode == ControllerVisualMode.HandheldSteamDeck)
+            {
+                DrawTrackpadPlaceholderCards(g);
+            }
             DrawCenterActionButtons(g);
             DrawFooterLegend(g);
 
@@ -1262,7 +1322,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawLeftStickCard(Graphics g)
         {
-            var cardRect = new RectangleF(12, 214, 178, 154);
+            var cardRect = _visualMode == ControllerVisualMode.HandheldSteamDeck
+                ? new RectangleF(12, 214, 178, 120)
+                : new RectangleF(12, 214, 178, 154);
             DrawCardFrame(g, cardRect, Strings.ProfileCardLeftStick);
 
             var stick = _workingProfile.ActivePage.LeftStick;
@@ -1308,7 +1370,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
             else
             {
-                var infoRect = new RectangleF(20, 264, 162, 44);
+                var infoRect = _visualMode == ControllerVisualMode.HandheldSteamDeck
+                    ? new RectangleF(20, 249, 162, 36)
+                    : new RectangleF(20, 264, 162, 44);
                 using (var font = new Font("Segoe UI", 7.8f, FontStyle.Italic))
                 using (var brush = new SolidBrush(TextSecondary))
                 using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
@@ -1340,7 +1404,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawDPadCard(Graphics g)
         {
-            var cardRect = new RectangleF(12, 374, 178, 82);
+            var cardRect = _visualMode == ControllerVisualMode.HandheldSteamDeck
+                ? new RectangleF(12, 338, 178, 84)
+                : new RectangleF(12, 374, 178, 82);
             DrawCardFrame(g, cardRect, Strings.ProfileCardDPad);
 
             var page = _workingProfile.ActivePage;
@@ -1376,7 +1442,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawFaceButtonsCard(Graphics g)
         {
-            var cardRect = new RectangleF(430, 214, 178, 132);
+            var cardRect = _visualMode == ControllerVisualMode.HandheldSteamDeck
+                ? new RectangleF(430, 214, 178, 90)
+                : new RectangleF(430, 214, 178, 132);
             DrawCardFrame(g, cardRect, Strings.ProfileCardFaceButtons);
 
             var page = _workingProfile.ActivePage;
@@ -1413,7 +1481,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawRightStickCard(Graphics g)
         {
-            var cardRect = new RectangleF(430, 350, 178, 142);
+            var cardRect = _visualMode == ControllerVisualMode.HandheldSteamDeck
+                ? new RectangleF(430, 308, 178, 114)
+                : new RectangleF(430, 350, 178, 142);
             DrawCardFrame(g, cardRect, Strings.ProfileCardRightStick);
 
             var stick = _workingProfile.ActivePage.RightStick;
@@ -1458,7 +1528,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
             else
             {
-                var infoRect = new RectangleF(438, 396, 162, 40);
+                var infoRect = _visualMode == ControllerVisualMode.HandheldSteamDeck
+                    ? new RectangleF(438, 343, 162, 36)
+                    : new RectangleF(438, 396, 162, 40);
                 using (var font = new Font("Segoe UI", 7.8f, FontStyle.Italic))
                 using (var brush = new SolidBrush(TextSecondary))
                 using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
@@ -1731,13 +1803,13 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         {
             var state = g.Save();
             float targetCenterX = 310f;
-            float targetCenterY = 265f;
-            float diagScale = 0.36f;
+            float targetCenterY = 245f;
+            float diagScale = 0.34f;
 
             g.TranslateTransform(targetCenterX - (620f * diagScale) / 2f, targetCenterY - (346f * diagScale) / 2f);
             g.ScaleTransform(diagScale, diagScale);
 
-            // CarcaÃ§a do Handheld
+            // Carcaça do Handheld
             var rect = new RectangleF(24, 28, 572, 258);
             using (var path = CreateRoundedRectanglePath(rect, 22f))
             using (var brush = new SolidBrush(CardBg))
@@ -1793,12 +1865,12 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             // D-Pad
             const float s = 20f;
             float dcx = 100f, dcy = 168f;
-            DrawDiagramBox(g, new RectangleF(dcx - s / 2, dcy - s * 1.5f, s, s), "â–²", _focusedSlot == ProfileEditorSlot.DPadUp);
-            DrawDiagramBox(g, new RectangleF(dcx - s / 2, dcy + s * 0.5f, s, s), "â–¼", _focusedSlot == ProfileEditorSlot.DPadDown);
-            DrawDiagramBox(g, new RectangleF(dcx - s * 1.5f, dcy - s / 2, s, s), "â—„", _focusedSlot == ProfileEditorSlot.DPadLeft);
-            DrawDiagramBox(g, new RectangleF(dcx + s * 0.5f, dcy - s / 2, s, s), "â–º", _focusedSlot == ProfileEditorSlot.DPadRight);
+            DrawDiagramBox(g, new RectangleF(dcx - s / 2, dcy - s * 1.5f, s, s), "▲", _focusedSlot == ProfileEditorSlot.DPadUp);
+            DrawDiagramBox(g, new RectangleF(dcx - s / 2, dcy + s * 0.5f, s, s), "▼", _focusedSlot == ProfileEditorSlot.DPadDown);
+            DrawDiagramBox(g, new RectangleF(dcx - s * 1.5f, dcy - s / 2, s, s), "◄", _focusedSlot == ProfileEditorSlot.DPadLeft);
+            DrawDiagramBox(g, new RectangleF(dcx + s * 0.5f, dcy - s / 2, s, s), "►", _focusedSlot == ProfileEditorSlot.DPadRight);
 
-            // BotÃµes Faciais
+            // Botões Faciais
             float fcx = 520f, fcy = 92f;
             DrawDiagramCircle(g, fcx, fcy + 28, "A", _focusedSlot == ProfileEditorSlot.ButtonA, Color.FromArgb(90, 200, 90));
             DrawDiagramCircle(g, fcx + 28, fcy, "B", _focusedSlot == ProfileEditorSlot.ButtonB, Color.FromArgb(230, 80, 70));
@@ -1809,7 +1881,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             DrawDiagramTrackpad(g, new RectangleF(72, 212, 56, 56), "L-PAD");
             DrawDiagramTrackpad(g, new RectangleF(492, 212, 56, 56), "R-PAD");
 
-            // BotÃµes Centrais
+            // Botões Centrais
             DrawDiagramBox(g, new RectangleF(150, 72, 26, 18), "Sel", _focusedSlot == ProfileEditorSlot.ButtonBack);
             DrawDiagramBox(g, new RectangleF(444, 72, 26, 18), "Sta", _focusedSlot == ProfileEditorSlot.ButtonStart);
 
@@ -1831,9 +1903,49 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
         }
 
+        private void DrawTrackpadPlaceholderCards(Graphics g)
+        {
+            var leftRect = new RectangleF(12, 428, 178, 64);
+            var rightRect = new RectangleF(430, 428, 178, 64);
+
+            DrawTrackpadCard(g, leftRect, Strings.ProfileCardLeftTrackpad);
+            DrawTrackpadCard(g, rightRect, Strings.ProfileCardRightTrackpad);
+        }
+
+        private static void DrawTrackpadCard(Graphics g, RectangleF rect, string title)
+        {
+            DrawCardFrame(g, rect, title);
+
+            var innerRect = new RectangleF(rect.X + 8, rect.Y + 20, rect.Width - 16, rect.Height - 26);
+            using (var innerBg = new SolidBrush(Color.FromArgb(20, 24, 32)))
+            using (var innerPen = new Pen(BorderIdle, 1f) { DashStyle = DashStyle.Dash })
+            using (var mainFont = new Font("Segoe UI", 7.6f, FontStyle.Bold))
+            using (var subFont = new Font("Segoe UI", 7.0f))
+            using (var iconBrush = new SolidBrush(AlertAmber))
+            using (var subBrush = new SolidBrush(TextSecondary))
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            {
+                g.FillRectangle(innerBg, innerRect);
+                g.DrawRectangle(innerPen, innerRect.X, innerRect.Y, innerRect.Width, innerRect.Height);
+
+                var topTextRect = new RectangleF(innerRect.X, innerRect.Y + 4, innerRect.Width, 16);
+                var botTextRect = new RectangleF(innerRect.X, innerRect.Y + 18, innerRect.Width, 14);
+
+                g.DrawString(Strings.ProfileTrackpadExpandedTitle, mainFont, iconBrush, topTextRect, sf);
+                g.DrawString(Strings.ProfileTrackpadExpandedSubtitle, subFont, subBrush, botTextRect, sf);
+            }
+        }
+
         private void DrawRearButtonsRow(Graphics g)
         {
             var page = _workingProfile.ActivePage;
+
+            using (var titleFont = new Font("Segoe UI", 7.5f, FontStyle.Bold))
+            using (var titleBrush = new SolidBrush(TextSecondary))
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            {
+                g.DrawString(Strings.ProfileRearButtonsTitle, titleFont, titleBrush, new RectangleF(196, 360, 228, 16), sf);
+            }
 
             DrawRearButtonSlot(g, ProfileEditorSlot.ButtonL4, "L4", _settings.L4HardwareRemap, page.GetActions(ControllerButton.L4));
             DrawRearButtonSlot(g, ProfileEditorSlot.ButtonL5, "L5", _settings.L5HardwareRemap, page.GetActions(ControllerButton.L5));
@@ -1843,7 +1955,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawRearButtonSlot(Graphics g, ProfileEditorSlot slot, string label, SteamDeckHardwareRemap hwRemap, List<InputAction> actions)
         {
-            var rect = _slotBounds[slot];
+            if (!_slotBounds.TryGetValue(slot, out var rect)) return;
             bool isFocused = _focusedSlot == slot;
             bool hasActions = actions != null && actions.Count > 0;
             bool hasHwRemap = hwRemap != SteamDeckHardwareRemap.None;

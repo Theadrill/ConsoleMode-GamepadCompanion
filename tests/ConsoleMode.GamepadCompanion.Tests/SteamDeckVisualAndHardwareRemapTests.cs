@@ -209,5 +209,55 @@ namespace ConsoleMode.GamepadCompanion.Tests
                 if (File.Exists(tempFile)) File.Delete(tempFile);
             }
         }
+
+        [Fact]
+        public void GameProfileEditorControl_WhenInHandheldMode_ShouldRenderWithoutKeyNotFoundException()
+        {
+            using (var editor = new GameProfileEditorControl())
+            {
+                var profile = new GameProfile();
+                var entry = new GameEntry { Id = "test-game", Name = "Test Game", Profile = profile };
+                var settings = new AppSettings();
+
+                editor.Size = new System.Drawing.Size(800, 600);
+                editor.LoadGameProfile(entry, settings);
+                editor.VisualMode = ControllerVisualMode.HandheldSteamDeck;
+
+                using (var bmp = new System.Drawing.Bitmap(800, 600))
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                {
+                    var pe = new System.Windows.Forms.PaintEventArgs(g, new System.Drawing.Rectangle(0, 0, 800, 600));
+                    var onPaint = typeof(GameProfileEditorControl).GetMethod("OnPaint", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    Assert.NotNull(onPaint);
+                    var exception = Record.Exception(() => onPaint.Invoke(editor, new object[] { pe }));
+                    Assert.Null(exception);
+                }
+            }
+        }
+
+        [Fact]
+        public void GameProfileEditorControl_WhenInStandardMode_ShouldRenderWithoutException()
+        {
+            using (var editor = new GameProfileEditorControl())
+            {
+                var profile = new GameProfile();
+                var entry = new GameEntry { Id = "test-game", Name = "Test Game", Profile = profile };
+                var settings = new AppSettings();
+
+                editor.Size = new System.Drawing.Size(800, 600);
+                editor.LoadGameProfile(entry, settings);
+                editor.VisualMode = ControllerVisualMode.StandardGamepad;
+
+                using (var bmp = new System.Drawing.Bitmap(800, 600))
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                {
+                    var pe = new System.Windows.Forms.PaintEventArgs(g, new System.Drawing.Rectangle(0, 0, 800, 600));
+                    var onPaint = typeof(GameProfileEditorControl).GetMethod("OnPaint", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    Assert.NotNull(onPaint);
+                    var exception = Record.Exception(() => onPaint.Invoke(editor, new object[] { pe }));
+                    Assert.Null(exception);
+                }
+            }
+        }
     }
 }
