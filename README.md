@@ -73,6 +73,9 @@ O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Stea
 - [x] **Fase 6 (Steam Deck):** Configuração dos Trackpads (Mouse/Trackball de alta precisão, Scrollwheel vertical contínuo, D-Pad e Botão Único com Feedback Háptico). Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md`](./docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md).
 - [ ] **Fallback Automático para Gamepad Conectado:**
   - Quando o slot de controle configurado ou persistido anteriormente estiver desconectado na inicialização ou durante o uso (ex: desconectar um controle 8BitDo/Bluetooth após testes), o sistema chaveia automaticamente para um controle conectado ativo, evitando iniciar ou permanecer com um slot desconectado.
+- [ ] **Compartilhamento/Export de Perfis & Banco de Dados Online da Comunidade:**
+  - Importação e exportação de arquivos de perfil individuais (ex: `.ini` / `.json` compartilháveis via pasta `profiles/` ou envio direto).
+  - Integração com repositório / banco de dados online da comunidade para buscar, baixar e avaliar perfis recomendados para jogos diretamente pela interface do Companion sem sair do modo Couch Gaming.
 - [ ] **Menu Radial para Trackpads (Couch Gaming Overlay):**
   - Overlay circular translúcido exibido em tela enquanto o polegar estiver em contato com o trackpad (`Touch`).
   - Suporte a 4, 8 ou 12 fatias para atalhos de magias, poções, macros e comandos rápidos de sistema sem poluir a tela.
