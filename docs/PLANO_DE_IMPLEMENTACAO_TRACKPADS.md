@@ -28,8 +28,10 @@ Implementar uma arquitetura desacoplada e testável para os Trackpads, permitind
 2. **Scrollwheel (Roda do Mouse)**: Deslize contínuo para rolagem vertical e horizontal, com **rolagem natural invertida ativada por padrão** (deslizar o dedo para cima desce a página e vice-versa).
 3. **D-Pad / Botões Direcionais**: Mapeamento de 4 quadrantes direcionais (Cima, Baixo, Esquerda, Direita) com **Deadzone Central de 15%** para descanso seguro do polegar.
 4. **Botão Único (Single Button)**: A superfície atua como um botão mecânico extra para atalhos do sistema, macros ou Push-to-Talk.
-5. **Arquitetura de Dupla Ação (`Touch` independente de `Press`)**: Suporte a configurar ações distintas para o toque suave (`Touch`) e para afundar o clique mecânico (`Press`).
-6. **Feedback Háptico Refinado**: Nível **`Suave (Low)`** ativado de fábrica, emitindo micro-pulsos táteis ao rolar a trackball e ticks de catraca ao rolar páginas.
+5. **Arquitetura de Dupla Ação (`Touch` independente de `Press`)**: Suporte a configurar ações distintas para o toque suave (`Touch`) e para afundar o clique mecânico (`Press`) ou atingir limiar de pressão analógica (*Force Touch* com histerese).
+6. **Feedback Háptico Refinado**: Driver nativo Neptune via pacotes `0xEA` (`SDCHapticPacket2`), emitindo micro-pulsos táteis ao rolar a trackball, ticks de catraca ao rolar páginas e clique tátil ao afundar a pressão analógica.
+7. **Navegação Universal no Companion UI**: Quando o aplicativo Companion estiver em primeiro plano, os trackpads permanecem ativados por padrão (Direito = Mouse + Clique, Esquerdo = Rolagem Vertical), permitindo apontar, clicar e rolar livremente pelo app sem conflitar com a navegação nativa do controle via D-Pad.
+8. **Física e Estabilização SteamOS / macOS (Anti-Squash & Gesto de Inércia)**: Supressão de deslocamentos parasitas gerados pelo achatamento do polegar durante o clique e ativação de inércia restrita a gestos com distância de varredura real, prevenindo estilingadas acidentais.
 
 > [!NOTE]
 > **Decisão de Escopo — Menu Radial:**
@@ -74,10 +76,13 @@ flowchart LR
        - Sliders de sensibilidade (1..100), atrito/inércia, flag `InvertScroll` (padrão: `true`).
      - Serialização retrocompatível em `config.ini` sob `[DesktopProfile]` e em `games.ini`.
   2. **Motor Matemático (`TrackpadProcessor`):**
-     - **Mouse / Trackball**: Conversão de coordenadas em deltas relativos `(dx, dy)`, filtro anti-jitter para eliminar tremulação do dedo parado, aceleração suave e simulação de inércia física (desaceleração gradual ao soltar o dedo rápido).
-     - **Scrollwheel**: Deslocamento vertical contínuo com rolagem natural invertida padrão.
+     - **Central de Variáveis de Calibração (`TrackpadTuning`)**: Concentração de todas as constantes e coeficientes de calibração no topo da classe para facilitar fine-tuning iterativo sem dispersão de valores fixos no código.
+     - **Mouse / Trackball**: Conversão de coordenadas em deltas relativos `(dx, dy)`, filtro anti-jitter capacitivo (`DeadzoneThreshold = 10f`), suavização EMA dinâmica (`alpha = 0.40f` inicial para precisão em abas e botões pequenos).
+     - **Estabilização de Mira Anti-Squash (Padrão SteamOS / macOS)**: Detecção da subida de pressão analógica (`rawPressure >= 8500`) e clique efetivo (`isEffectivePress`), atenuando em 85% os deslocamentos do cursor causados pelo amassamento da polpa do polegar contra a superfície capacitiva no momento de clicar.
+     - **Inércia Inteligente por Trajeto de Gesto (`Stroke Distance`)**: A inércia da trackball só é armada quando o gesto cobre uma distância cumulativa real no pad (`_strokeDistanceAccumulator >= 700f`) associada a uma velocidade mínima de decolagem (`MinFlickSpeed = 180f`). Movimentos curtos e solturas locais nunca disparam inércia residual ("efeito estilingue").
+     - **Scrollwheel**: Deslocamento vertical contínuo com rolagem natural invertida padrão e passo calibrado (`ScrollStep = 1600f`).
      - **D-Pad**: Cálculo de quadrantes angulares com **Deadzone Central de 15%**.
-     - **Botão Único**: Disparo independente por Toque e/ou Clique mecânico.
+     - **Botão Único**: Disparo independente por Toque e/ou Clique mecânico/pressão analógica.
   3. **Feedback Háptico (`SteamDeckHaptics`):**
      - Integração com o [`SteamDeckService`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/Hardware/SteamDeckService.cs) via relatórios de feature HID.
      - Pulsos de catraca a cada linha de rolagem no Scrollwheel.
