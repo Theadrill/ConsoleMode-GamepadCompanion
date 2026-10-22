@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +19,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         public const ushort VendorId = 0x28DE;
         public const ushort ProductId = 0x1205;
         private const int ReadTimeoutMs = 25;
+        private const int LizardModeKeepaliveIntervalMs = 1000;
 
         private HidDevice _device;
         private readonly VirtualXbox360Controller _virtualX360;
@@ -25,6 +27,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         private volatile bool _isRunning;
         private readonly object _syncRoot = new object();
 
+        private DateTime _lastLizardUpdate = DateTime.MinValue;
         private SteamDeckRawState _lastRawState;
         private uint _packetCounter;
 
@@ -127,6 +130,13 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                         if (!_isRunning) break;
                         TryReopenDevice();
                         continue;
+                    }
+
+                    // Envia keepalive periódico leve a cada 1 segundo (1000ms) para manter o Lizard Mode desativado
+                    // e alimentar o hardware watchdog do firmware Neptune sem engasgar o loop de leitura
+                    if ((DateTime.Now - _lastLizardUpdate).TotalMilliseconds > LizardModeKeepaliveIntervalMs)
+                    {
+                        DisableLizardMode();
                     }
 
                     byte[] data = _device.Read(ReadTimeoutMs);
@@ -275,20 +285,46 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
             try
             {
-                // Protocolo oficial Valve Neptune / Linux hid-steam:
-                // ID_SET_SETTINGS_VALUES (0x87), payload de 9 bytes (3 configurações de 3 bytes cada: reg, valLo, valHi):
-                // 1. SETTING_LEFT_TRACKPAD_MODE (0x07) = TRACKPAD_NONE (0x0007) -> Desativa mouse/scroll de hardware no trackpad esquerdo
-                // 2. SETTING_RIGHT_TRACKPAD_MODE (0x08) = TRACKPAD_NONE (0x0007) -> Desativa mouse de hardware no trackpad direito
-                // 3. SETTING_STEAM_WATCHDOG_ENABLE (0x46) = 0x0000 -> Desativa o watchdog interno do firmware que força volta ao Lizard Mode
-                _device.RequestFeatureReport(new byte[] {
-                    0x87, 0x09,
-                    0x07, 0x07, 0x00,
-                    0x08, 0x07, 0x00,
-                    0x46, 0x00, 0x00
-                });
+                // 1. Desativa emulação de teclado/botões de firmware do Steam Deck:
+                byte[] clearMappings = new byte[65];
+                clearMappings[0] = 0x00;
+                clearMappings[1] = 0x81; // ID_CLEAR_DIGITAL_MAPPINGS
+                SteamDeckHidNative.SendFeatureReport(_device, clearMappings);
 
-                // ID_CLEAR_DIGITAL_MAPPINGS (0x81): Desativa emulação de teclado/botões do firmware
-                _device.RequestFeatureReport(new byte[] { 0x81, 0x00 });
+                // 2. Desativa mouse de hardware e clicky-pad (protocolo oficial Valve / SDL):
+                // 5 registros x 3 bytes = 15 bytes de payload (0x0F)
+                byte[] setSettings = new byte[65];
+                setSettings[0] = 0x00;
+                setSettings[1] = 0x87; // ID_SET_SETTINGS_VALUES
+                setSettings[2] = 15;   // length
+                
+                // Reg 0: 0x18 (SETTING_DECK_RPAD_MARGIN) = 0
+                setSettings[3] = 0x18;
+                setSettings[4] = 0x00;
+                setSettings[5] = 0x00;
+
+                // Reg 1: 0x07 (SETTING_DECK_LPAD_MODE) = 7 (TRACKPAD_NONE)
+                setSettings[6] = 0x07;
+                setSettings[7] = 0x07;
+                setSettings[8] = 0x00;
+
+                // Reg 2: 0x08 (SETTING_DECK_RPAD_MODE) = 7 (TRACKPAD_NONE)
+                setSettings[9] = 0x08;
+                setSettings[10] = 0x07;
+                setSettings[11] = 0x00;
+
+                // Reg 3: 0x34 (SETTING_DECK_LPAD_CLICK_PRESSURE) = 0xFFFF (desativa click mecânico de fábrica do pad esquerdo)
+                setSettings[12] = 0x34;
+                setSettings[13] = 0xFF;
+                setSettings[14] = 0xFF;
+
+                // Reg 4: 0x35 (SETTING_DECK_RPAD_CLICK_PRESSURE) = 0xFFFF (desativa click mecânico de fábrica do pad direito)
+                setSettings[15] = 0x35;
+                setSettings[16] = 0xFF;
+                setSettings[17] = 0xFF;
+
+                SteamDeckHidNative.SendFeatureReport(_device, setSettings);
+                _lastLizardUpdate = DateTime.Now;
             }
             catch { }
         }
@@ -299,166 +335,174 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
             try
             {
-                // Reativa emulação de mouse: { 0x8e, 0x00 }
-                _device.RequestFeatureReport(new byte[] { 0x8e, 0x00 });
-                // Reativa emulação de botões/teclado: { 0x85, 0x00 }
-                _device.RequestFeatureReport(new byte[] { 0x85, 0x00 });
+                byte[] loadDefaults = new byte[65];
+                loadDefaults[0] = 0x00;
+                loadDefaults[1] = 0x8E; // ID_LOAD_DEFAULT_SETTINGS
+                SteamDeckHidNative.SendFeatureReport(_device, loadDefaults);
+
+                byte[] defaultMappings = new byte[65];
+                defaultMappings[0] = 0x00;
+                defaultMappings[1] = 0x85; // ID_SET_DEFAULT_DIGITAL_MAPPINGS
+                SteamDeckHidNative.SendFeatureReport(_device, defaultMappings);
             }
             catch { }
         }
 
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        private struct SDCHapticPacket2
-        {
-            public byte packet_type; // 0xea
-            public byte len;         // 0xd
-            public byte position;    // 0 = Left, 1 = Right
-            public byte style;       // 1 = Weak, 2 = Strong
-            public byte unsure2;     // 0x0
-            public sbyte intensity;  // -7..5 => -2dB..10dB (5 = Max, +10dB)
-            public byte unsure3;     // 0x4
-            public int tsA;
-            public int tsB;
-        }
-
-        private static int _hapticTsSeed = 1000;
-        private Task _lastLeftHapticTask;
-        private Task _lastRightHapticTask;
-
         /// <summary>
-        /// Emite um pulso háptico tátil para o trackpad com a intensidade informada.
-        /// Utiliza o protocolo universal de atuadores LRA da Valve (0x8F PT_FEEDBACK) para resposta física imediata,
-        /// complementado pelo relatório Neptune V2 (0xEA).
+        /// Emite um pulso háptico tátil nos atuadores LRA do Steam Deck (Neptune)
+        /// utilizando o protocolo nativo de haptics da Valve (0xEA ID_TRIGGER_HAPTIC_CMD)
+        /// com disparo complementar via relatório 0x8F (ID_TRIGGER_HAPTIC_PULSE).
         /// </summary>
         public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
         {
             if (intensity == TrackpadHapticIntensity.Off) return false;
+            if (_device == null || !_isRunning) return false;
 
-            ushort amp = 3000;
-            ushort period = 320;
-            byte style = TrackpadTuning.HapticStyleHigh;
-            sbyte intensityVal = TrackpadTuning.HapticIntensityHigh;
+            byte side = (byte)(isRightPad ? 0x02 : 0x01); // 0x01 = Left Pad, 0x02 = Right Pad
+            byte uiIntensity;
+            sbyte dBGain;
+            ushort freq;
+            ushort durMs;
+            ushort amp8f;
 
             switch (intensity)
             {
                 case TrackpadHapticIntensity.Low:
-                    amp = 2000;
-                    period = 300;
-                    style = TrackpadTuning.HapticStyleLow;
-                    intensityVal = TrackpadTuning.HapticIntensityLow;
+                    uiIntensity = 1;
+                    dBGain = 0;
+                    freq = 240;
+                    durMs = 18;
+                    amp8f = 2000;
                     break;
                 case TrackpadHapticIntensity.Medium:
-                    amp = 3500;
-                    period = 320;
-                    style = TrackpadTuning.HapticStyleMedium;
-                    intensityVal = TrackpadTuning.HapticIntensityMedium;
+                    uiIntensity = 2;
+                    dBGain = 4;
+                    freq = 240;
+                    durMs = 24;
+                    amp8f = 3500;
                     break;
                 case TrackpadHapticIntensity.High:
-                    amp = 5000;
-                    period = 340;
-                    style = TrackpadTuning.HapticStyleHigh;
-                    intensityVal = TrackpadTuning.HapticIntensityHigh;
+                default:
+                    uiIntensity = 3;
+                    dBGain = 8;
+                    freq = 240;
+                    durMs = 32;
+                    amp8f = 5000;
                     break;
             }
 
-            // 1. Envio prioritário via 0x8F (PT_FEEDBACK universal Valve Neptune nos atuadores LRA)
-            bool ok = TriggerHapticRaw(isRightPad, amp, period, 1);
+            // 1. Protocolo nativo Neptune 0xEA (Deck-specific MsgTriggerHaptic)
+            byte[] packetEA = new byte[65];
+            packetEA[0] = 0x00; // Report ID
+            packetEA[1] = 0xEA; // ID_TRIGGER_HAPTIC_CMD
+            packetEA[2] = 19;   // Length = sizeof(MsgTriggerHaptic)
+            packetEA[3] = side; // 0x01 = Left, 0x02 = Right
+            packetEA[4] = 0x02; // cmd = 2 (Click tátil nítido)
+            packetEA[5] = uiIntensity;
+            packetEA[6] = (byte)dBGain;
+            packetEA[7] = (byte)(freq & 0xFF);
+            packetEA[8] = (byte)((freq >> 8) & 0xFF);
+            packetEA[9] = (byte)(durMs & 0xFF);
+            packetEA[10] = (byte)((durMs >> 8) & 0xFF);
 
-            // 2. Disparo concorrente do pacote 0xEA Neptune V2
-            TriggerHapticNative(isRightPad, style, intensityVal);
+            int resEA = SteamDeckHidNative.SendFeatureReport(_device, packetEA);
 
-            return ok;
+            // 2. Protocolo complementar 0x8F (ID_TRIGGER_HAPTIC_PULSE universal Valve)
+            byte[] packet8F = new byte[65];
+            packet8F[0] = 0x00;
+            packet8F[1] = 0x8F;
+            packet8F[2] = 0x07;
+            packet8F[3] = (byte)(isRightPad ? 0x01 : 0x00); // 0 = Left, 1 = Right
+            packet8F[4] = (byte)(amp8f & 0xFF);
+            packet8F[5] = (byte)((amp8f >> 8) & 0xFF);
+            packet8F[6] = 0x40; // 320µs período
+            packet8F[7] = 0x01;
+            packet8F[8] = 0x01; // count = 1
+            packet8F[9] = 0x00;
+
+            int res8F = SteamDeckHidNative.SendFeatureReport(_device, packet8F);
+
+            return resEA > 0 || res8F > 0;
         }
 
-        /// <summary>
-        /// Envia o relatório de feature nativo do Steam Deck (0xEA) para os atuadores LRA lineares dos trackpads.
-        /// </summary>
         public bool TriggerHapticNative(bool isRightPad, byte style, sbyte intensity)
         {
-            lock (_syncRoot)
+            var hapticIntensity = intensity switch
             {
-                if (_device == null || !_isRunning) return false;
-
-                try
-                {
-                    ref Task lastTask = ref (isRightPad ? ref _lastRightHapticTask : ref _lastLeftHapticTask);
-                    if (lastTask != null && !lastTask.IsCompleted)
-                    {
-                        // Evita congelamento se a requisição USB anterior para este pad ainda estiver em trânsito
-                        return false;
-                    }
-
-                    int ts = Interlocked.Increment(ref _hapticTsSeed);
-                    var haptic = new SDCHapticPacket2
-                    {
-                        packet_type = 0xea,
-                        len = 0x0d,
-                        position = (byte)(isRightPad ? 1 : 0),
-                        style = style,
-                        unsure2 = 0x00,
-                        intensity = intensity,
-                        unsure3 = 0x04,
-                        tsA = ts,
-                        tsB = ts
-                    };
-
-                    byte[] bytes = new byte[Marshal.SizeOf<SDCHapticPacket2>()];
-                    var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
-                    try
-                    {
-                        Marshal.StructureToPtr(haptic, handle.AddrOfPinnedObject(), false);
-                        lastTask = _device.RequestFeatureReportAsync(bytes);
-                    }
-                    finally
-                    {
-                        handle.Free();
-                    }
-
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
+                <= 0 => TrackpadHapticIntensity.Low,
+                <= 2 => TrackpadHapticIntensity.Medium,
+                _ => TrackpadHapticIntensity.High
+            };
+            return TriggerHaptic(isRightPad, hapticIntensity);
         }
 
-        /// <summary>
-        /// Envia pacote de feature report legado da Valve (0x8f PT_FEEDBACK) como compatibilidade de rumble.
-        /// </summary>
         public bool TriggerHapticRaw(bool isRightPad, ushort amplitude, ushort period = 300, ushort count = 1)
         {
-            lock (_syncRoot)
-            {
-                if (_device == null || !_isRunning) return false;
-
-                try
-                {
-                    byte[] packet = new byte[9];
-                    packet[0] = 0x8f; // PT_FEEDBACK
-                    packet[1] = 0x07; // PL_FEEDBACK
-                    packet[2] = (byte)(isRightPad ? 1 : 0);
-                    packet[3] = (byte)(amplitude & 0xFF);
-                    packet[4] = (byte)((amplitude >> 8) & 0xFF);
-                    packet[5] = (byte)(period & 0xFF);
-                    packet[6] = (byte)((period >> 8) & 0xFF);
-                    packet[7] = (byte)(count & 0xFF);
-                    packet[8] = (byte)((count >> 8) & 0xFF);
-
-                    _device.RequestFeatureReport(packet);
-                    return true;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
+            if (_device == null || !_isRunning) return false;
+            byte[] packet8F = new byte[65];
+            packet8F[0] = 0x00;
+            packet8F[1] = 0x8F;
+            packet8F[2] = 0x07;
+            packet8F[3] = (byte)(isRightPad ? 0x01 : 0x00);
+            packet8F[4] = (byte)(amplitude & 0xFF);
+            packet8F[5] = (byte)((amplitude >> 8) & 0xFF);
+            packet8F[6] = (byte)(period & 0xFF);
+            packet8F[7] = (byte)((period >> 8) & 0xFF);
+            packet8F[8] = (byte)(count & 0xFF);
+            packet8F[9] = (byte)((count >> 8) & 0xFF);
+            int res = SteamDeckHidNative.SendFeatureReport(_device, packet8F);
+            return res > 0;
         }
 
         public void Dispose()
         {
             Stop();
             _virtualX360.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Fornece envio direto de feature reports via P/Invoke de alta performance usando o delegate interno do hidapi.
+    /// Evita o bloqueio e as exceções geradas pelo método RequestFeatureReport do wrapper gerenciado.
+    /// </summary>
+    internal static class SteamDeckHidNative
+    {
+        private static readonly FieldInfo DeviceHandleField =
+            typeof(HidDevice).GetField("_deviceHandle", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        private delegate int HidSendFeatureReportDelegate(IntPtr device, byte[] data, uint length);
+        private static readonly HidSendFeatureReportDelegate _sendFeatureReport;
+
+        static SteamDeckHidNative()
+        {
+            try
+            {
+                var nativeType = typeof(HidDevice).Assembly.GetType("hidapi.Native.HidApiNative");
+                if (nativeType != null)
+                {
+                    var method = nativeType.GetMethod("hid_send_feature_report", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (method != null)
+                    {
+                        _sendFeatureReport = (HidSendFeatureReportDelegate)Delegate.CreateDelegate(typeof(HidSendFeatureReportDelegate), method);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        public static int SendFeatureReport(HidDevice device, byte[] data)
+        {
+            if (device == null || !device.IsDeviceValid || _sendFeatureReport == null || data == null) return -1;
+            try
+            {
+                IntPtr handle = (IntPtr)DeviceHandleField.GetValue(device);
+                if (handle == IntPtr.Zero) return -1;
+                return _sendFeatureReport(handle, data, (uint)data.Length);
+            }
+            catch
+            {
+                return -1;
+            }
         }
     }
 }

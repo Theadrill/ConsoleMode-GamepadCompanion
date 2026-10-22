@@ -126,3 +126,16 @@ flowchart LR
 3. As personalizações feitas no editor visual persistem no `config.ini` e `games.ini`.
 4. Dispositivos comuns de PC e outros handhelds sem trackpad mantêm os cards ocultos de forma limpa e transparente.
 5. Todos os testes unitários da suíte continuam passando com 100% de sucesso e 0 avisos no build.
+
+---
+
+## 5. Diagnóstico e Resolução: Lizard Mode Watchdog e Haptics LRA (Hardware Neptune)
+
+### 1. Causa Raiz do Lizard Mode Rearmando Sozinho
+- **Hardware Watchdog:** O firmware do Steam Deck (chip Neptune) possui um watchdog de hardware que restaura o modo de compatibilidade de mouse/teclado de emergência se o host não enviar sinais de controle periodicamente.
+- **Solução:** Reintrodução de um keepalive periódico a cada 1000ms (`LizardModeKeepaliveIntervalMs`) no loop de polling `PollLoop()`. Utiliza a classe de alta performance `SteamDeckHidNative` para envio direto via `hid_send_feature_report`, completando em menos de 0.1ms sem bloquear o thread de captura nem introduzir jitter nos pacotes analógicos.
+
+### 2. Causa Raiz da Falha dos Haptics (Atuadores LRA Silenciosos)
+- **Incompatibilidade do Wrapper HidApi:** O método gerenciado `HidDevice.RequestFeatureReport` chamava `hid_get_feature_report` logo após enviar os dados. Como o firmware do Steam Deck não responde a requisições de GET para comandos de saída/rumble, ele lançava uma exceção silenciosa e bloqueava a execução.
+- **Erro de Indexação de Atuador:** O protocolo nativo de haptics da Valve (`0xEA` - `MsgTriggerHaptic`) define os atuadores por bits/máscara (`0x01` para o trackpad esquerdo e `0x02` para o direito). O código anterior utilizava índice zero para a esquerda (`0`), o qual era ignorado pelo firmware.
+- **Solução:** Implementação de `SteamDeckHidNative` com delegate nativo direto para `hid_send_feature_report`. Envio simultâneo dos relatórios oficiais de 65 bytes: `0xEA` (Deck-specific com parâmetros de clique nítido, ganho em dB e duração) e `0x8F` (`ID_TRIGGER_HAPTIC_PULSE` universal), garantindo acionamento físico imediato dos motores LRA tanto em cliques quanto em rotação/scroll.
