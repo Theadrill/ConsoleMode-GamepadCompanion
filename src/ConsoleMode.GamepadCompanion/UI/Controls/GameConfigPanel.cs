@@ -126,6 +126,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             currentY += 24;
 
             _btnInputToggle.SetBounds(20, currentY, 320, 36);
+            _btnInputToggle.TabStop = false;
             _btnInputToggle.FlatStyle = FlatStyle.Flat;
             _btnInputToggle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             _btnInputToggle.Click += (s, e) =>
@@ -136,6 +137,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _contentPanel.Controls.Add(_btnInputToggle);
 
             _btnConfigureControls.SetBounds(350, currentY, 200, 36);
+            _btnConfigureControls.TabStop = false;
             _btnConfigureControls.FlatStyle = FlatStyle.Flat;
             _btnConfigureControls.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             _btnConfigureControls.BackColor = Color.FromArgb(32, 75, 120);
@@ -159,6 +161,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             };
 
             _btnSave.Text = Strings.BtnSave;
+            _btnSave.TabStop = false;
             _btnSave.SetBounds(0, 4, 130, 36);
             _btnSave.FlatStyle = FlatStyle.Flat;
             _btnSave.BackColor = Color.FromArgb(46, 125, 80);
@@ -168,6 +171,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _btnSave.Click += (s, e) => OnSaveClicked();
 
             _btnCancel.Text = Strings.BtnCancel;
+            _btnCancel.TabStop = false;
             _btnCancel.SetBounds(142, 4, 130, 36);
             _btnCancel.FlatStyle = FlatStyle.Flat;
             _btnCancel.BackColor = Color.FromArgb(52, 56, 66);
@@ -177,6 +181,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _btnCancel.Click += (s, e) => CancelRequested?.Invoke();
 
             _btnDelete.Text = Strings.BtnDelete;
+            _btnDelete.TabStop = false;
             _btnDelete.SetBounds(284, 4, 130, 36);
             _btnDelete.FlatStyle = FlatStyle.Flat;
             _btnDelete.BackColor = Color.FromArgb(140, 50, 50);

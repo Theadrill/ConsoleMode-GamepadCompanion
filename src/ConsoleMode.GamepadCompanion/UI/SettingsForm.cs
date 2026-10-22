@@ -197,6 +197,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             // Botão GAMES (Biblioteca de Jogos)
             _gamesButton.Text = Strings.BtnGames;
+            _gamesButton.TabStop = false;
             _gamesButton.SetBounds(16, currentY, 228, 36);
             _gamesButton.FlatStyle = FlatStyle.Flat;
             _gamesButton.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
@@ -216,6 +217,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             currentY = _gamesButton.Bottom + 12;
 
             // Botão MODO DESKTOP (Windows Couch Navigation)
+            _desktopButton.TabStop = false;
             _desktopButton.SetBounds(16, currentY, 228, 36);
             _desktopButton.FlatStyle = FlatStyle.Flat;
             _desktopButton.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
@@ -235,7 +237,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             UpdateDesktopButtonText();
             currentY = _desktopButton.Bottom + 12;
 
-            var exit = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat };
+            var exit = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat, TabStop = false };
             exit.SetBounds(16, currentY, 228, 36);
             exit.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
             exit.Click += (s, e) =>
@@ -1183,6 +1185,29 @@ namespace ConsoleMode.GamepadCompanion.UI
                 }
             }
             return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        protected override bool ProcessDialogKey(Keys keyData)
+        {
+            if (_viewMode == ContentViewMode.InputBindingCapture && _bindingCapture != null && _bindingCapture.IsListening)
+            {
+                return base.ProcessDialogKey(keyData);
+            }
+
+            if (_focusOverlay != null && _focusOverlay.IsVirtualKeyboardOpen)
+            {
+                return base.ProcessDialogKey(keyData);
+            }
+
+            var key = keyData & Keys.KeyCode;
+            if (key == Keys.Up || key == Keys.Down || key == Keys.Left || key == Keys.Right ||
+                key == Keys.Enter || key == Keys.Space || key == Keys.Tab)
+            {
+                // Bloqueia navegação e clique nativo do WinForms (evita disparo duplo junto com o GamepadNavigationManager)
+                return true;
+            }
+
+            return base.ProcessDialogKey(keyData);
         }
 
         protected override void OnKeyPress(KeyPressEventArgs e)

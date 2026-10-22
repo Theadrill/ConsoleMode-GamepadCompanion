@@ -324,6 +324,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             page.LeftTrackpad.Sensitivity = 50;
             page.LeftTrackpad.InvertScroll = true;
             page.LeftTrackpad.HapticIntensity = TrackpadHapticIntensity.High;
+            page.LeftTrackpad.PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) };
 
             return profile;
         }

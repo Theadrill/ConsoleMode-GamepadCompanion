@@ -18,7 +18,6 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         public const ushort VendorId = 0x28DE;
         public const ushort ProductId = 0x1205;
         private const int ReadTimeoutMs = 25;
-        private const int LizardModeKeepaliveIntervalMs = 500;
 
         private HidDevice _device;
         private readonly VirtualXbox360Controller _virtualX360;
@@ -26,7 +25,6 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         private volatile bool _isRunning;
         private readonly object _syncRoot = new object();
 
-        private DateTime _lastLizardUpdate = DateTime.MinValue;
         private SteamDeckRawState _lastRawState;
         private uint _packetCounter;
 
@@ -129,12 +127,6 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                         if (!_isRunning) break;
                         TryReopenDevice();
                         continue;
-                    }
-
-                    // Envia keepalive periódico para garantir que o Lizard Mode continue desligado
-                    if ((DateTime.Now - _lastLizardUpdate).TotalMilliseconds > LizardModeKeepaliveIntervalMs)
-                    {
-                        DisableLizardMode();
                     }
 
                     byte[] data = _device.Read(ReadTimeoutMs);
@@ -287,8 +279,6 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 _device.RequestFeatureReport(new byte[] { 0x87, 0x03, 0x08, 0x07 });
                 // Desativa emulação de teclado/botões: { 0x81, 0x00 }
                 _device.RequestFeatureReport(new byte[] { 0x81, 0x00 });
-
-                _lastLizardUpdate = DateTime.Now;
             }
             catch { }
         }

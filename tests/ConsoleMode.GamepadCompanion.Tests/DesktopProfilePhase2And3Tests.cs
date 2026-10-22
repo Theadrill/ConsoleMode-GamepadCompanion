@@ -19,11 +19,21 @@ namespace ConsoleMode.GamepadCompanion.Tests
         {
             public HashSet<VirtualKey> HeldKeys { get; } = new HashSet<VirtualKey>();
             public HashSet<MouseButton> HeldMouseButtons { get; } = new HashSet<MouseButton>();
+            public int MouseDownCount { get; private set; }
+            public int MouseUpCount { get; private set; }
 
             public void KeyDown(VirtualKey key) => HeldKeys.Add(key);
             public void KeyUp(VirtualKey key) => HeldKeys.Remove(key);
-            public void MouseButtonDown(MouseButton button) => HeldMouseButtons.Add(button);
-            public void MouseButtonUp(MouseButton button) => HeldMouseButtons.Remove(button);
+            public void MouseButtonDown(MouseButton button)
+            {
+                HeldMouseButtons.Add(button);
+                MouseDownCount++;
+            }
+            public void MouseButtonUp(MouseButton button)
+            {
+                HeldMouseButtons.Remove(button);
+                MouseUpCount++;
+            }
             public void MouseMoveRelative(int dx, int dy) { }
             public void MouseWheel(int delta) { }
         }
@@ -134,6 +144,57 @@ namespace ConsoleMode.GamepadCompanion.Tests
                 desktop.Update(state, 0.016f);
 
                 Assert.Contains(VirtualKey.Down, mockSim.HeldKeys);
+            }
+            finally
+            {
+                DesktopProfile.ForegroundCheckOverride = null;
+            }
+        }
+
+        [Fact]
+        public void DesktopProfile_ClickTransition_DoesNotDuplicateMouseDown()
+        {
+            var mockSim = new RecordingInputSimulator();
+            var settings = new AppSettings { DesktopModeEnabled = true, MappingEnabled = true };
+            var customProfile = GameProfilePresets.CreateDesktopDefault();
+            customProfile.ActivePage.RightTrackpad.PressActions = new List<InputAction> { InputAction.FromKey(VirtualKey.Space) };
+
+            var desktop = new DesktopProfile(mockSim, settings, customProfile);
+
+            try
+            {
+                // 1. Companion em primeiro plano
+                DesktopProfile.ForegroundCheckOverride = () => true;
+
+                var emptyState = new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+                var pressRaw = new SteamDeckRawState
+                {
+                    Buttons1 = SDCButton1.BTN_RPAD_TOUCH | SDCButton1.BTN_RPAD_PRESS
+                };
+
+                // Frame 1: Usuário clica com trackpad direito com o Companion em foco
+                desktop.Update(emptyState, pressRaw, 0.016f);
+
+                // Deve disparar Mouse Left (navegação padrão fixa), NÃO a tecla Space
+                Assert.Empty(mockSim.HeldKeys);
+                Assert.Contains(MouseButton.Left, mockSim.HeldMouseButtons);
+                Assert.Equal(1, mockSim.MouseDownCount);
+
+                // Frame 2: Janela perde o foco para o Chrome em decorrência do clique
+                DesktopProfile.ForegroundCheckOverride = () => false;
+
+                // O polegar do usuário AINDA está pressionando o trackpad físico (~100ms)
+                desktop.Update(emptyState, pressRaw, 0.016f);
+
+                // Não deve haver nenhum segundo MouseDown!
+                Assert.Equal(1, mockSim.MouseDownCount);
+
+                // Frame 3: Usuário solta o trackpad
+                var releaseRaw = new SteamDeckRawState();
+                desktop.Update(emptyState, releaseRaw, 0.016f);
+
+                Assert.Empty(mockSim.HeldMouseButtons);
+                Assert.Equal(1, mockSim.MouseUpCount);
             }
             finally
             {

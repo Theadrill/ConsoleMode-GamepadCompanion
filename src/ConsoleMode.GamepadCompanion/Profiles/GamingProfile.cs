@@ -37,6 +37,18 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         private readonly TrackpadProcessor _rightTrackpadProcessor = new TrackpadProcessor(isRightPad: true);
         private readonly ISteamDeckHaptics _hapticsProvider;
 
+        private readonly TrackpadConfig _companionNavLeftPad = new TrackpadConfig
+        {
+            Mode = TrackpadMode.Scrollwheel,
+            InvertScroll = true,
+            PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) }
+        };
+        private readonly TrackpadConfig _companionNavRightPad = new TrackpadConfig
+        {
+            Mode = TrackpadMode.MouseTrackball,
+            PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) }
+        };
+
         public event Action<bool, TrackpadHapticIntensity> HapticPulseRequested;
 
         public event Action CenterCursorRequested;
@@ -86,6 +98,11 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         }
 
         public void Update(GamepadState state, SteamDeckRawState deckRaw, float deltaSeconds)
+        {
+            Update(state, deckRaw, deltaSeconds, useCompanionNavTrackpads: false);
+        }
+
+        public void Update(GamepadState state, SteamDeckRawState deckRaw, float deltaSeconds, bool useCompanionNavTrackpads)
         {
             if (!state.IsConnected || !_settings.MappingEnabled)
             {
@@ -188,7 +205,26 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             if (deckRaw.IsR5) AccumulateActions(page.GetActions(ControllerButton.R5));
 
             // 3.2. Avaliação dos Trackpads do Steam Deck (Esquerdo e Direito)
-            if (page.LeftTrackpad != null && page.LeftTrackpad.Mode != TrackpadMode.Disabled)
+            TrackpadConfig lpadConfig = page.LeftTrackpad;
+            TrackpadConfig rpadConfig = page.RightTrackpad;
+
+            if (useCompanionNavTrackpads)
+            {
+                _companionNavRightPad.Sensitivity = page.RightTrackpad?.Sensitivity ?? 50;
+                _companionNavRightPad.Friction = page.RightTrackpad?.Friction ?? 50;
+                _companionNavRightPad.HapticIntensity = page.RightTrackpad?.HapticIntensity ?? TrackpadHapticIntensity.Low;
+                _companionNavRightPad.ClickPressureThreshold = page.RightTrackpad?.ClickPressureThreshold ?? 11000;
+                rpadConfig = _companionNavRightPad;
+
+                _companionNavLeftPad.Sensitivity = page.LeftTrackpad?.Sensitivity ?? 50;
+                _companionNavLeftPad.Friction = page.LeftTrackpad?.Friction ?? 50;
+                _companionNavLeftPad.InvertScroll = page.LeftTrackpad?.InvertScroll ?? true;
+                _companionNavLeftPad.HapticIntensity = page.LeftTrackpad?.HapticIntensity ?? TrackpadHapticIntensity.Low;
+                _companionNavLeftPad.ClickPressureThreshold = page.LeftTrackpad?.ClickPressureThreshold ?? 11000;
+                lpadConfig = _companionNavLeftPad;
+            }
+
+            if (lpadConfig != null && lpadConfig.Mode != TrackpadMode.Disabled)
             {
                 var lpadOut = _leftTrackpadProcessor.Process(
                     deckRaw.IsLPadTouch,
@@ -196,7 +232,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                     deckRaw.LPadX,
                     deckRaw.LPadY,
                     deckRaw.LPadPressure,
-                    page.LeftTrackpad,
+                    lpadConfig,
                     deltaSeconds);
 
                 frameDx += lpadOut.MouseDx;
@@ -210,7 +246,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                 }
             }
 
-            if (page.RightTrackpad != null && page.RightTrackpad.Mode != TrackpadMode.Disabled)
+            if (rpadConfig != null && rpadConfig.Mode != TrackpadMode.Disabled)
             {
                 var rpadOut = _rightTrackpadProcessor.Process(
                     deckRaw.IsRPadTouch,
@@ -218,7 +254,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                     deckRaw.RPadX,
                     deckRaw.RPadY,
                     deckRaw.RPadPressure,
-                    page.RightTrackpad,
+                    rpadConfig,
                     deltaSeconds);
 
                 frameDx += rpadOut.MouseDx;

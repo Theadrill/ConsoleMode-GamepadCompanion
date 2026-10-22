@@ -129,8 +129,12 @@ namespace ConsoleMode.GamepadCompanion.Engine
         {
             _desktopProfile.IsSuspended = _windowTracker.IsCompanionFocused;
 
-            // Sempre que a janela alvo muda, reseta o perfil atual para evitar teclas presas
-            _profileEngine.CurrentProfile?.Reset();
+            // Reseta teclas presas apenas se estivermos em modo Game e a janela do jogo mudar.
+            // No modo Desktop, a navegação entre janelas e cliques de mouse deve ser contínua sem resetar mid-click.
+            if (_windowTracker.IsGameFocused)
+            {
+                _profileEngine.CurrentProfile?.Reset();
+            }
 
             if (activeHwnd != IntPtr.Zero && _windowTracker.IsGameFocused)
             {
@@ -157,6 +161,14 @@ namespace ConsoleMode.GamepadCompanion.Engine
         private void UpdateActiveProfile(bool isGameFocused)
         {
             _desktopProfile.IsSuspended = _windowTracker.IsCompanionFocused;
+
+            if (_windowTracker.IsCompanionFocused)
+            {
+                _gamingProfile.Reset();
+                _profileEngine.CurrentProfile = _desktopProfile;
+                WindowNative.ReleaseCursorClip();
+                return;
+            }
 
             if (isGameFocused)
             {
