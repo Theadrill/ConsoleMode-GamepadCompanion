@@ -217,8 +217,8 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // Primeiro toque âncora em (1000, 1000)
             processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, config: config, dt: 0.008f);
 
-            // Tremulação capacitiva de 10 unidades (< 12f DeadzoneThreshold)
-            var output = processor.Process(isTouch: true, isPress: false, rawX: 1008, rawY: 1006, config: config, dt: 0.008f);
+            // Tremulação capacitiva de ~7.8 unidades (< 10f DeadzoneThreshold)
+            var output = processor.Process(isTouch: true, isPress: false, rawX: 1006, rawY: 1005, config: config, dt: 0.008f);
 
             Assert.Equal(0f, output.MouseDx);
             Assert.Equal(0f, output.MouseDy);
@@ -233,8 +233,8 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // Primeiro toque
             processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, config: config, dt: 0.008f);
 
-            // Delta de 16 unidades (apenas 4 unidades acima da zona morta de 12)
-            var output = processor.Process(isTouch: true, isPress: false, rawX: 1016, rawY: 1000, config: config, dt: 0.008f);
+            // Delta de 14 unidades (apenas 4 unidades acima da zona morta de 10)
+            var output = processor.Process(isTouch: true, isPress: false, rawX: 1014, rawY: 1000, config: config, dt: 0.008f);
 
             // Deve iniciar suavemente a partir de zero (sub-pixel minúsculo < 0.05px), sem salto abrupto
             Assert.True(output.MouseDx > 0f, "Deve registrar deslocamento suave acima do limiar");
@@ -329,12 +329,12 @@ namespace ConsoleMode.GamepadCompanion.Tests
             processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
 
             // Deslizar para cima (rawY aumenta): rolagem natural desce a página (wheelDelta negativo)
-            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 1500, config: config, dt: 0.008f);
+            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 2000, config: config, dt: 0.008f);
             Assert.True(scrollUp.WheelDelta < 0, "Rolagem natural: deslizar p/ cima deve rolar p/ baixo (WheelDelta < 0)");
             Assert.True(scrollUp.TriggerHaptic, "Deve disparar pulso háptico de catraca ao emitir notch");
 
             // Deslizar para baixo (rawY diminui): rolagem natural sobe a página (wheelDelta positivo)
-            var scrollDown = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -1500, config: config, dt: 0.008f);
+            var scrollDown = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -2000, config: config, dt: 0.008f);
             Assert.True(scrollDown.WheelDelta > 0, "Rolagem natural: deslizar p/ baixo deve rolar p/ cima (WheelDelta > 0)");
         }
 
@@ -352,7 +352,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
 
             // Deslizar para cima: não invertido sobe a página (wheelDelta positivo)
-            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 1500, config: config, dt: 0.008f);
+            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 2000, config: config, dt: 0.008f);
             Assert.True(scrollUp.WheelDelta > 0);
         }
 
@@ -547,12 +547,12 @@ namespace ConsoleMode.GamepadCompanion.Tests
             };
             desktopProfile.Update(gamepadState, deckRaw1, 0.008f);
 
-            // Frame 2: swipe vertical de 1500 unidades no trackpad esquerdo
+            // Frame 2: swipe vertical de 2000 unidades no trackpad esquerdo
             var deckRaw2 = new SteamDeckRawState
             {
                 Buttons1 = SDCButton1.BTN_LPAD_TOUCH,
                 LPadX = 0,
-                LPadY = 1500
+                LPadY = 2000
             };
             desktopProfile.Update(gamepadState, deckRaw2, 0.008f);
 

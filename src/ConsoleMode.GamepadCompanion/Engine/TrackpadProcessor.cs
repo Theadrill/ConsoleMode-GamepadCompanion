@@ -33,10 +33,10 @@ namespace ConsoleMode.GamepadCompanion.Engine
             Right
         }
 
-        private const float DeadzoneThreshold = 12f;
+        private const float DeadzoneThreshold = 10f;
         private const float MinFlickSpeed = 40f;
         private const float TrackballHapticStep = 16f;
-        private const float ScrollStep = 1300f;
+        private const float ScrollStep = 1600f;
 
         public bool IsRightPad { get; }
 
@@ -243,17 +243,16 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 float targetDy = -cleanDy * sensFactor * accel; // Deck Y positivo é para cima; tela Windows Y positivo é para baixo.
 
                 // 4. Filtro Passa-Baixa Dinâmico (EMA - Exponential Moving Average):
-                // Resposta linear ágil em baixa velocidade (0.52 a 0.68) para pousar com extrema facilidade
-                // em abas de navegadores e ícones pequenos sem exigir esforço excessivo no polegar,
-                // escalando até 0.85 em varreduras e flicks rápidos.
+                // Calibração de baixa velocidade a 0.40 para controle suave e preciso sobre abas e botões pequenos,
+                // escalando progressivamente até 0.85 em varreduras e flicks rápidos.
                 float alpha;
                 if (speed < 15000f)
                 {
-                    alpha = 0.52f + (speed / 15000f) * 0.16f;
+                    alpha = 0.40f + (speed / 15000f) * 0.20f;
                 }
                 else
                 {
-                    alpha = Math.Min(0.85f, 0.68f + ((speed - 15000f) / 30000f) * 0.17f);
+                    alpha = Math.Min(0.85f, 0.60f + ((speed - 15000f) / 30000f) * 0.25f);
                 }
 
                 _smoothDx = (_smoothDx * (1f - alpha)) + (targetDx * alpha);

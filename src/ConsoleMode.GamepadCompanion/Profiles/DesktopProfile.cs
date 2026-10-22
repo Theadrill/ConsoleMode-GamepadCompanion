@@ -74,19 +74,19 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
         public void Update(GamepadState state, SteamDeckRawState deckRaw, float deltaSeconds)
         {
-            if (!_settings.DesktopModeEnabled || IsSuspended)
+            if (!_settings.DesktopModeEnabled)
             {
                 _innerProfile.Reset();
                 _foregroundAppNavProfile.Reset();
                 return;
             }
 
-            if (IsCompanionInForeground())
+            // Quando a janela do Companion está em foco (ou quando IsSuspended for sinalizado pelo foco do Companion),
+            // mantemos os trackpads 100% ativos para operar a navegação por mouse e scroll na nossa interface,
+            // enquanto botões do controle (A/B/D-Pad) ficam livres para a navegação nativa do WPF (GamepadNavigationManager).
+            bool isCompanionInFg = IsCompanionInForeground() || IsSuspended;
+            if (isCompanionInFg)
             {
-                // Quando o Companion está em primeiro plano, botões do controle e analógicos
-                // são preservados para a navegação interna da UI via GamepadNavigationManager,
-                // mas os trackpads continuam operando normalmente como Mouse + Scroll para permitir
-                // apontar, clicar e rolar livremente pelo app com os trackpads.
                 _innerProfile.Reset();
 
                 var emptyGamepadState = new GamepadState(true, state.PacketNumber, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
