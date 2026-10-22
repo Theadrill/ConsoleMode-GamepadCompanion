@@ -93,5 +93,8 @@ O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Stea
 ---
 
 ## 🙏 Créditos & Agradecimentos
-- **[ayufan / Steam Deck Tools](https://github.com/ayufan/steam-deck-tools):** Pelo trabalho pioneiro e referência técnica de engenharia reversa do protocolo USB HID do controle Neptune da Valve e controle do Lizard Mode.
-- **[Nefarius Software Solutions](https://github.com/nefarius) (Benjamin Höglinger-Stelzer):** Pelo desenvolvimento do driver de kernel **ViGEmBus** e do client .NET, possibilitando a emulação de gamepads virtuais no Windows.
+- **[libsdl-org / SDL](https://github.com/libsdl-org/SDL):** Pela especificação das estruturas e definições de constantes do protocolo HID nativo da Valve/Steam Deck (`controller_structs.h` e `controller_constants.h`), servindo como referência fundamental para o controle tátil e háptico de alta precisão dos atuadores lineares LRA (`MsgTriggerHaptic`).
+- **[Linux Kernel / drivers/hid/hid-steam](https://github.com/torvalds/linux/blob/master/drivers/hid/hid-steam.c):** Pela documentação aberta do driver de hardware para controladores da Valve, esclarecendo o comportamento de relatórios de feature HID, temporização de haptics, watchdog do lizard mode e convenções de indexação dos atuadores dos trackpads.
+- **[ayufan / Steam Deck Tools](https://github.com/ayufan/steam-deck-tools):** Pelo trabalho pioneiro e referência técnica de engenharia reversa do protocolo USB HID do controle Neptune da Valve e controle do Lizard Mode no Windows.
+- **[Nefarius Software Solutions](https://github.com/nefarius) (Benjamin Höglinger-Stelzer):** Pelo desenvolvimento do driver de kernel **ViGEmBus** e do client .NET, possibilitando a emulação de gamepads virtuais de Xbox 360 e DualShock 4 no Windows.
+- **[signal11 / libusb / hidapi](https://github.com/libusb/hidapi):** Pela biblioteca multi-plataforma de comunicação HID direta em espaço de usuário via P/Invoke.
