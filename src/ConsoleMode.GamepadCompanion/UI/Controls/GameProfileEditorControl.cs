@@ -1023,9 +1023,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 _slotBounds[ProfileEditorSlot.ButtonR5] = new RectangleF(316, 380, 52, 36);
                 _slotBounds[ProfileEditorSlot.ButtonR4] = new RectangleF(372, 380, 52, 36);
 
-                // Cards Interativos dos Trackpads (Fase 6 / Etapa 2)
-                _slotBounds[ProfileEditorSlot.LeftTrackpad] = new RectangleF(12, 428, 178, 64);
-                _slotBounds[ProfileEditorSlot.RightTrackpad] = new RectangleF(430, 428, 178, 64);
+                // Cards Interativos dos Trackpads (Fase 6 / Etapa 2) - Altura e respiro ergonômicos
+                _slotBounds[ProfileEditorSlot.LeftTrackpad] = new RectangleF(12, 414, 178, 80);
+                _slotBounds[ProfileEditorSlot.RightTrackpad] = new RectangleF(430, 414, 178, 80);
 
                 // Botões de Rodapé Centralizados (Salvar e Voltar)
                 _slotBounds[ProfileEditorSlot.FooterSave] = new RectangleF(204, 436, 112, 32);
@@ -1954,14 +1954,14 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private void DrawTrackpadPlaceholderCards(Graphics g)
         {
             var page = _workingProfile.ActivePage;
-            var leftRect = new RectangleF(12, 428, 178, 64);
-            var rightRect = new RectangleF(430, 428, 178, 64);
+            var leftRect = new RectangleF(12, 414, 178, 80);
+            var rightRect = new RectangleF(430, 414, 178, 80);
 
-            DrawTrackpadInteractiveCard(g, leftRect, Strings.ProfileCardLeftTrackpad, page.LeftTrackpad, _focusedSlot == ProfileEditorSlot.LeftTrackpad);
-            DrawTrackpadInteractiveCard(g, rightRect, Strings.ProfileCardRightTrackpad, page.RightTrackpad, _focusedSlot == ProfileEditorSlot.RightTrackpad);
+            DrawTrackpadInteractiveCard(g, leftRect, "PAD ESQUERDO", page.LeftTrackpad, _focusedSlot == ProfileEditorSlot.LeftTrackpad);
+            DrawTrackpadInteractiveCard(g, rightRect, "PAD DIREITO", page.RightTrackpad, _focusedSlot == ProfileEditorSlot.RightTrackpad);
         }
 
-        private static void DrawTrackpadInteractiveCard(Graphics g, RectangleF rect, string title, TrackpadConfig config, bool isFocused)
+        private static void DrawTrackpadInteractiveCard(Graphics g, RectangleF rect, string shortTitle, TrackpadConfig config, bool isFocused)
         {
             Color fill = isFocused ? FocusBg : CardBg;
             Color border = isFocused ? BorderFocused : BorderSubtle;
@@ -1974,15 +1974,15 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             {
                 g.FillRectangle(bg, rect);
                 g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
-                g.DrawString(title, headerFont, headerBrush, rect.X + 8, rect.Y + 4);
+                g.DrawString(shortTitle, headerFont, headerBrush, rect.X + 8, rect.Y + 6);
             }
 
             TrackpadMode mode = config?.Mode ?? TrackpadMode.Disabled;
             string modeName = GetTrackpadModeName(mode);
             Color modeColor = GetTrackpadModeColor(mode);
 
-            // Badge do Modo no topo direito do card
-            var badgeRect = new RectangleF(rect.Right - 90, rect.Y + 4, 82, 14);
+            // Badge do Modo no topo direito do card com largura calibrada sem colisão
+            var badgeRect = new RectangleF(rect.Right - 78, rect.Y + 5, 70, 16);
             using (var path = CreateRoundedRectanglePath(badgeRect, 3f))
             using (var badgeBg = new SolidBrush(Color.FromArgb(40, modeColor)))
             using (var badgePen = new Pen(modeColor, 1f))
@@ -1995,19 +1995,29 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 g.DrawString(modeName, badgeFont, badgeBrush, badgeRect, sf);
             }
 
-            // Resumo dinâmico dos parâmetros
+            // Resumo dinâmico dos parâmetros com espaço e respiro
             string summary = GetTrackpadSummary(config);
-            using (var sumFont = new Font("Segoe UI", 7.2f))
+            using (var sumFont = new Font("Segoe UI", 7.3f))
             using (var sumBrush = new SolidBrush(TextSecondary))
             {
-                g.DrawString(summary, sumFont, sumBrush, rect.X + 8, rect.Y + 22);
+                g.DrawString(summary, sumFont, sumBrush, rect.X + 8, rect.Y + 28);
             }
 
-            // Dica de Ação no rodapé do card
-            using (var hintFont = new Font("Segoe UI", 7.0f, FontStyle.Bold))
+            // Botão Interativo estilizado de ação no rodapé do card
+            var btnRect = new RectangleF(rect.X + 8, rect.Y + 49, rect.Width - 16, 23);
+            Color btnFill = isFocused ? Color.FromArgb(45, 72, 110) : Color.FromArgb(24, 28, 36);
+            Color btnBorder = isFocused ? ActiveGreen : BorderSubtle;
+
+            using (var btnPath = CreateRoundedRectanglePath(btnRect, 3f))
+            using (var btnBg = new SolidBrush(btnFill))
+            using (var btnPen = new Pen(btnBorder, 1f))
+            using (var hintFont = new Font("Segoe UI", 7.3f, FontStyle.Bold))
             using (var hintBrush = new SolidBrush(isFocused ? ActiveGreen : TextSecondary))
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
             {
-                g.DrawString(Strings.ProfileTrackpadConfigureHint, hintFont, hintBrush, rect.X + 8, rect.Y + 44);
+                g.FillPath(btnBg, btnPath);
+                g.DrawPath(btnPen, btnPath);
+                g.DrawString(Strings.ProfileTrackpadConfigureHint, hintFont, hintBrush, btnRect, sf);
             }
         }
 
