@@ -354,10 +354,11 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             if (intensity == TrackpadHapticIntensity.Off) return false;
             if (_device == null || !_isRunning) return false;
 
-            // No protocolo oficial do Steam Deck (SDCHapticPacket2 / Neptune):
-            // position = 0x00 para Trackpad Esquerdo (HapticPad.Left)
-            // position = 0x01 para Trackpad Direito (HapticPad.Right)
-            byte position = (byte)(isRightPad ? 0x01 : 0x00);
+            // No protocolo oficial do Steam Deck / Valve (SDCHapticPacket2 / Neptune):
+            // Por razões legadas da Valve (conforme hid-steam.c e steam-deck-tools):
+            // 0x01 aciona o Trackpad Esquerdo (Left)
+            // 0x00 aciona o Trackpad Direito (Right)
+            byte position = (byte)(isRightPad ? 0x00 : 0x01);
 
             byte style; // 1 = Weak (Ticks de rotação/scroll), 2 = Strong (Clique mecânico de press down/up)
             sbyte intensityVal; // -7..5 correspondente a -2dB..10dB
@@ -407,7 +408,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             // byte 0: 0x00 (Report ID para HIDAPI Windows)
             // byte 1: 0xEA (packet_type = 0xEA)
             // byte 2: 0x0D (len = 13 bytes)
-            // byte 3: position (0x00 = Left, 0x01 = Right)
+            // byte 3: position (0x01 = Left, 0x00 = Right no hardware Neptune / Valve)
             // byte 4: style (1 = Weak, 2 = Strong)
             // byte 5: unsure2 = 0x00
             // byte 6: intensity (-7..5)
@@ -454,7 +455,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             packet8F[0] = 0x00;
             packet8F[1] = 0x8F;
             packet8F[2] = 0x07;
-            packet8F[3] = (byte)(isRightPad ? 0x01 : 0x00); // Conforme SDCHapticPacket oficial: 0x00 = Left, 0x01 = Right
+            packet8F[3] = (byte)(isRightPad ? 0x00 : 0x01); // 0x01 = Left Pad, 0x00 = Right Pad (convenção legada da Valve / Neptune)
             packet8F[4] = (byte)(amplitude & 0xFF);
             packet8F[5] = (byte)((amplitude >> 8) & 0xFF);
             packet8F[6] = (byte)(period & 0xFF);
