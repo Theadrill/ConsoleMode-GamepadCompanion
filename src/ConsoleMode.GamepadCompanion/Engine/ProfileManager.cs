@@ -78,7 +78,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
             {
                 if (!_windowTracker.IsGameFocused)
                 {
-                    return _desktopProfile.Name;
+                    return _desktopProfile.Enabled ? _desktopProfile.Name : $"{_desktopProfile.Name} (Desativado)";
                 }
 
                 var game = _windowTracker.ActiveGame;
