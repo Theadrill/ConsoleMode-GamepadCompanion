@@ -73,10 +73,13 @@ O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Stea
   - Adicionar no `GameConfigPanel` um botão toggle idêntico ao do Input (`[ (●) PERMITIR MÚLTIPLAS INSTÂNCIAS / (○) INSTÂNCIA ÚNICA (Padrão) ]`).
   - Se estiver em **Instância Única (Desativado - Padrão)**: ao acionar `[A] INICIAR`, caso o executável principal já esteja em execução, em vez de abrir outro processo, o app traz a janela do jogo já existente para primeiro plano e oculta a interface do Companion.
   - Se estiver ativado: permite abrir múltiplas instâncias em paralelo.
+- [ ] **Perfil do Modo Desktop (Navegação Windows 10/11) 🚀:**
+  - Card fixo especial no início da biblioteca de jogos com arte do Windows 11 para configuração do perfil de desktop.
+  - Chaveamento automático por fallback no motor de foco: ao sair de qualquer jogo, o controle assume o perfil desktop para navegação fluida de mouse e atalhos couch gaming.
+  - Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md`](./docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md).
 - [ ] Sistema de Páginas / Camadas por Modificador (alternar entre páginas de mapeamento dentro do jogo, como Navegação vs. Interação/Menus, cada uma com sua própria sensibilidade de mouse e botões)
 - [ ] Avaliar expansão de comandos especiais do sistema na Aba 3
 - [ ] Overlay estilo Steam acionado pelo botão central do controle (Guide/Home)
-- [ ] Perfil Desktop para usar o gamepad no Windows normalmente
 
 ---
 
