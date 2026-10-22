@@ -85,7 +85,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             editor.ProcessGamepad(MakeState(2, GamepadButtons.A), 30);
             editor.ProcessGamepad(MakeState(3), 50);
             Assert.True(editor.IsPresetMenuOpen);
-            Assert.Equal(4, editor.PresetMenuCount); // 3 presets + 1 jogo para copiar
+            Assert.Equal(5, editor.PresetMenuCount); // 4 presets + 1 jogo para copiar
 
             // Desce para o 2º item: RPG / MMO (Câmera Botão Direito)
             editor.ProcessGamepad(MakeState(4, GamepadButtons.DPadDown), 80);
@@ -104,15 +104,15 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(MouseButton.Right, rStickAdd[0].MouseButton);
             Assert.Empty(editor.GetSlotActions(ProfileEditorSlot.LeftStickAdditional));
 
-            // Reabre menu e copia do jogo "Half-Life" (índice 3)
+            // Reabre menu e copia do jogo "Half-Life" (índice 4)
             editor.ProcessGamepad(MakeState(8, GamepadButtons.A), 180);
             editor.ProcessGamepad(MakeState(9), 200);
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
                 editor.ProcessGamepad(MakeState((uint)(10 + i * 2), GamepadButtons.DPadDown), 220 + i * 40);
                 editor.ProcessGamepad(MakeState((uint)(11 + i * 2)), 240 + i * 40);
             }
-            Assert.Equal(3, editor.PresetMenuFocusedIndex);
+            Assert.Equal(4, editor.PresetMenuFocusedIndex);
 
             editor.ProcessGamepad(MakeState(20, GamepadButtons.A), 400);
             editor.ProcessGamepad(MakeState(21), 420);

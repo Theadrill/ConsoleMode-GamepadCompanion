@@ -250,6 +250,13 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 IsPreset = true,
                 PresetName = GameProfilePresets.PresetStandardPc
             });
+            _presetMenuItems.Add(new PresetMenuItem
+            {
+                Title = Strings.DesktopModeTitle,
+                Subtitle = "Mouse no Analógico Esquerdo + Cliques RT/LT + Atalhos Windows",
+                IsPreset = true,
+                PresetName = GameProfilePresets.PresetDesktopDefault
+            });
 
             foreach (var other in _otherGames)
             {

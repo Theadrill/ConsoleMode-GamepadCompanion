@@ -34,6 +34,8 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         private static extern bool QueryFullProcessImageName(IntPtr hProcess, uint dwFlags, System.Text.StringBuilder lpExeName, ref uint lpdwSize);
 
         private bool _isGameActive;
+        private bool _isCompanionActive;
+        private readonly uint _companionPid;
         private string _lastProcessName = string.Empty;
         private IntPtr _activeHwnd = IntPtr.Zero;
         private GameEntry _activeGame;
@@ -47,7 +49,21 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         private readonly HashSet<string> _customGameExecutables =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        public WindowTracker()
+        {
+            try
+            {
+                _companionPid = (uint)Process.GetCurrentProcess().Id;
+            }
+            catch
+            {
+                _companionPid = 0;
+            }
+        }
+
         public bool IsGameFocused => _isGameActive;
+
+        public bool IsCompanionFocused => _isCompanionActive;
 
         public string ActiveProcessName => _lastProcessName;
 
@@ -193,6 +209,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             IntPtr hwnd = GetForegroundWindow();
             if (hwnd == IntPtr.Zero)
             {
+                _isCompanionActive = false;
                 UpdateFocus(false, string.Empty, IntPtr.Zero, null);
                 return;
             }
@@ -200,9 +217,12 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             GetWindowThreadProcessId(hwnd, out uint pid);
             if (pid == 0)
             {
+                _isCompanionActive = false;
                 UpdateFocus(false, string.Empty, IntPtr.Zero, null);
                 return;
             }
+
+            _isCompanionActive = (_companionPid != 0 && pid == _companionPid);
 
             string procName = string.Empty;
             string procFullPath = GetProcessFullPath(pid);

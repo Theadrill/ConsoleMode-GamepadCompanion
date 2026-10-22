@@ -78,6 +78,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
         private sealed class MockWindowTracker : IWindowTracker
         {
             public bool IsGameFocused { get; set; }
+            public bool IsCompanionFocused { get; set; }
             public string ActiveProcessName { get; set; } = string.Empty;
             public IntPtr ActiveWindowHandle { get; set; } = IntPtr.Zero;
             public GameEntry ActiveGame { get; set; }

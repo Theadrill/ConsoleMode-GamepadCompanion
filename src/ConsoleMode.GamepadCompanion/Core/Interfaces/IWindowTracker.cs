@@ -8,6 +8,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Interfaces
     public interface IWindowTracker
     {
         bool IsGameFocused { get; }
+        bool IsCompanionFocused { get; }
         string ActiveProcessName { get; }
         IntPtr ActiveWindowHandle { get; }
         GameEntry ActiveGame { get; }

@@ -230,5 +230,11 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string SteamGridDownloading = "Baixando capa em alta resolução...";
         public const string SteamGridLegendGames = "[A] Escolher Jogo    [X] Nova Pesquisa    [Y] Trocar Chave    [B] Voltar";
         public const string SteamGridLegendCovers = "[A] Aplicar Capa    [B] Voltar aos Jogos";
+
+        // Modo Desktop (Windows)
+        public const string BtnDesktopModeFormat = "🖥️ MODO DESKTOP [{0}]";
+        public const string DesktopModeTitle = "Modo Desktop (Windows)";
+        public const string DesktopModeActive = "ATIVADO";
+        public const string DesktopModeDisabled = "DESATIVADO";
     }
 }

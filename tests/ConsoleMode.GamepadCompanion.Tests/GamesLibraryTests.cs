@@ -943,6 +943,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             public System.Collections.Generic.List<string> RegisteredExecutables = new System.Collections.Generic.List<string>();
 
             public bool IsGameFocused => false;
+            public bool IsCompanionFocused => false;
             public string ActiveProcessName => string.Empty;
             public IntPtr ActiveWindowHandle => IntPtr.Zero;
             public GameEntry ActiveGame => null;

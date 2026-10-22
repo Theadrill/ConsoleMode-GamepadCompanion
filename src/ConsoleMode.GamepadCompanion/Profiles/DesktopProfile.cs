@@ -41,6 +41,8 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             set => _settings.DesktopModeEnabled = value;
         }
 
+        public bool IsSuspended { get; set; }
+
         public GameProfile ActiveProfile
         {
             get => _innerProfile.ActiveProfile;
@@ -49,7 +51,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
         public void Update(GamepadState state, float deltaSeconds)
         {
-            if (!_settings.DesktopModeEnabled)
+            if (!_settings.DesktopModeEnabled || IsSuspended)
             {
                 _innerProfile.Reset();
                 return;

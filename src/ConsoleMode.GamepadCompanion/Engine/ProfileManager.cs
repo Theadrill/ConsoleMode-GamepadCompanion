@@ -48,6 +48,12 @@ namespace ConsoleMode.GamepadCompanion.Engine
             _gamingProfile.AltTabRequested += OnAltTabRequested;
             _gamingProfile.ShowDesktopRequested += OnShowDesktopRequested;
 
+            _desktopProfile.CenterCursorRequested += OnCenterCursorRequested;
+            _desktopProfile.ToggleClipCursorRequested += OnToggleClipCursorRequested;
+            _desktopProfile.ScreenClipRequested += OnScreenClipRequested;
+            _desktopProfile.AltTabRequested += OnAltTabRequested;
+            _desktopProfile.ShowDesktopRequested += OnShowDesktopRequested;
+
             // Define perfil inicial baseado no foco atual
             _windowTracker.CheckActiveWindow();
             UpdateActiveProfile(_windowTracker.IsGameFocused);
@@ -61,6 +67,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
         public bool IsGameFocused => _windowTracker.IsGameFocused;
 
         public bool IsCompanionInputActive => _profileEngine.CurrentProfile == _gamingProfile;
+
+        public DesktopProfile DesktopProfile => _desktopProfile;
 
         public GameEntry ActiveGame => _windowTracker.ActiveGame;
 
@@ -96,6 +104,14 @@ namespace ConsoleMode.GamepadCompanion.Engine
             }
         }
 
+        public void RefreshDesktopProfile(GameProfile profile)
+        {
+            if (profile != null)
+            {
+                _desktopProfile.ActiveProfile = profile;
+            }
+        }
+
         private void OnFocusChanged(bool isGameFocused)
         {
             UpdateActiveProfile(isGameFocused);
@@ -111,6 +127,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
         private void OnActiveWindowChanged(IntPtr activeHwnd)
         {
+            _desktopProfile.IsSuspended = _windowTracker.IsCompanionFocused;
+
             // Sempre que a janela alvo muda, reseta o perfil atual para evitar teclas presas
             _profileEngine.CurrentProfile?.Reset();
 
@@ -138,6 +156,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
         private void UpdateActiveProfile(bool isGameFocused)
         {
+            _desktopProfile.IsSuspended = _windowTracker.IsCompanionFocused;
+
             if (isGameFocused)
             {
                 var game = _windowTracker.ActiveGame;
@@ -272,6 +292,12 @@ namespace ConsoleMode.GamepadCompanion.Engine
             _gamingProfile.ScreenClipRequested -= OnScreenClipRequested;
             _gamingProfile.AltTabRequested -= OnAltTabRequested;
             _gamingProfile.ShowDesktopRequested -= OnShowDesktopRequested;
+
+            _desktopProfile.CenterCursorRequested -= OnCenterCursorRequested;
+            _desktopProfile.ToggleClipCursorRequested -= OnToggleClipCursorRequested;
+            _desktopProfile.ScreenClipRequested -= OnScreenClipRequested;
+            _desktopProfile.AltTabRequested -= OnAltTabRequested;
+            _desktopProfile.ShowDesktopRequested -= OnShowDesktopRequested;
 
             WindowNative.ReleaseCursorClip();
         }

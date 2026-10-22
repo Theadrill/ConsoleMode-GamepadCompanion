@@ -41,26 +41,32 @@ Em vez de poluir a lista de jogos na biblioteca com um card fake, o **Modo Deskt
   3. `AppSettings` e `ConfigRepository`: `DesktopModeEnabled` persistido no `config.ini` e métodos `LoadDesktopProfile()` / `SaveDesktopProfile(profile)` integrados na seção `[DesktopProfile]`.
   4. Testes unitários: `DesktopProfilePhase1Tests` validando 100% dos fluxos de input, silêncio quando desativado, e persistência em INI. Todos os 196 testes da suíte passando.
 
-### FASE 2: Interface na Sidebar (`SettingsForm`) & Integração com o Editor Visual
+### FASE 2: Interface na Sidebar (`SettingsForm`) & Integração com o Editor Visual ✅ (CONCLUÍDO)
 * **Objetivo:** Permitir ao usuário acessar, visualizar e customizar o perfil do Modo Desktop diretamente pela interface do aplicativo.
-* **Tarefas:**
-  1. Adicionar o botão `Modo Desktop` na sidebar do `SettingsForm`, com suporte a navegação por Gamepad e badge visual `[ATIVADO / DESATIVADO]`.
-  2. Conectar a ação do botão à exibição do `GameProfileEditorControl` com o contexto desktop.
-  3. Salvamento do perfil desktop ao pressionar `[RT] Salvar` ou confirmar no editor.
+* **Tarefas Concluídas:**
+  1. Adicionado o botão `[ 🖥️ MODO DESKTOP [ATIVADO/DESATIVADO] ]` na sidebar do `SettingsForm`, posicionado entre a Biblioteca de Jogos e o botão Sair.
+  2. Suporte a toggle rápido: via tecla `[X]` no Gamepad (quando focado no botão) ou clique com Botão Direito do mouse.
+  3. Ao pressionar `[A]` (ou clique esquerdo), carrega 100% da interface do `GameProfileEditorControl` com o contexto desktop ("Modo Desktop (Windows)"), permitindo remapear botões, sensibilidade, deadzones, Steam Deck rear paddles e selecionar presets.
+  4. Preservação do princípio DRY: 0% de duplicação de telas. O salvamento com `[RT]` persiste no `config.ini` sob a seção `[DesktopProfile]` e atualiza o motor ativo em tempo real.
 
-### FASE 3: Motor de Chaveamento em Tempo Real (`ProfileManager` + `WindowTracker`)
-* **Objetivo:** Conectar o ciclo de vida do Modo Desktop ao foco de janelas do Windows.
-* **Tarefas:**
-  1. Atualizar o `ProfileManager`:
-     - Se `_windowTracker.IsGameFocused`: usa o perfil do jogo.
-     - Se `!_windowTracker.IsGameFocused`: se `DesktopModeEnabled == true`, ativa o `DesktopProfile`.
-  2. Detectar quando a janela do próprio Companion (`SettingsForm`) estiver focada e suspender o envio de inputs simulados para não interferir na navegação da UI.
-  3. Testes unitários integrados validando as transições de foco.
+### FASE 3: Motor de Chaveamento em Tempo Real (`ProfileManager` + `WindowTracker`) ✅ (CONCLUÍDO)
+* **Objetivo:** Conectar o ciclo de vida do Modo Desktop ao foco de janelas do Windows com proteção de auto-interferência na UI do Companion.
+* **Tarefas Concluídas:**
+  1. `WindowTracker` atualizado para monitorar se a janela ativa pertence ao processo do próprio Companion (`IsCompanionFocused`).
+  2. `DesktopProfile` recebeu a propriedade `IsSuspended`. Quando a janela do Companion entra em primeiro plano, a emulação de mouse/teclado do Desktop é suspensa, garantindo navegação nativa do controle pela interface do app sem cliques acidentais.
+  3. `ProfileManager` gerencia transições automáticas:
+     - Jogo em foco: executa o perfil do jogo (`GamingProfile`).
+     - Windows Desktop / navegador / outras janelas em foco: executa o `DesktopProfile` (se `DesktopModeEnabled == true`).
+     - Companion em foco: suspende a emulação.
+  4. Testes unitários integrados (`DesktopProfilePhase2And3Tests`): 201 testes executando com 100% de sucesso.
 
 ---
 
-## 4. Critérios de Aceite da Fase 1
+## 4. Critérios de Aceite das Fases
 1. `GameProfilePresets.CreateDesktopDefault()` retorna um perfil válido com controles ergonômicos de mouse e teclado.
-2. `DesktopProfile` é capaz de receber e executar o perfil desktop de forma robusta e silenciosa quando desativado.
+2. `DesktopProfile` é capaz de receber e executar o perfil desktop de forma robusta e silenciosa quando desativado ou suspenso.
 3. `AppSettings` serializa e deserializa `DesktopModeEnabled`.
-4. Todos os novos testes unitários passam com 100% de sucesso e 0 avisos no build.
+4. Botão na sidebar permite ligar/desligar com `[X]` e abrir o editor com `[A]`.
+5. Edições no perfil desktop persistem no `config.ini` e refletem imediatamente.
+6. Foco no Companion suspende inputs para manter a UI navegável.
+7. Todos os 201 testes unitários passam com 100% de sucesso e 0 avisos no build.

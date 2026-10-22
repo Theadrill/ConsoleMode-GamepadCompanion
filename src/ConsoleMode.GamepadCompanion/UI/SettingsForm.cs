@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -48,6 +48,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly Label _deviceLabel = new Label();
         private readonly Label _vigemLabel = new Label();
         private readonly Button _gamesButton = new Button();
+        private readonly Button _desktopButton = new Button();
         private readonly GamepadVisualDebugger _debugger = new GamepadVisualDebugger();
         private readonly GamesGridControl _gamesGrid = new GamesGridControl();
         private readonly GameConfigPanel _configPanel = new GameConfigPanel();
@@ -66,7 +67,9 @@ namespace ConsoleMode.GamepadCompanion.UI
         private bool _updatingCombo;
         private bool _allowClose;
         private bool _lastStateY;
+        private bool _lastStateX;
         private bool _isLaunching;
+        private bool _isEditingDesktopProfile;
         private bool _wasAppForegroundAndGameInactive;
         private string _lastSteamGridSearchTerm;
         private ContentViewMode _viewMode = ContentViewMode.Debugger;
@@ -211,6 +214,26 @@ namespace ConsoleMode.GamepadCompanion.UI
             };
             currentY = _gamesButton.Bottom + 12;
 
+            // Botão MODO DESKTOP (Windows Couch Navigation)
+            _desktopButton.SetBounds(16, currentY, 228, 36);
+            _desktopButton.FlatStyle = FlatStyle.Flat;
+            _desktopButton.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
+            _desktopButton.BackColor = Color.FromArgb(40, 44, 56);
+            _desktopButton.ForeColor = Color.FromArgb(230, 232, 240);
+            _desktopButton.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Right)
+                {
+                    ToggleDesktopMode();
+                }
+            };
+            _desktopButton.Click += (s, e) =>
+            {
+                ShowDesktopProfileEditor();
+            };
+            UpdateDesktopButtonText();
+            currentY = _desktopButton.Bottom + 12;
+
             var exit = new Button { Text = Strings.Exit, FlatStyle = FlatStyle.Flat };
             exit.SetBounds(16, currentY, 228, 36);
             exit.FlatAppearance.BorderColor = Color.FromArgb(120, 126, 140);
@@ -230,13 +253,16 @@ namespace ConsoleMode.GamepadCompanion.UI
             };
 
             _sidePanel.Controls.Add(_gamesButton);
+            _sidePanel.Controls.Add(_desktopButton);
             _sidePanel.Controls.Add(exit);
 
             var gamesNav = new ButtonNavigable("GamesButton", _gamesButton);
+            var desktopNav = new ButtonNavigable("DesktopButton", _desktopButton);
             var exitNav = new ButtonNavigable("ExitButton", exit);
 
             _navManager.RegisterControl(slotNav);
             _navManager.RegisterControl(gamesNav);
+            _navManager.RegisterControl(desktopNav);
             _navManager.RegisterControl(exitNav);
 
             // Foco inicial definido no botão GAMES (conforme regra do projeto)
@@ -383,6 +409,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void ShowSteamDeckSetup()
         {
+            _isEditingDesktopProfile = false;
             _viewMode = ContentViewMode.SteamDeckSetup;
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
@@ -401,6 +428,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void ShowDebugger()
         {
+            _isEditingDesktopProfile = false;
             _viewMode = ContentViewMode.Debugger;
             _debugger.Visible = true;
             _gamesGrid.Visible = false;
@@ -414,10 +442,12 @@ namespace ConsoleMode.GamepadCompanion.UI
             _focusOverlay.BringToFront();
             _lastStateY = true;
             _navManager.ResetInputState();
+            UpdateDesktopButtonText();
         }
 
         private void ShowGamesLibrary()
         {
+            _isEditingDesktopProfile = false;
             _viewMode = ContentViewMode.GamesGrid;
             RefreshGamesList();
             _gamesGrid.ResetInputState();
@@ -436,6 +466,7 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void ShowGameConfig(GameEntry game)
         {
+            _isEditingDesktopProfile = false;
             _viewMode = ContentViewMode.GameConfig;
             _configPanel.ResetInputState();
             _debugger.Visible = false;
@@ -779,6 +810,21 @@ namespace ConsoleMode.GamepadCompanion.UI
                     }
                     _lastStateY = btnY;
 
+                    // Atalho X no botão Desktop alterna o modo
+                    if (_navManager.FocusedControl?.Id == "DesktopButton")
+                    {
+                        bool btnX = state.IsPressed(GamepadButtons.X);
+                        if (btnX && !_lastStateX)
+                        {
+                            ToggleDesktopMode();
+                        }
+                        _lastStateX = btnX;
+                    }
+                    else
+                    {
+                        _lastStateX = false;
+                    }
+
                     _navManager.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
                 }
             }
@@ -883,9 +929,57 @@ namespace ConsoleMode.GamepadCompanion.UI
             _profileEditor.VisualMode = visualMode;
         }
 
+        private void UpdateDesktopButtonText()
+        {
+            bool enabled = _settings?.DesktopModeEnabled ?? true;
+            _desktopButton.Text = string.Format(Strings.BtnDesktopModeFormat, enabled ? Strings.DesktopModeActive : Strings.DesktopModeDisabled);
+            _desktopButton.FlatAppearance.BorderColor = enabled ? Color.FromArgb(16, 185, 129) : Color.FromArgb(120, 126, 140);
+        }
+
+        private void ToggleDesktopMode()
+        {
+            if (_settings == null) return;
+            _settings.DesktopModeEnabled = !_settings.DesktopModeEnabled;
+            _configRepo?.Save(_settings);
+            if (_profileManager != null && _profileManager.DesktopProfile != null)
+            {
+                _profileManager.DesktopProfile.Enabled = _settings.DesktopModeEnabled;
+            }
+            UpdateDesktopButtonText();
+        }
+
+        private void ShowDesktopProfileEditor()
+        {
+            _isEditingDesktopProfile = true;
+            _viewMode = ContentViewMode.GameProfileEditor;
+            _debugger.Visible = false;
+            _gamesGrid.Visible = false;
+            _configPanel.Visible = false;
+            _steamGridBrowser.Visible = false;
+            _bindingCapture.Visible = false;
+            _visualSelector.Visible = false;
+            _steamDeckSetup.Visible = false;
+            _profileEditor.Visible = true;
+            _profileEditor.VisualMode = Hardware.ControllerVisualModeResolver.Resolve(_settings.SelectedSlot);
+
+            var desktopProfile = _configRepo?.LoadDesktopProfile() ?? GameProfilePresets.CreateDesktopDefault();
+            var desktopGameEntry = new GameEntry
+            {
+                Id = "desktop",
+                Name = Strings.DesktopModeTitle,
+                EnableCompanionInput = _settings.DesktopModeEnabled,
+                Profile = desktopProfile
+            };
+
+            _profileEditor.LoadGameProfile(desktopGameEntry, _settings, _gameRepo.GetAll());
+            _profileEditor.BringToFront();
+            _focusOverlay.BringToFront();
+        }
+
         private void OnConfigureControls(GameEntry game)
         {
             if (game == null) return;
+            _isEditingDesktopProfile = false;
             _viewMode = ContentViewMode.GameProfileEditor;
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
@@ -903,6 +997,18 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void OnSaveProfileEditor(GameEntry game, GameProfile updatedProfile)
         {
+            if (_isEditingDesktopProfile)
+            {
+                _isEditingDesktopProfile = false;
+                if (updatedProfile != null)
+                {
+                    _configRepo?.SaveDesktopProfile(updatedProfile);
+                    _profileManager?.RefreshDesktopProfile(updatedProfile);
+                }
+                ShowDebugger();
+                return;
+            }
+
             if (updatedProfile != null)
             {
                 _configPanel.UpdateCurrentGameProfile(updatedProfile);
@@ -926,6 +1032,13 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void ShowGameConfigFromProfileEditor()
         {
+            if (_isEditingDesktopProfile)
+            {
+                _isEditingDesktopProfile = false;
+                ShowDebugger();
+                return;
+            }
+
             _viewMode = ContentViewMode.GameConfig;
             _profileEditor.Visible = false;
             _bindingCapture.Visible = false;
