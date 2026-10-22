@@ -59,12 +59,13 @@ O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Stea
 - [x] Fase 2 dos Perfis: Tela do Editor Visual de Perfil (`GameProfileEditorControl`) com diagrama do controle e slots
 - [x] Fase 3 dos Perfis: Tela de Escolha de Edição & Captura Física de Combos
 - [x] Fase 4 dos Perfis: Seletor Visual em 3 Abas (`Teclado` | `Mouse` | `Sistema & Especial`)
-- [x] **Suporte Nativo a Steam Deck no Windows (Fases 1 a 4):**
+- [x] **Suporte Nativo a Steam Deck no Windows (Fases 1 a 4 Concluídas):**
   - [x] Identificação de hardware Valve (Jupiter / Galileo).
   - [x] Onboarding amigável na área de conteúdo e instalação silenciosa do driver virtual ViGEmBus.
   - [x] Captura direta USB HID, desativação/reativação do Lizard Mode e emulação de Xbox 360 virtual.
-  - [x] Representação visual modular de Handheld (Visual Debugger & Editor de Perfis com trackpads e linha de botões traseiros L4/L5/R4/R5).
-  - [x] Remapeamento de hardware em nível de driver para substituição de botões físicos defeituosos.
+  - [x] Visual Debugger Handheld na Home (trackpads ao vivo e linha de botões traseiros L4/L5/R5/R4) & Remapeamento de hardware no driver.
+- [ ] **Fase 5 (Steam Deck):** Reestruturação da Tela de Mapping para Controles Handheld (botões traseiros e placeholders para trackpads).
+- [ ] **Fase 6 (Steam Deck):** Configuração dos Trackpads Expandida (brainstorming dedicado).
 - [ ] **Toggle de Múltiplas Instâncias por Jogo (`Permitir Múltiplas Instâncias`):**
   - Adicionar no `GameConfigPanel` um botão toggle idêntico ao do Input (`[ (●) PERMITIR MÚLTIPLAS INSTÂNCIAS / (○) INSTÂNCIA ÚNICA (Padrão) ]`).
   - Se estiver em **Instância Única (Desativado - Padrão)**: ao acionar `[A] INICIAR`, caso o executável principal já esteja em execução, em vez de abrir outro processo, o app traz a janela do jogo já existente para primeiro plano e oculta a interface do Companion.

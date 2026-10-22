@@ -14,8 +14,9 @@ Para transformá-lo em um controle de console transparente e de alta performance
 1. **Identificação de Hardware:** Detectar se a máquina anfitriã é um Steam Deck (LCD ou OLED) via WMI (`Win32_ComputerSystem` / `Win32_BaseBoard`).
 2. **Onboarding & Driver Virtual ViGEmBus:** Verificar se o driver `ViGEmBus` está instalado e ativo no sistema. Se não estiver, apresentar um aviso amigável na área de conteúdo (sem popups intrusivos) com botão de instalação silenciosa em segundo plano.
 3. **Serviço de Entrada Direta HID & Gamepad Virtual:** Conectar diretamente ao dispositivo USB HID (`0x28DE:0x1205`), desativar o Lizard Mode via relatórios de recurso (*feature reports*), ler pacotes brutos de 64 bytes em alta taxa e alimentar um Gamepad Virtual Xbox 360 no Windows usando `ViGEmClient`. Ao fechar ou pausar o companion, reativar o Lizard Mode para manter a navegação padrão do Windows.
-4. **Representação Visual de Handheld Completo:** Adaptar o `GamepadVisualDebugger` (tela inicial) e o `GameProfileEditorControl` (editor de mapeamento de perfis) para exibir a silhueta de um Handheld com tela central, dual trackpads e a linha horizontal unificada de botões traseiros (`[ L4 ] [ L5 ]   [ R5 ] [ R4 ]`), comutando automaticamente para o gamepad clássico quando um controle padrão for selecionado.
-5. **Remap de Hardware em Nível de Driver:** Permitir substituição direta de botões (ex: contornar um `L1` físico quebrado remapeando-o para o `L4`), funcionando instantaneamente tanto em jogos que leem o XInput/ViGEm quanto no motor de atalhos e combos do Companion.
+4. **Representação Visual do Visual Debugger (Tela Inicial) & Remap de Hardware:** Silhueta de Handheld no Visual Debugger com tela, dual trackpads vivos e botões traseiros (`[ L4 ] [ L5 ]   [ R5 ] [ R4 ]`), com remap em nível de driver para botões defeituosos (ex: L4 -> L1).
+5. **Reestruturação da Tela de Mapping para Handheld:** Reorganizar a tela de configuração de controles (`GameProfileEditorControl`) para acomodar os novos controles, botões traseiros no rodapé e placeholders para os trackpads, mantendo comutação para gamepad padrão.
+6. **Configuração Expandida dos Trackpads:** Brainstorming e especificação dedicada.
 
 ---
 
@@ -43,40 +44,37 @@ Para transformá-lo em um controle de console transparente e de alta performance
 * **Tarefas Concluídas:**
   1. `VirtualXbox360Controller`: Conexão, desconexão e despacho de relatórios do virtual Xbox 360 via `ViGEmClient`.
   2. `SteamDeckInputPacket`: Decodificação completa dos botões (ABXY, D-Pad, L1/R1, L2/R2, L3/R3, L4/L5/R4/R5, View/Menu/Steam/QuickAccess) e analógicos/trackpads.
-  3. `SteamDeckControllerService`: Thread de alta prioridade com desativação do Lizard Mode via feature reports (`0x87, 0x03, 0x08, 0x07` e `0x81, 0x00`) e restauração limpa ao fechar.
+  3. `SteamDeckControllerService`: Thread de alta prioridade com desativação do Lizard Mode via feature reports e restauração limpa ao fechar.
   4. `SteamDeckManager`: Ciclo de vida global unificado no companion.
 
 ---
 
-### FASE 4: Representação Visual de Handheld (Visual Debugger & Editor de Mapeamento) & Remap de Hardware ✅ (CONCLUÍDO)
-* **Objetivo:** Transformar a interface visual de demonstração e de mapeamento para exibir o design de um **Handheld completo** quando o controle ativo for o Steam Deck (ou portátil compatível), com trackpads e linha unificada de botões traseiros (`L4, L5, R4, R5`), comutando automaticamente para o diagrama clássico de Gamepad quando for conectado um controle comum, e suportar remapeamento de hardware em nível de driver.
+### FASE 4: Visual Debugger Handheld na Tela Inicial & Remap de Hardware no Driver ✅ (CONCLUÍDO)
+* **Objetivo:** Atualizar o demonstrador ao vivo (`GamepadVisualDebugger`) para a silhueta de Handheld e viabilizar a substituição direta de botões físicos via driver.
 * **Tarefas Concluídas:**
-  1. **Detecção Dinâmica do Modo Visual (`ControllerVisualMode`):**
-     - Enum `ControllerVisualMode`: `StandardGamepad`, `HandheldSteamDeck`.
-     - `ControllerVisualModeResolver.Resolve(selectedSlot)` comuta automaticamente: se for Steam Deck ativo e slot automático/0 ➔ `HandheldSteamDeck`; se selecionado slot de controle externo ➔ `StandardGamepad`.
-  2. **Atualização do `GamepadVisualDebugger`:**
-     - Renderização da carcaça do handheld com bordas arredondadas ergonômicas e tela central com branding "STEAM DECK".
-     - Dois trackpads interativos com visualização em tempo real de toque analógico (`TouchDot`) e clique (`Press`).
-     - Linha horizontal única de botões traseiros no rodapé: `[ L4 ] [ L5 ]   [ R5 ] [ R4 ]` com iluminação em tempo real ao pressionar.
-  3. **Atualização do `GameProfileEditorControl`:**
-     - Diagrama central desenha o handheld estilizado com trackpads e carcaça quando em modo `HandheldSteamDeck`.
-     - Linha horizontal de cards interativos para os 4 botões traseiros (`L4, L5, R5, R4`) navegáveis com D-Pad e clicáveis com mouse.
-     - Suporte a mapeamento de teclas/mouse (`InputAction`) e exibição de badge `[HW: {btn}]` quando configurado remap de hardware.
-  4. **Remap de Hardware em Nível de Driver (`SteamDeckControllerService`):**
-     - Propriedades `L4Remap`, `L5Remap`, `R4Remap`, `R5Remap` (`SteamDeckHardwareRemap`).
-     - Aplica substituição de botões físicos (ex: `L4 -> LeftShoulder` para contornar L1 quebrado) sintetizando no relatório enviado ao ViGEm e emitido para o Windows.
-  5. **Integração com `GamingProfile`:**
-     - Botões `L4, L5, R4, R5` avaliados em cada frame para acionar atalhos de perfis customizados por jogo.
-  6. **Persistência via `ConfigRepository`:**
-     - Salva e carrega configurações de remapeamento de hardware em `Config.ini` sob a seção `[SteamDeck]`.
-  7. **Testes Unitários:**
-     - Adicionada suíte `SteamDeckVisualAndHardwareRemapTests` cobrindo o resolvedor dinâmico, remapeamento físico de hardware, visibilidade e manipulação dos slots traseiros no editor, isolamento do botão Quick Access (...) e persistência de configuração. Total de testes da solução elevado para 189 (100% aprovados).
+  1. `ControllerVisualMode` e `ControllerVisualModeResolver`: Comutação dinâmica entre `HandheldSteamDeck` e `StandardGamepad`.
+  2. `GamepadVisualDebugger`: Carcaça ergonômica de Handheld com tela central, dual trackpads vivos (toque + clique) e linha horizontal de botões traseiros (`[ L4 ] [ L5 ]   [ R5 ] [ R4 ]`).
+  3. Isolamento completo de hardware entre o botão `STEAM` (Guide) e o botão `•••` (Quick Access).
+  4. Remap de hardware no driver (`SteamDeckControllerService`): `L4Remap`, `L5Remap`, `R4Remap`, `R5Remap` persistidos em `Config.ini`.
 
 ---
 
-## 🛑 Validação da Fase 4
-1. **Visual Debugger Handheld:** Tela inicial do app no Steam Deck renderiza o layout de console portátil com tela, analógicos, D-Pad, ABXY, trackpads e os botões traseiros `[ L4 ] [ L5 ]   [ R5 ] [ R4 ]`.
-2. **Feedback em Tempo Real:** Ao tocar ou pressionar os trackpads ou os botões traseiros físicos, a interface reage e acende instantaneamente.
-3. **Editor de Perfis:** Abre perfis de jogos exibindo o layout Handheld e a linha de botões traseiros interativos, permitindo navegação via D-Pad ou clique para mapeamento.
-4. **Remap de Hardware para L1 Quebrado:** Configurando `L4HardwareRemap = LeftShoulder`, ao pressionar L4 o driver emite `LeftShoulder` (LB/L1) para qualquer jogo do Windows.
-5. **Comutação Dinâmica:** Selecionando um controle externo no dropdown da sidebar, a interface alterna instantaneamente para o diagrama clássico de Gamepad.
+### FASE 5: Reestruturação da Tela de Mapping para Acomodar Controles Handheld 🚀 (EM ANDAMENTO)
+* **Objetivo:** Reorganizar a tela de configuração de controles (`GameProfileEditorControl`) para acomodar com elegância os novos controles Handheld:
+  1. **Correção de Bounds (`EnsureLogicalBoundsPopulated`):** Registrar formalmente os limites dos novos botões traseiros no dicionário de bounds para eliminar qualquer `KeyNotFoundException`.
+  2. **Reestruturação do Layout:** Reorganizar os cards e áreas da tela quando em modo `HandheldSteamDeck` para refletir o formato de console portátil (sticks superiores, D-Pad e face buttons, linha unificada inferior de botões traseiros `L4, L5, R5, R4`).
+  3. **Placeholders de Trackpads:** Inserir placeholders visuais/cards de reserva para os trackpads esquerdo e direito, preparando o terreno visual para a configuração expandida.
+  4. **Comutação Dinâmica:** Garantir que ao alternar para um controle tradicional, o layout retorne perfeitamente ao formato de Gamepad clássico.
+
+---
+
+### FASE 6: Configuração dos Trackpads Expandida 💡 (PLANEJADA)
+* **Observação:** Ao chegar nessa fase, iremos fazer um brainstorming focado exclusivamente nela para desenhar e implementar a melhor arquitetura de configuração dos trackpads (modos mouse, scroll, cliques e menus radiais).
+
+---
+
+## 🛑 Critérios de Aceite & Validação da Fase 5
+1. Abrir o Editor de Perfis de qualquer jogo no Steam Deck sem nenhum erro de exceção ou crash de dicionário.
+2. Visualizar a tela de mapping acomodando com clareza os novos botões traseiros e os placeholders dos trackpads.
+3. Navegar suavemente com o D-Pad até a linha de botões traseiros (`L4, L5, R5, R4`), mapear um botão e salvar com sucesso.
+4. Alternar o slot para controle comum e ver a tela de mapping voltar à distribuição clássica.
