@@ -345,7 +345,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         /// <summary>
         /// Emite um pulso háptico tátil nos atuadores LRA do Steam Deck (Neptune)
         /// utilizando o protocolo nativo de haptics da Valve (0xEA ID_TRIGGER_HAPTIC_CMD)
-        /// com disparo complementar via relatório 0x8F (ID_TRIGGER_HAPTIC_PULSE).
+        /// com fallback de segurança via relatório 0x8F (ID_TRIGGER_HAPTIC_PULSE).
         /// </summary>
         public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity, bool isClick = false)
         {
@@ -353,7 +353,6 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             if (_device == null || !_isRunning) return false;
 
             byte side = (byte)(isRightPad ? 0x02 : 0x01); // 0x01 = Left Pad, 0x02 = Right Pad
-            byte pad8F = (byte)(isRightPad ? 0x01 : 0x00);
 
             byte uiIntensity;
             sbyte dBGain;
@@ -416,6 +415,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             }
 
             // 1. Protocolo nativo Neptune 0xEA (Deck-specific MsgTriggerHaptic)
+            // Este é o protocolo oficial do Steam Deck (0x01 = Esquerdo, 0x02 = Direito).
             byte[] packetEA = new byte[65];
             packetEA[0] = 0x00; // Report ID
             packetEA[1] = 0xEA; // ID_TRIGGER_HAPTIC_CMD
@@ -430,8 +430,16 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             packetEA[10] = (byte)((durMs >> 8) & 0xFF);
 
             int resEA = SteamDeckHidNative.SendFeatureReport(_device, packetEA);
+            if (resEA > 0)
+            {
+                // Sucesso com o protocolo primário nativo do Steam Deck.
+                // Não envia o pacote 0x8F para evitar disparo duplo / acúmulo assimétrico de energia no atuador.
+                return true;
+            }
 
-            // 2. Protocolo complementar 0x8F (ID_TRIGGER_HAPTIC_PULSE universal Valve)
+            // 2. Fallback de contingência: protocolo legado 0x8F (ID_TRIGGER_HAPTIC_PULSE universal Valve)
+            // Apenas executado se 0xEA falhar. No driver oficial Valve hid-steam, 0x00 = Right e 0x01 = Left.
+            byte pad8F = (byte)(isRightPad ? 0x00 : 0x01);
             byte[] packet8F = new byte[65];
             packet8F[0] = 0x00;
             packet8F[1] = 0x8F;
@@ -447,7 +455,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
             int res8F = SteamDeckHidNative.SendFeatureReport(_device, packet8F);
 
-            return resEA > 0 || res8F > 0;
+            return res8F > 0;
         }
 
         public bool TriggerHapticNative(bool isRightPad, byte style, sbyte intensity)
@@ -468,7 +476,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             packet8F[0] = 0x00;
             packet8F[1] = 0x8F;
             packet8F[2] = 0x07;
-            packet8F[3] = (byte)(isRightPad ? 0x01 : 0x00);
+            packet8F[3] = (byte)(isRightPad ? 0x00 : 0x01); // Inversão correta legacy Valve (0x00 = Right, 0x01 = Left)
             packet8F[4] = (byte)(amplitude & 0xFF);
             packet8F[5] = (byte)((amplitude >> 8) & 0xFF);
             packet8F[6] = (byte)(period & 0xFF);

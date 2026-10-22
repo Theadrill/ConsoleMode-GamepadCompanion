@@ -154,3 +154,11 @@ flowchart LR
 ### 4. Resolução do Click & Drag no Trackpad Direito
 - **Problema:** Ao pressionar o trackpad direito para selecionar texto ou arrastar janelas, o cursor ficava congelado e quase não se movia devido à âncora de clique e ao amortecimento contínuo de 90% (`ClickStabilizationDamping = 0.10f`) atuando durante todo o tempo de pressão.
 - **Solução:** Implementação do estado `_isClickDragActive`. A âncora e o amortecimento atuam apenas na deformação inicial da polpa do polegar para garantir que o clique estático e o duplo clique não errem o alvo. Assim que o movimento intencional ultrapassa o limiar de quebra (`DoubleClickBreakDistance = 120f`), o amortecimento é 100% desativado e o cursor passa a responder com velocidade normal e fluida (1.0x).
+
+### 5. Resolução da Disparidade de Intensidade Háptica entre os Trackpads (Esquerdo Suave vs Direito Dobrado)
+- **Problema:** No nível `LOW` (ou qualquer intensidade), o trackpad direito apresentava uma resposta física de quase o dobro de força em relação ao esquerdo.
+- **Causa Raiz:** O método `TriggerHaptic` realizava envio concorrente de dois pacotes HID para cada evento háptico: o relatório nativo Neptune `0xEA` (`MsgTriggerHaptic`) e o relatório universal Valve `0x8F` (`ID_TRIGGER_HAPTIC_PULSE`). No pacote `0x8F`, o código utilizava `pad8F = (byte)(isRightPad ? 0x01 : 0x00)`. Como o firmware do Steam Deck rejeitava o índice `0x00` como atuador válido mas aceitava `0x01`, o trackpad direito recebia o impacto de ambos os comandos (`0xEA` + `0x8F`), dobrando a energia mecânica entregue ao atuador LRA direito, enquanto o esquerdo recebia apenas o comando nativo `0xEA`.
+- **Solução:**
+  1. Uso prioritário e exclusivo do relatório nativo Neptune `0xEA` (`resEA > 0`), retornando imediatamente após o sucesso sem enviar o pacote `0x8F`.
+  2. O pacote `0x8F` agora é estritamente mantido como fallback de emergência caso o `0xEA` falhe, com o índice de atuadores corrigido conforme o driver Linux oficial da Valve (`hid-steam.c`: `pad8F = (byte)(isRightPad ? 0x00 : 0x01)`).
+  3. Resultado: Simetria física absoluta (1:1) de intensidade entre os trackpads esquerdo e direito em todos os níveis (`Low`, `Medium`, `High`), tanto em rotação quanto em cliques mecânicos de down e up.
