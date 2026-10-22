@@ -97,6 +97,7 @@ Baseado nas configurações de controle validadas:
 - [ ] **Editor Visual de Perfis de Controle (Fases 2, 3 e 4):** Diagrama do controle, captura de combos físicos e seletor em 3 abas (Teclado / Mouse / Sistema).
 - [ ] **Toggle de Múltiplas Instâncias por Jogo:** Opção no `GameConfigPanel` com toggle idêntico ao do input (`Permitir Múltiplas Instâncias`). Por padrão desativado: ao clicar em Iniciar com o jogo já rodando, traz a janela existente para primeiro plano e esconde a tela de configurações.
 - [ ] **Overlay Estilo Steam:** Interface de overlay transparente/imersiva acionada pelo botão Guide/Home do controle, permitindo ajustar configurações rápidas por cima do jogo sem perder o contexto visual.
+- [ ] **Explorer Customizado Interno do Aplicativo:** Navegador e seletor de arquivos e diretórios embutido nativamente, 100% navegável por gamepad (couch gaming), eliminando o diálogo do Windows Explorer ao escolher executáveis (`.exe`), imagens e caminhos de jogos.
 - [ ] **Perfil Desktop (Uso no Windows):** Mapeamento dedicado para navegar e usar o computador normalmente pelo controle quando o WoW não estiver em foco (movimentação de mouse livre no stick esquerdo/direito, cliques esquerdo/direito nos gatilhos/botões frontais, scroll e atalhos multimídia).
 - [ ] **Sistema de Páginas / Camadas por Modificador:** Alternância dinâmica de páginas de mapeamento dentro do perfil de jogo (ex: Combate vs Menus) com sensibilidade própria de mouse.
 

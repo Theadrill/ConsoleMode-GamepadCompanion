@@ -64,8 +64,11 @@ O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Stea
   - [x] Onboarding amigável na área de conteúdo e instalação silenciosa do driver virtual ViGEmBus.
   - [x] Captura direta USB HID, desativação/reativação do Lizard Mode e emulação de Xbox 360 virtual.
   - [x] Visual Debugger Handheld na Home (trackpads ao vivo e linha de botões traseiros L4/L5/R5/R4) & Remapeamento de hardware no driver.
-- [ ] **Fase 5 (Steam Deck):** Reestruturação da Tela de Mapping para Controles Handheld (botões traseiros e placeholders para trackpads).
+- [x] **Fase 5 (Steam Deck):** Reestruturação da Tela de Mapping para Controles Handheld (botões traseiros e placeholders para trackpads).
 - [ ] **Fase 6 (Steam Deck):** Configuração dos Trackpads Expandida (brainstorming dedicado).
+- [ ] **Explorer Customizado Interno do Aplicativo:**
+  - Navegador e gerenciador de arquivos e pastas nativo embutido no aplicativo com navegação 100% Couch Gaming via gamepad (D-Pad, botões [A] entrar/selecionar, [B] voltar nível de pasta, [X] buscar/filtrar).
+  - Permite localizar e selecionar executáveis (`.exe`) de jogos, diretórios de instalação e artes/imagens personalizadas diretamente pela TV ou tela do Steam Deck, sem depender do Windows Explorer convencional.
 - [ ] **Toggle de Múltiplas Instâncias por Jogo (`Permitir Múltiplas Instâncias`):**
   - Adicionar no `GameConfigPanel` um botão toggle idêntico ao do Input (`[ (●) PERMITIR MÚLTIPLAS INSTÂNCIAS / (○) INSTÂNCIA ÚNICA (Padrão) ]`).
   - Se estiver em **Instância Única (Desativado - Padrão)**: ao acionar `[A] INICIAR`, caso o executável principal já esteja em execução, em vez de abrir outro processo, o app traz a janela do jogo já existente para primeiro plano e oculta a interface do Companion.
