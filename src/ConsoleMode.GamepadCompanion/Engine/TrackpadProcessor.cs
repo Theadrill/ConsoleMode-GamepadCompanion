@@ -33,10 +33,10 @@ namespace ConsoleMode.GamepadCompanion.Engine
             Right
         }
 
-        private const float DeadzoneThreshold = 28f;
+        private const float DeadzoneThreshold = 12f;
         private const float MinFlickSpeed = 40f;
         private const float TrackballHapticStep = 16f;
-        private const float ScrollStep = 650f;
+        private const float ScrollStep = 1300f;
 
         public bool IsRightPad { get; }
 
@@ -214,8 +214,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 // Elimina ruídos elétricos/capacitivos em repouso sem degrau de descontinuidade ("jump/pulando").
                 if (deltaDist <= DeadzoneThreshold)
                 {
-                    _smoothDx *= 0.70f;
-                    _smoothDy *= 0.70f;
+                    _smoothDx *= 0.50f;
+                    _smoothDy *= 0.50f;
                     if (Math.Abs(_smoothDx) < 0.05f) _smoothDx = 0f;
                     if (Math.Abs(_smoothDy) < 0.05f) _smoothDy = 0f;
                     return;
@@ -227,7 +227,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
                 // 2. Fator de sensibilidade calibrado para ergonomia natural no Steam Deck
                 float sens = Math.Max(1, config.Sensitivity);
-                float sensFactor = (sens / 50f) * 0.0055f;
+                float sensFactor = (sens / 50f) * 0.0058f;
 
                 // 3. Curva de aceleração natural: linear (1.0x) em baixa/média velocidade para precisão cirúrgica;
                 // curva suave limitada a no máximo 1.65x durante varreduras rápidas.
@@ -243,17 +243,17 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 float targetDy = -cleanDy * sensFactor * accel; // Deck Y positivo é para cima; tela Windows Y positivo é para baixo.
 
                 // 4. Filtro Passa-Baixa Dinâmico (EMA - Exponential Moving Average):
-                // Amortecimento aveludado anti-tremor em micro-mira/baixa velocidade (0.24 a 0.38)
-                // que absorve 100% da trepidação involuntária da mão sem criar lag perceptível,
+                // Resposta linear ágil em baixa velocidade (0.52 a 0.68) para pousar com extrema facilidade
+                // em abas de navegadores e ícones pequenos sem exigir esforço excessivo no polegar,
                 // escalando até 0.85 em varreduras e flicks rápidos.
                 float alpha;
-                if (speed < 12000f)
+                if (speed < 15000f)
                 {
-                    alpha = 0.24f + (speed / 12000f) * 0.14f;
+                    alpha = 0.52f + (speed / 15000f) * 0.16f;
                 }
                 else
                 {
-                    alpha = Math.Min(0.85f, 0.38f + ((speed - 12000f) / 30000f) * 0.47f);
+                    alpha = Math.Min(0.85f, 0.68f + ((speed - 15000f) / 30000f) * 0.17f);
                 }
 
                 _smoothDx = (_smoothDx * (1f - alpha)) + (targetDx * alpha);
