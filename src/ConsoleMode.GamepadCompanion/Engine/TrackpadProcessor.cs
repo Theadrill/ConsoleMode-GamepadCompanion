@@ -17,6 +17,57 @@ namespace ConsoleMode.GamepadCompanion.Engine
         public TrackpadHapticIntensity HapticIntensity;
     }
 
+    /*
+     * ========================================================================================================
+     * GUIA RÁPIDO DE CALIBRAÇÃO ERGONÔMICA (FINE-TUNING DOS TRACKPADS)
+     * ========================================================================================================
+     *
+     * TABELA DE REFERÊNCIA:
+     * +-------------------------------+---------------+----------------------------------------------------------+
+     * | PARÂMETRO                     | VALOR PADRÃO  | EFEITO PRÁTICO AO AUMENTAR / DIMINUIR                    |
+     * +-------------------------------+---------------+----------------------------------------------------------+
+     * | DeadzoneThreshold             | 10f           | [+] Filtra mais tremor, mas exige empurrão inicial maior |
+     * |                               |               | [-] Mira começa com menor toque, mas pode tremer parado  |
+     * | BaseSensitivityFactor         | 0.0058f       | [+] Cursor viaja mais pixels na tela com mesmo movimento |
+     * |                               |               | [-] Cursor fica mais lento e exige mais passadas         |
+     * | LowSpeedAlpha                 | 0.40f         | [+] Mais direto/instantâneo em miras lentas              |
+     * |                               |               | [-] Mais suave/pesado (estilo estabilizador de caneta)   |
+     * | HighSpeedAlphaMax             | 0.85f         | [+] Resposta 1:1 sem atraso em gestos rápidos e flicks   |
+     * |                               |               | [-] Sensação de arrasto ou atraso em movimentos rápidos  |
+     * | LowSpeedThreshold             | 15000f        | [+] Estende a zona de mira fina para movimentos médios   |
+     * |                               |               | [-] Entra na zona rápida mais cedo                       |
+     * | AccelStartSpeed               | 25000f        | [+] Precisa de movimento mais brusco para acelerar       |
+     * |                               |               | [-] Acelera o cursor com movimentos mais moderados       |
+     * | MaxAccelGain                  | 1.65f         | [+] Flicks rápidos jogam o cursor bem mais longe         |
+     * |                               |               | [-] Movimento mais linear e previsível em alta velocidade|
+     * | ClickPressurePrepThreshold    | 8500          | [+] Amortece a mira só no finalzinho do aperto           |
+     * |                               |               | [-] Amortece a mira mais cedo ao encostar com peso       |
+     * | ClickStabilizationDamping     | 0.15f         | [+] Permite mais movimento enquanto clica                |
+     * |                               |               | [-] Trava o cursor como uma rocha durante o clique       |
+     * | MinStrokeDistanceForInertia   | 700f          | [+] Exige varredura longa no pad para a trackball rolar  |
+     * |                               |               | [-] Movimentos curtos já armam a inércia                 |
+     * | MinFlickSpeed                 | 180f          | [+] Exige soltar o dedo muito rápido para inércia        |
+     * |                               |               | [-] Qualquer soltura moderada continua rolando           |
+     * | ScrollStep                    | 1600f         | [+] Rolagem mais lenta e dentes de catraca espaçados     |
+     * |                               |               | [-] Rolagem mais rápida, passa mais linhas por passada   |
+     * | TrackballHapticStep           | 16f           | [+] Menos cliques hápticos por rotação da trackball      |
+     * |                               |               | [-] Mais vibrações táteis contínuas na mão               |
+     * +-------------------------------+---------------+----------------------------------------------------------+
+     *
+     * EXEMPLOS DE CENÁRIOS COMUNS:
+     * - "Quero que a rolagem fique mais rápida":
+     *     Diminua ScrollStep (ex: de 1600f para 1200f).
+     * - "Ao clicar, o cursor ainda mexe um pouquinho":
+     *     Diminua ClickStabilizationDamping (ex: de 0.15f para 0.08f) ou ClickPressurePrepThreshold (ex: para 7500).
+     * - "Quero dar flick de ponta a ponta na tela em um golpe só":
+     *     Aumente MaxAccelGain (ex: de 1.65f para 2.0f) ou diminua AccelStartSpeed (ex: para 20000f).
+     * - "A inércia ainda está escapando em movimentos pequenos":
+     *     Aumente MinStrokeDistanceForInertia (ex: de 700f para 900f).
+     * - "Sinto que o cursor demora a começar a mover na mira fina":
+     *     Diminua DeadzoneThreshold (ex: de 10f para 8f).
+     * ========================================================================================================
+     */
+
     /// <summary>
     /// Central de parâmetros e calibração fina (Fine-Tuning) para a física dos trackpads.
     /// Reúne todas as variáveis globais de ajuste ergonômico no início do arquivo para rápida iteração.
