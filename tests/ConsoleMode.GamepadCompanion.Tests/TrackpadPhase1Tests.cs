@@ -474,17 +474,71 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // Normal: toque leve sem aperto (pressão 3000)
             var normalOut = normalProc.Process(isTouch: true, isPress: false, rawX: 1080, rawY: 1000, rawPressure: 3000, config: config, dt: 0.008f);
 
-            // Clicando: aperto firme (pressão 12000 >= limiar 11000)
+            // Clicando: aperto firme (pressão 12000 >= limiar 11000). A âncora de clique trava em zero absoluto!
             var clickingOut = clickingProc.Process(isTouch: true, isPress: false, rawX: 1080, rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
 
-            Assert.True(clickingOut.MouseDx > 0f);
-            // Deve amortecer o movimento em ~85% (MouseDx do clique deve ser ~15% do normal)
-            Assert.True(clickingOut.MouseDx <= normalOut.MouseDx * 0.25f, "Estabilização anti-squash deve amortecer o deslocamento no clique");
+            Assert.True(normalOut.MouseDx > 0f);
+            Assert.Equal(0f, clickingOut.MouseDx); // Travado pela âncora de clique (0 px)
 
             // Ao soltar o polegar após o clique, NÃO deve haver inércia residual ("estilingada")
             var releaseCoast = clickingProc.Process(isTouch: false, isPress: false, rawX: 1080, rawY: 1000, rawPressure: 0, config: config, dt: 0.016f);
             Assert.Equal(0f, releaseCoast.MouseDx);
             Assert.Equal(0f, releaseCoast.MouseDy);
+        }
+
+        [Fact]
+        public void TrackpadProcessor_DoubleClickAnchor_KeepsZeroDisplacementAcrossTapAndReleaseWindow()
+        {
+            var proc = new TrackpadProcessor(isRightPad: true);
+            var config = new TrackpadConfig
+            {
+                Mode = TrackpadMode.MouseTrackball,
+                Sensitivity = 50,
+                ClickPressureThreshold = 11000,
+                PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) }
+            };
+
+            // 1. Toque inicial em (1000, 1000)
+            proc.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 3000, config: config, dt: 0.008f);
+
+            // 2. Primeiro Clique afundado: (1030, 1000), pressão 12000 -> arma âncora de duplo clique (350ms)
+            var click1 = proc.Process(isTouch: true, isPress: false, rawX: 1030, rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
+            Assert.Equal(0f, click1.MouseDx);
+            Assert.Single(click1.Actions); // Clique esquerdo disparado
+
+            // 3. Alívio rápido do polegar entre os dois cliques (100ms depois)
+            var releaseBetween = proc.Process(isTouch: false, isPress: false, rawX: 1030, rawY: 1000, rawPressure: 0, config: config, dt: 0.100f);
+            Assert.Equal(0f, releaseBetween.MouseDx);
+            Assert.Empty(releaseBetween.Actions);
+
+            // 4. Segundo toque em posição ligeiramente deslocada pelo tremor (1050, 1000) - âncora ainda ativa!
+            proc.Process(isTouch: true, isPress: false, rawX: 1050, rawY: 1000, rawPressure: 4000, config: config, dt: 0.008f);
+
+            // 5. Segundo Clique afundado (1060, 1000), pressão 12500:
+            var click2 = proc.Process(isTouch: true, isPress: false, rawX: 1060, rawY: 1000, rawPressure: 12500, config: config, dt: 0.008f);
+            Assert.Equal(0f, click2.MouseDx); // Zero absoluto de deslocamento: garante duplo clique perfeito no Windows!
+            Assert.Single(click2.Actions);
+        }
+
+        [Fact]
+        public void TrackpadProcessor_DoubleClickAnchor_BreaksWhenDraggingBeyondThreshold()
+        {
+            var proc = new TrackpadProcessor(isRightPad: true);
+            var config = new TrackpadConfig { Mode = TrackpadMode.MouseTrackball, Sensitivity = 50, ClickPressureThreshold = 11000 };
+
+            // 1. Âncora inicial
+            proc.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 3000, config: config, dt: 0.008f);
+
+            // 2. Clique afundado -> arma âncora
+            proc.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
+
+            // 3. Movimento inicial de 60 unidades (< 140 limiar de quebra): travado em zero
+            var locked = proc.Process(isTouch: true, isPress: false, rawX: 1060, rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
+            Assert.Equal(0f, locked.MouseDx);
+
+            // 4. Usuário continua arrastando firme (+120 unidades, total 180 > 140 limiar): quebra a âncora para Click & Drag!
+            var dragging = proc.Process(isTouch: true, isPress: false, rawX: 1180, rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
+            Assert.True(dragging.MouseDx > 0f, "Deve quebrar a âncora e arrastar quando passar do limiar de quebra");
         }
 
         [Fact]
