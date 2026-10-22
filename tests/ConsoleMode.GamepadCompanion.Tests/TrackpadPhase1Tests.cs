@@ -329,22 +329,20 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
 
-            // Simula passada para cima ao longo de 3 frames físicos realistas (< MaxPhysicalDeltaPerFrame)
-            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 3000, config: config, dt: 0.008f);
-            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 6000, config: config, dt: 0.008f);
-            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 9000, config: config, dt: 0.008f);
+            // Simula passada para cima ao longo de frames físicos realistas (< MaxPhysicalDeltaPerFrame)
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 2000, config: config, dt: 0.008f);
+            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 5000, config: config, dt: 0.008f);
 
             Assert.True(scrollUp.WheelDelta < 0, "Rolagem natural: deslizar p/ cima deve rolar p/ baixo (WheelDelta < 0)");
             Assert.True(scrollUp.TriggerHaptic, "Deve disparar pulso háptico de catraca ao emitir notch");
 
             // Solta o dedo antes de inverter a direção (gesto humano natural)
-            processor.Process(isTouch: false, isPress: false, rawX: 0, rawY: 9000, config: config, dt: 0.016f);
+            processor.Process(isTouch: false, isPress: false, rawX: 0, rawY: 5000, config: config, dt: 0.016f);
 
             // Simula passada para baixo ao longo de frames físicos
             processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
-            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -3000, config: config, dt: 0.008f);
-            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -6000, config: config, dt: 0.008f);
-            var scrollDown = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -9000, config: config, dt: 0.008f);
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -2000, config: config, dt: 0.008f);
+            var scrollDown = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -5000, config: config, dt: 0.008f);
 
             Assert.True(scrollDown.WheelDelta > 0, "Rolagem natural: deslizar p/ baixo deve rolar p/ cima (WheelDelta > 0)");
         }
@@ -363,9 +361,8 @@ namespace ConsoleMode.GamepadCompanion.Tests
             processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
 
             // Simula passada para cima ao longo de frames (< MaxPhysicalDeltaPerFrame)
-            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 3000, config: config, dt: 0.008f);
-            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 6000, config: config, dt: 0.008f);
-            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 9000, config: config, dt: 0.008f);
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 2000, config: config, dt: 0.008f);
+            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 5000, config: config, dt: 0.008f);
             Assert.True(scrollUp.WheelDelta > 0);
         }
 
@@ -383,20 +380,21 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // Toque inicial
             processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
 
-            // Frame 1: passada que ultrapassa ScrollStep (8000f)
-            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 5000, config: config, dt: 0.008f);
-            var out1 = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 10000, config: config, dt: 0.008f);
+            // Frame 1: acumula antes de atingir ScrollStep (4000f)
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 2500, config: config, dt: 0.008f);
+            // Frame 2: ultrapassa ScrollStep (2500 + 3000 = 5500 >= 4000)
+            var out1 = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 5500, config: config, dt: 0.008f);
 
             // Deve emitir EXATAMENTE 1 notch (-120), nunca múltiplos notches em rajada
             Assert.Equal(-120, out1.WheelDelta);
 
             // Frame imediato seguinte (apenas 8ms após, enquanto cooldown de 80ms ainda está ativo):
-            var outImmediate = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 15000, config: config, dt: 0.008f);
+            var outImmediate = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 10500, config: config, dt: 0.008f);
             Assert.Equal(0, outImmediate.WheelDelta);
 
             // Após o cooldown expirar (avança 85ms no total e acumula outro deslocamento completo de ScrollStep):
-            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 19000, config: config, dt: 0.045f);
-            var outAfterCooldown = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 23000, config: config, dt: 0.045f);
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 13000, config: config, dt: 0.045f);
+            var outAfterCooldown = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 18000, config: config, dt: 0.045f);
             Assert.Equal(-120, outAfterCooldown.WheelDelta);
         }
 

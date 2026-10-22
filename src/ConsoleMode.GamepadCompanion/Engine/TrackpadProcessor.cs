@@ -169,7 +169,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         // 7. ROLAGEM & HÁPTICOS
         // ==========================================
         /// <summary>Deslocamento necessário no pad esquerdo para emitir 1 notch de rolagem de roda do mouse.</summary>
-        public static float ScrollStep = 8000f;
+        public static float ScrollStep = 4000f;
 
         /// <summary>Intervalo mínimo (em segundos) entre emissões consecutivas de notches de scroll (cooldown mecânico anti-rajada de ~12 notches/s máx).</summary>
         public static float ScrollMinIntervalSeconds = 0.080f;
