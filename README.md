@@ -47,3 +47,12 @@ Desenvolvido em C# (.NET Framework 4.8) para Windows, leve, 100% portátil e com
 - [ ] Avaliar expansão de comandos especiais do sistema na Aba 3
 - [ ] Overlay estilo Steam acionado pelo botão central do controle (Guide/Home)
 - [ ] Perfil Desktop para usar o gamepad no Windows normalmente
+- [ ] **Suporte Nativo a Steam Deck no Windows:**
+  - Identificação de hardware Valve (Jupiter / Galileo).
+  - Modal na área de conteúdo para instalação e checagem do driver virtual ViGEmBus.
+  - Driver de hardware HID para captura nativa, desativação de Lizard Mode e suporte aos botões traseiros (L4, L5, R4, R5) e trackpads.
+
+## 🙏 Créditos & Agradecimentos
+- **[ayufan / Steam Deck Tools](https://github.com/ayufan/steam-deck-tools):** Pelo trabalho pioneiro e referência técnica de engenharia reversa do protocolo USB HID do controle Neptune da Valve e controle do Lizard Mode.
+- **[Nefarius Software Solutions](https://github.com/nefarius) (Benjamin Höglinger-Stelzer):** Pelo desenvolvimento do driver de kernel **ViGEmBus** e do client .NET, possibilitando a emulação de gamepads virtuais no Windows.
+
