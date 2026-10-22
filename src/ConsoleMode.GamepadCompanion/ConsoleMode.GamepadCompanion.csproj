@@ -20,6 +20,9 @@
     <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Web.Extensions" />
+    <Content Include="redist\ViGEmBus_Setup.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

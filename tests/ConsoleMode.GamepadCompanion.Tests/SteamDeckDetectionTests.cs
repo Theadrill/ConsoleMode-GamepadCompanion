@@ -80,5 +80,28 @@ namespace ConsoleMode.GamepadCompanion.Tests
                 Assert.False(service.IsDriverInstalledAndActive);
             }
         }
+
+        [Fact]
+        public void ViGEmBusInstaller_ResolveInstallerPath_ShouldLocateOrReturnNull()
+        {
+            string path = ViGEmBusInstaller.ResolveInstallerPath();
+            if (path != null)
+            {
+                Assert.True(System.IO.File.Exists(path));
+                Assert.Contains("ViGEmBus_Setup.exe", path);
+            }
+        }
+
+        [Fact]
+        public void SteamDeckSetupControl_InstantiationAndRefresh_ShouldNotThrow()
+        {
+            using (var control = new UI.Controls.SteamDeckSetupControl())
+            {
+                control.Size = new System.Drawing.Size(1000, 600);
+                control.RefreshState();
+
+                Assert.True(control.Controls.Count > 0);
+            }
+        }
     }
 }

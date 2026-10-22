@@ -27,7 +27,8 @@ namespace ConsoleMode.GamepadCompanion.UI
             GameProfileEditor,
             InputBindingCapture,
             InputVisualSelector,
-            SteamGridDb
+            SteamGridDb,
+            SteamDeckSetup
         }
 
         private readonly IGamepadService _gamepad;
@@ -54,6 +55,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly InputBindingCaptureControl _bindingCapture = new InputBindingCaptureControl();
         private readonly InputVisualSelectorControl _visualSelector = new InputVisualSelectorControl();
         private readonly SteamGridDbBrowserControl _steamGridBrowser = new SteamGridDbBrowserControl();
+        private readonly SteamDeckSetupControl _steamDeckSetup = new SteamDeckSetupControl();
         private readonly Engine.Services.SteamGridDbService _steamGridService = new Engine.Services.SteamGridDbService();
         private readonly Engine.Services.HeroBackgroundService _heroBackgroundService = new Engine.Services.HeroBackgroundService();
         private readonly FocusOverlayPanel _focusOverlay = new FocusOverlayPanel();
@@ -128,6 +130,11 @@ namespace ConsoleMode.GamepadCompanion.UI
             BuildLayout();
             RefreshSlotCombo(force: true);
             RefreshGamesList();
+
+            if (Hardware.SteamDeckDetector.IsSteamDeck && !Hardware.ViGEmBusService.Instance.IsDriverInstalledAndActive)
+            {
+                ShowSteamDeckSetup();
+            }
 
             _refreshTimer.Tick += (s, e) => Refresh_Tick();
             _refreshTimer.Start();
@@ -250,6 +257,11 @@ namespace ConsoleMode.GamepadCompanion.UI
             _steamGridBrowser.Dock = DockStyle.Fill;
             _steamGridBrowser.Visible = false;
 
+            _steamDeckSetup.Dock = DockStyle.Fill;
+            _steamDeckSetup.Visible = false;
+            _steamDeckSetup.SetupCompleted += (s, e) => ShowGamesLibrary();
+            _steamDeckSetup.SetupSkipped += (s, e) => ShowGamesLibrary();
+
             // Eventos do Grid de Jogos
             _gamesGrid.LaunchRequested += OnLaunchGame;
             _gamesGrid.ConfigureRequested += OnConfigureGame;
@@ -327,6 +339,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _steamGridBrowser.NewSearchRequested += () => PromptSteamGridSearch(_lastSteamGridSearchTerm);
             _steamGridBrowser.ChangeApiKeyRequested += () => ShowSteamGridApiKeyModal(_lastSteamGridSearchTerm);
 
+            Controls.Add(_steamDeckSetup);
             Controls.Add(_focusOverlay);
             Controls.Add(_visualSelector);
             Controls.Add(_bindingCapture);
@@ -368,6 +381,24 @@ namespace ConsoleMode.GamepadCompanion.UI
                 _windowTracker.RegisterGameExecutable(game.LauncherName);
         }
 
+        private void ShowSteamDeckSetup()
+        {
+            _viewMode = ContentViewMode.SteamDeckSetup;
+            _debugger.Visible = false;
+            _gamesGrid.Visible = false;
+            _configPanel.Visible = false;
+            _profileEditor.Visible = false;
+            _bindingCapture.Visible = false;
+            _visualSelector.Visible = false;
+            _steamGridBrowser.Visible = false;
+            _steamDeckSetup.Visible = true;
+            _steamDeckSetup.RefreshState();
+            _steamDeckSetup.BringToFront();
+            _focusOverlay.BringToFront();
+            _lastStateY = true;
+            _navManager.ResetInputState();
+        }
+
         private void ShowDebugger()
         {
             _viewMode = ContentViewMode.Debugger;
@@ -378,6 +409,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _bindingCapture.Visible = false;
             _visualSelector.Visible = false;
             _steamGridBrowser.Visible = false;
+            _steamDeckSetup.Visible = false;
             _debugger.BringToFront();
             _focusOverlay.BringToFront();
             _lastStateY = true;
@@ -396,6 +428,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _bindingCapture.Visible = false;
             _visualSelector.Visible = false;
             _steamGridBrowser.Visible = false;
+            _steamDeckSetup.Visible = false;
             _gamesGrid.BringToFront();
             _focusOverlay.BringToFront();
             _lastStateY = true;
@@ -411,6 +444,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _bindingCapture.Visible = false;
             _visualSelector.Visible = false;
             _steamGridBrowser.Visible = false;
+            _steamDeckSetup.Visible = false;
             _configPanel.Visible = true;
             _configPanel.EditGame(game);
             _configPanel.BringToFront();
@@ -509,6 +543,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             _viewMode = ContentViewMode.GameConfig;
             _steamGridBrowser.Visible = false;
+            _steamDeckSetup.Visible = false;
             _configPanel.Visible = true;
             _configPanel.BringToFront();
             _focusOverlay.BringToFront();
@@ -723,6 +758,10 @@ namespace ConsoleMode.GamepadCompanion.UI
                 {
                     _steamGridBrowser.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
                 }
+                else if (_viewMode == ContentViewMode.SteamDeckSetup)
+                {
+                    _steamDeckSetup.ProcessGamepadInput(state);
+                }
                 else
                 {
                     // Modo Debugger: Atalho Y alterna para a Biblioteca de Jogos
@@ -843,6 +882,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _steamGridBrowser.Visible = false;
             _bindingCapture.Visible = false;
             _visualSelector.Visible = false;
+            _steamDeckSetup.Visible = false;
             _profileEditor.Visible = true;
             _profileEditor.LoadGameProfile(game, _settings, _gameRepo.GetAll());
             _profileEditor.BringToFront();
@@ -878,6 +918,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _profileEditor.Visible = false;
             _bindingCapture.Visible = false;
             _visualSelector.Visible = false;
+            _steamDeckSetup.Visible = false;
             _configPanel.Visible = true;
             _configPanel.BringToFront();
             _focusOverlay.BringToFront();
@@ -908,6 +949,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _bindingCapture.StopListening();
             _bindingCapture.Visible = false;
             _visualSelector.Visible = false;
+            _steamDeckSetup.Visible = false;
             _profileEditor.Visible = true;
             _profileEditor.BringToFront();
             _focusOverlay.BringToFront();
@@ -936,6 +978,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         {
             _viewMode = ContentViewMode.GameProfileEditor;
             _visualSelector.Visible = false;
+            _steamDeckSetup.Visible = false;
             _profileEditor.Visible = true;
             _profileEditor.BringToFront();
             _focusOverlay.BringToFront();
