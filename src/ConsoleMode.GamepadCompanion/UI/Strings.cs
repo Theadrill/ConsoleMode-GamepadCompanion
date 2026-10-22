@@ -27,6 +27,12 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string ProfileFormat = "Perfil: {0}";
         public const string ProfileGaming = "Gaming (WoW ativo)";
         public const string ProfileDesktop = "Desktop (em espera)";
+        public const string DeviceSteamDeckLcd = "Steam Deck (LCD)";
+        public const string DeviceSteamDeckOled = "Steam Deck (OLED)";
+        public const string DeviceStandardPc = "PC Padrão";
+        public const string DeviceFormat = "Aparelho: {0}";
+        public const string ViGEmActive = "ViGEm: Ativo";
+        public const string ViGEmMissing = "ViGEm: Não Instalado";
         public const string OpenSettings = "Configurações";
         public const string Exit = "Sair";
         public const string ExitDialogTitle = "Sair do Companion";

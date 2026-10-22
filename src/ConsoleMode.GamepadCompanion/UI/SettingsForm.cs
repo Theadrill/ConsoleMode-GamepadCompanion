@@ -44,6 +44,8 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly ComboBox _slotCombo = new ComboBox();
         private readonly Label _statusLabel = new Label();
         private readonly Label _profileLabel = new Label();
+        private readonly Label _deviceLabel = new Label();
+        private readonly Label _vigemLabel = new Label();
         private readonly Button _gamesButton = new Button();
         private readonly GamepadVisualDebugger _debugger = new GamepadVisualDebugger();
         private readonly GamesGridControl _gamesGrid = new GamesGridControl();
@@ -165,9 +167,19 @@ namespace ConsoleMode.GamepadCompanion.UI
 
             _profileLabel.SetBounds(16, currentY, 228, 18);
             _profileLabel.ForeColor = Color.FromArgb(120, 190, 255);
-            currentY = _profileLabel.Bottom + 20;
+            currentY = _profileLabel.Bottom + 4;
 
-            _sidePanel.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _profileLabel });
+            _deviceLabel.SetBounds(16, currentY, 228, 18);
+            _deviceLabel.ForeColor = Color.FromArgb(200, 210, 225);
+            _deviceLabel.Visible = false;
+            currentY = _deviceLabel.Bottom + 4;
+
+            _vigemLabel.SetBounds(16, currentY, 228, 18);
+            _vigemLabel.ForeColor = Color.FromArgb(245, 158, 11);
+            _vigemLabel.Visible = false;
+            currentY = _vigemLabel.Bottom + 16;
+
+            _sidePanel.Controls.AddRange(new Control[] { slotTitle, _slotCombo, _statusLabel, _profileLabel, _deviceLabel, _vigemLabel });
 
             // Registro sequencial dos controles para navegação D-Pad (topo -> base)
             var slotNav = new DropdownNavigable("SlotCombo", slotTitle, _slotCombo);
@@ -736,6 +748,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             int active = _gamepad.ActiveSlot;
             _statusLabel.Text = active >= 0 ? string.Format(Strings.StatusFormat, active + 1) : Strings.StatusNone;
             _statusLabel.ForeColor = active >= 0 ? Color.FromArgb(150, 220, 160) : Color.FromArgb(255, 190, 90);
+            UpdateHardwareInfo();
 
             if (_profileManager != null)
             {
@@ -744,6 +757,29 @@ namespace ConsoleMode.GamepadCompanion.UI
                 _profileLabel.ForeColor = (_profileManager.IsGameFocused && _profileManager.IsCompanionInputActive)
                     ? Color.FromArgb(120, 230, 150)
                     : Color.FromArgb(160, 170, 185);
+            }
+        }
+
+        private void UpdateHardwareInfo()
+        {
+            var hw = Hardware.SteamDeckDetector.Current;
+            if (hw.IsSteamDeck)
+            {
+                string variantStr = hw.Variant == Core.Models.SteamDeckVariant.SteamDeckOled
+                    ? Strings.DeviceSteamDeckOled
+                    : Strings.DeviceSteamDeckLcd;
+                _deviceLabel.Text = string.Format(Strings.DeviceFormat, variantStr);
+                _deviceLabel.Visible = true;
+
+                bool vigemOk = Hardware.ViGEmBusService.Instance.IsDriverInstalledAndActive;
+                _vigemLabel.Text = vigemOk ? Strings.ViGEmActive : Strings.ViGEmMissing;
+                _vigemLabel.ForeColor = vigemOk ? Color.FromArgb(150, 220, 160) : Color.FromArgb(245, 158, 11);
+                _vigemLabel.Visible = true;
+            }
+            else
+            {
+                _deviceLabel.Visible = false;
+                _vigemLabel.Visible = false;
             }
         }
 
