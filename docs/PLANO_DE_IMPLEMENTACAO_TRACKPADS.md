@@ -1,7 +1,7 @@
 # Plano de Implementação — Configuração dos Trackpads do Steam Deck
 
 > **Documento de Arquitetura Técnica e Roteiro de Fases Testáveis**  
-> Especificação para o motor de emulação, processamento de toque/clique físico, feedback háptico e interface de customização dos Trackpads Esquerdo e Direito do Steam Deck.  
+> Especificação do motor de emulação, processamento analógico de toque/clique mecânico, feedback háptico e interface de customização dos Trackpads Esquerdo e Direito do Steam Deck.  
 > 
 > **Documentos Relacionados:**
 > - [Plano de Implementação do Modo Desktop](PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md)
@@ -14,20 +14,22 @@
 ## 1. Visão Geral, Necessidade & Solução Proposta
 
 ### 1.1. A Necessidade
-O **Steam Deck** possui dois trackpads táteis com sensores de coordenadas analógicas de alta resolução (`16-bit`), detecção de toque (`Touch`), clique físico mecânico (`Press`) e atuadores lineares de feedback háptico (`Haptics`).  
+O **Steam Deck** possui dois trackpads táteis com sensores analógicos de alta resolução (`16-bit`), detecção capacitiva de toque (`Touch`), clique físico mecânico (`Press`) e atuadores lineares de feedback háptico (`Haptics`).  
 Atualmente no projeto:
-* O [`SteamDeckService`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/Hardware/SteamDeckService.cs) já realiza a leitura dos relatórios HID brutos e disponibiliza `LPadX`, `LPadY`, `IsLPadTouch`, `IsLPadPress`, `RPadX`, `RPadY`, `IsRPadTouch` e `IsRPadPress`.
-* O [`GamepadVisualDebugger`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/GamepadVisualDebugger.cs) já renderiza o feedback visual desses dados brutos em tempo real.
-* **Porém**, o motor de mapeamento de perfis ainda não processa nem emula entradas baseadas nos trackpads, e o [`GameProfileEditorControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/GameProfileEditorControl.cs) exibe apenas cards visuais com o rótulo de placeholder `(Planejada - Fase 6)`.
+* O [`SteamDeckService`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/Hardware/SteamDeckService.cs) já realiza a leitura em tempo real dos relatórios HID brutos (`LPadX`, `LPadY`, `IsLPadTouch`, `IsLPadPress`, `RPadX`, `RPadY`, `IsRPadTouch`, `IsRPadPress`).
+* O [`GamepadVisualDebugger`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/GamepadVisualDebugger.cs) já renderiza esses dados brutos ao vivo.
+* **Porém**, o motor de mapeamento ainda não processa nem emula entradas baseadas nos trackpads, e o [`GameProfileEditorControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/GameProfileEditorControl.cs) exibe apenas cards visuais com o rótulo de placeholder `(Planejada - Fase 6)`.
 
 Sem essa funcionalidade, o jogador não consegue utilizar os trackpads para mira de precisão em jogos de tiro/estratégia, rolagem confortável de páginas no [Modo Desktop](PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md) ou atalhos direcionais adicionais.
 
 ### 1.2. A Solução Proposta
-Implementar uma arquitetura modular e testável para os Trackpads, desacoplada do hardware físico via interfaces, permitindo que cada trackpad (Esquerdo e Direito) seja configurado individualmente em um dos modos funcionais essenciais:
-1. **Mouse / Trackball de Alta Precisão**: Movimento relativo do cursor com sensibilidade, aceleração linear e inércia simulada ao soltar o dedo em movimento rápido.
-2. **Scrollwheel (Roda do Mouse)**: Deslize contínuo para rolagem vertical e horizontal de páginas web, inventários de RPG e documentos.
-3. **D-Pad / Botões Direcionais**: Mapeamento de 4 quadrantes direcionais (Cima, Baixo, Esquerda, Direita) por toque ou clique físico.
+Implementar uma arquitetura desacoplada e testável para os Trackpads, permitindo que cada trackpad (Esquerdo e Direito) opere individualmente em um dos modos funcionais essenciais:
+1. **Mouse / Trackball de Alta Precisão**: Movimento relativo do cursor com sensibilidade, aceleração linear, filtro anti-jitter e inércia simulada ao soltar o dedo em velocidade.
+2. **Scrollwheel (Roda do Mouse)**: Deslize contínuo para rolagem vertical e horizontal, com **rolagem natural invertida ativada por padrão** (deslizar o dedo para cima desce a página e vice-versa).
+3. **D-Pad / Botões Direcionais**: Mapeamento de 4 quadrantes direcionais (Cima, Baixo, Esquerda, Direita) com **Deadzone Central de 15%** para descanso seguro do polegar.
 4. **Botão Único (Single Button)**: A superfície atua como um botão mecânico extra para atalhos do sistema, macros ou Push-to-Talk.
+5. **Arquitetura de Dupla Ação (`Touch` independente de `Press`)**: Suporte a configurar ações distintas para o toque suave (`Touch`) e para afundar o clique mecânico (`Press`).
+6. **Feedback Háptico Refinado**: Nível **`Suave (Low)`** ativado de fábrica, emitindo micro-pulsos táteis ao rolar a trackball e ticks de catraca ao rolar páginas.
 
 > [!NOTE]
 > **Decisão de Escopo — Menu Radial:**
@@ -43,97 +45,77 @@ Para manter conformidade estrita com as [Regras do Projeto](REGRAS_DO_PROJETO.md
    - Não criar novos seletores de teclas do zero. Para ações de clique, D-Pad e Botão Único dos trackpads, reaproveitar integralmente o [`InputBindingCaptureControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/InputBindingCaptureControl.cs) e o [`InputVisualSelectorControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/InputVisualSelectorControl.cs).
 2. **Identidade Visual Dark Mode OLED:**
    - Estilo visual consistente com o resto do aplicativo: fundo escuro `#12131A`, cartões `#1E2029`, destaques ciano `#38BDF8` e verde esmeralda `#10B981`, tipografia Segoe UI e navegação com foco dourado `#F59E0B`. Zero uso de controles cinza padrão do Windows Forms.
-3. **Desacoplamento e Testabilidade (Regra 1):**
+3. **Ocultação Inteligente em Dispositivos Sem Trackpad:**
+   - Os cards de Trackpad no editor de perfil só são exibidos quando `SteamDeckDetector.Current.IsSteamDeck` for verdadeiro. Em PCs padrão ou outros handhelds que possuem botões traseiros mas não têm trackpads (como ROG Ally), os cards permanecem ocultos, mantendo a interface limpa e livre de ruído.
+4. **Desacoplamento e Testabilidade (Regra 1):**
    - O processador matemático dos trackpads (`TrackpadProcessor`) opera puramente sobre estruturas numéricas e deltas de tempo (`dt`), sem depender de chamadas Win32 estáticas ou do hardware USB. Isso viabiliza testes unitários automatizados cobrindo aceleração, inércia, zonas mortas e haptics em qualquer ambiente de CI/build.
-4. **Não-Bloqueio e Alta Performance:**
-   - Processamento de toque e pulsos hápticos em threads assíncronas de polling sem congelar o loop de renderização da UI ou do jogo.
 
 ---
 
-## 3. Roteiro de Fases de Execução Testáveis
+## 3. Roteiro Consolidado em 2 Etapas Práticas
+
+A implementação é estruturada em **2 etapas diretas e testáveis**: primeiro entrega-se o motor funcional completo com feedback háptico e presets para teste imediato no hardware; em seguida, entrega-se o painel visual de customização.
 
 ```mermaid
-flowchart TD
-    F1["Fase 1: Modelo de Domínio & Persistência"] --> F2["Fase 2: Motor Matemático de Emulação"]
-    F2 --> F3["Fase 3: Feedback Háptico no Hardware"]
-    F3 --> F4["Fase 4: Editor Visual (UI) no GameProfileEditor"]
-    F4 --> F5["Fase 5: Integração no Modo Desktop & Jogos"]
+flowchart LR
+    E1["Etapa 1: Motor Funcional, Hápticos & Presets Ativos (Validação Física no Hardware)"] --> E2["Etapa 2: Interface Visual TrackpadConfigControl no Editor (Customização Couch)"]
 ```
 
 ---
 
-### FASE 1: Modelo de Domínio, Configurações & Persistência
-* **Objetivo:** Definir as estruturas de dados no modelo de domínio e integrá-las à serialização do `GameProfile` nos perfis de jogos e no perfil Desktop.
+### ETAPA 1: Motor Funcional, Hápticos & Presets de Fábrica (Validação Imediata)
+* **Objetivo:** Construir toda a inteligência matemática, o modelo de domínio, a persistência, o disparo de hápticos e ativar os presets de fábrica para que o usuário possa testar os trackpads imediatamente no Steam Deck.
 * **Tarefas:**
-  1. Criar enums e modelos de configuração:
-     - `TrackpadMode`: `Disabled`, `MouseTrackball`, `Scrollwheel`, `DPad`, `SingleButton`.
-     - `TrackpadHapticIntensity`: `Off`, `Low`, `Medium`, `High`.
-     - `TrackpadClickTrigger`: `OnClick`, `OnTouch`.
-     - `TrackpadConfig`: Armazena o modo, sensibilidade (1..100), aceleração, atrito/inércia, mapeamento de cliques e quadrantes.
-  2. Integrar `LeftTrackpad` e `RightTrackpad` na classe `GameProfilePage`.
-  3. Atualizar a serialização/deserialização em `ProfileSerializer.cs` mantendo compatibilidade retroativa com arquivos `.ini` legados.
-* **Entregável Testável:** Testes unitários validando serialização, valores default e clonagem de instâncias com 100% de cobertura.
+  1. **Modelo de Domínio & Persistência:**
+     - Enums: `TrackpadMode` (`Disabled`, `MouseTrackball`, `Scrollwheel`, `DPad`, `SingleButton`), `TrackpadHapticIntensity` (`Off`, `Low`, `Medium`, `High`).
+     - Estrutura `TrackpadConfig` com suporte a Dupla Ação:
+       - `TouchActions` (disparo ao encostar).
+       - `PressActions` (disparo ao afundar o clique mecânico).
+       - Sliders de sensibilidade (1..100), atrito/inércia, flag `InvertScroll` (padrão: `true`).
+     - Serialização retrocompatível em `config.ini` sob `[DesktopProfile]` e em `games.ini`.
+  2. **Motor Matemático (`TrackpadProcessor`):**
+     - **Mouse / Trackball**: Conversão de coordenadas em deltas relativos `(dx, dy)`, filtro anti-jitter para eliminar tremulação do dedo parado, aceleração suave e simulação de inércia física (desaceleração gradual ao soltar o dedo rápido).
+     - **Scrollwheel**: Deslocamento vertical contínuo com rolagem natural invertida padrão.
+     - **D-Pad**: Cálculo de quadrantes angulares com **Deadzone Central de 15%**.
+     - **Botão Único**: Disparo independente por Toque e/ou Clique mecânico.
+  3. **Feedback Háptico (`SteamDeckHaptics`):**
+     - Integração com o [`SteamDeckService`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/Hardware/SteamDeckService.cs) via relatórios de feature HID.
+     - Pulsos de catraca a cada linha de rolagem no Scrollwheel.
+     - Pulsos táteis suaves proporcionais à rotação da trackball.
+     - Padrão ativado em **`Suave (Low)`**.
+  4. **Ativação dos Presets de Fábrica:**
+     - **[Modo Desktop](PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md)**:
+       - Trackpad Direito = Mouse/Trackball com clique mecânico emitindo Clique Esquerdo do Mouse.
+       - Trackpad Esquerdo = Scrollwheel vertical contínuo com rolagem natural e haptics.
+     - **Jogos (`Standard PC` / `RPG`)**: Trackpad Direito como mira/câmera suave de precisão.
+* **Critério de Aceite da Etapa 1:**
+  - O usuário executa o app no Steam Deck e já consegue mover o mouse suavemente pelo Trackpad Direito e rolar páginas na web pelo Trackpad Esquerdo com sensação tátil de catraca na mão.
+  - Suíte de testes unitários cobrindo todos os cálculos matemáticos com 100% de sucesso.
 
 ---
 
-### FASE 2: Motor de Emulação de Entrada (`TrackpadProcessor`)
-* **Objetivo:** Processar coordenadas brutas `(X, Y)` e disparar eventos de mouse, scroll ou teclas de forma suave e ergonômica.
+### ETAPA 2: Interface Visual de Customização no Editor (`TrackpadConfigControl`)
+* **Objetivo:** Permitir ao usuário personalizar modos, sensibilidade, deadzones, haptics e botões dos trackpads diretamente pela TV ou tela do Steam Deck via controle.
 * **Tarefas:**
-  1. **Algoritmo de Mouse / Trackball:**
-     - Conversão de coordenadas absolutas em deltas relativos `(dx, dy)`.
-     - Filtro passa-baixas para eliminar ruído de tremulação do dedo (*jitter filter*).
-     - Curva de aceleração configurável.
-     - Simulação de inércia física (quando o dedo se descola do pad com velocidade residual, o cursor continua desacelerando gradualmente).
-  2. **Algoritmo de Scrollwheel:**
-     - Conversão de deslocamento vertical em eventos `MouseWheel(delta)` fracionários acumulados.
-  3. **Algoritmo de D-Pad / Quadrantes:**
-     - Cálculo angular via `Math.Atan2(y, x)` com zona morta central configurável, emitindo as ações registradas para Cima, Baixo, Esquerda e Direita.
-  4. **Algoritmo de Botão Único:**
-     - Disparo da ação configurada ao pressionar o clique mecânico do pad ou ao encostar o dedo.
-* **Entregável Testável:** Suíte de testes unitários injetando séries temporais de coordenadas sintéticas e conferindo os eventos exatos recebidos pelo `IInputSimulator`.
-
----
-
-### FASE 3: Feedback Háptico do Steam Deck (`SteamDeckHaptics`)
-* **Objetivo:** Fornecer retorno tátil tátil linear nos pads para confirmar deslocamentos e cliques.
-* **Tarefas:**
-  1. Implementar o envio de comandos de haptics no `SteamDeckService` através dos feature reports HID suportados pelo controlador Jupiter/Galileo.
-  2. Emitir "micro-pulsos" durante a movimentação da trackball proporcionais à velocidade do giro.
-  3. Emitir "ticks de catraca" a cada dente de rolagem no modo Scrollwheel.
-  4. Emitir pulsos de confirmação ao cruzar quadrantes no modo D-Pad.
-* **Entregável Testável:** Mocks e testes unitários verificando emissão correta de pulsos e respeito ao slider de intensidade (`Off`, `Low`, `Medium`, `High`).
-
----
-
-### FASE 4: Editor Visual de Trackpads (`TrackpadConfigControl`)
-* **Objetivo:** Permitir ao usuário personalizar os trackpads diretamente pela interface Couch Gaming do Companion sem usar teclado ou mouse físico.
-* **Tarefas:**
-  1. Transformar os cartões de placeholder em `GameProfileEditorControl` em controles interativos acessíveis via navegação por D-Pad.
-  2. Abrir o sub-painel `TrackpadConfigControl`:
-     - Seleção do Modo (`Mouse`, `Scroll`, `D-Pad`, `Botão Único`).
-     - Sliders de Sensibilidade e Intensidade Háptica.
-     - Mapeamento das ações dos quadrantes/cliques reutilizando o [`InputBindingCaptureControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/InputBindingCaptureControl.cs).
-  3. Suporte completo a cancelamento com `[B]`, confirmação com `[A]` e navegação por D-Pad.
-* **Entregável Testável:** Testes de integração de UI validando a abertura, alteração de valores e persistência dos dados salvos no editor.
-
----
-
-### FASE 5: Presets & Integração no Modo Desktop
-* **Objetivo:** Fornecer configurações padrão altamente ergonômicas para uso imediato no sistema.
-* **Tarefas:**
-  1. Configurar o preset padrão do [Modo Desktop](PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md):
-     - **Trackpad Direito**: Mouse de precisão com aceleração suave + Clique mecânico = Clique Esquerdo do Mouse.
-     - **Trackpad Esquerdo**: Scrollwheel vertical contínuo com feedback háptico sutil.
-  2. Configurar o preset padrão de Jogos (`Standard PC` e `RPG`):
-     - Trackpad direito configurado como mouse de câmera/mira de apoio.
-* **Entregável Testável:** Testes validando que novos perfis criados contêm a configuração ergonômica padrão.
+  1. **Ocultação Contextual de Hardware:**
+     - No [`GameProfileEditorControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/GameProfileEditorControl.cs), os cards `TRACKPAD ESQUERDO` e `TRACKPAD DIREITO` só são visíveis se `SteamDeckDetector.Current.IsSteamDeck == true`.
+  2. **Sub-painel Dedicado `TrackpadConfigControl`:**
+     - Layout Couch Gaming 100% Dark Mode OLED.
+     - Navegação por D-Pad e confirmação com `[A]`.
+     - Seletor de Modo (`Mouse`, `Scroll`, `D-Pad`, `Botão Único`, `Desativado`).
+     - Sliders contextuais: Sensibilidade, Inércia, Intensidade Háptica (`Desligado`, `Suave`, `Médio`, `Forte`), Deadzone Central e Inversão de Scroll.
+     - Mapeamento de ações de Toque e Clique mecânico reutilizando 100% DRY o [`InputBindingCaptureControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/InputBindingCaptureControl.cs).
+     - Tecla `[B]` para fechar e retornar ao diagrama geral.
+* **Critério de Aceite da Etapa 2:**
+  - O usuário consegue abrir a configuração de qualquer trackpad, mudar o modo (ex: transformar o trackpad esquerdo em D-Pad de atalhos), salvar com `[RT]` e testar a mudança imediatamente.
+  - Testes automatizados de UI e 0 avisos de build.
 
 ---
 
 ## 4. Critérios de Aceite Globais
 
-1. O usuário no Steam Deck consegue deslizar o polegar no Trackpad Direito e movimentar o cursor do mouse com precisão e suavidade no Windows e em jogos.
-2. O Trackpad Esquerdo permite rolar páginas da web e documentos no Windows de forma contínua e natural com feedback tátil no dedo.
-3. As alterações de configuração do trackpad feitas pelo editor visual são salvas e persistidas no `config.ini` / `games.ini`.
-4. Dispositivos comuns que não são Steam Deck mantêm os trackpads desativados de forma transparente, sem causar travamentos ou erros.
+1. O usuário no Steam Deck desliza o polegar no Trackpad Direito e movimenta o cursor do mouse com precisão, aceleração e inércia no Windows e jogos.
+2. O Trackpad Esquerdo rola páginas da web e documentos no Windows de forma contínua e natural com feedback tátil no dedo.
+3. As personalizações feitas no editor visual persistem no `config.ini` e `games.ini`.
+4. Dispositivos comuns de PC e outros handhelds sem trackpad mantêm os cards ocultos de forma limpa e transparente.
 5. Todos os testes unitários da suíte continuam passando com 100% de sucesso e 0 avisos no build.
