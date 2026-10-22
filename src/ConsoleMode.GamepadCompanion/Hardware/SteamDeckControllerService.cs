@@ -30,6 +30,12 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         public bool IsRunning => _isRunning;
         public SteamDeckRawState CurrentRawState => _lastRawState;
 
+        // Configurações de Remapeamento de Hardware para os 4 botões traseiros
+        public SteamDeckHardwareRemap L4Remap { get; set; } = SteamDeckHardwareRemap.None;
+        public SteamDeckHardwareRemap L5Remap { get; set; } = SteamDeckHardwareRemap.None;
+        public SteamDeckHardwareRemap R4Remap { get; set; } = SteamDeckHardwareRemap.None;
+        public SteamDeckHardwareRemap R5Remap { get; set; } = SteamDeckHardwareRemap.None;
+
         public event Action<SteamDeckRawState> RawStateUpdated;
 
         public SteamDeckControllerService(VirtualXbox360Controller virtualX360 = null)
@@ -110,8 +116,6 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
         private void PollLoop()
         {
-            var sw = Stopwatch.StartNew();
-
             while (_isRunning)
             {
                 try
@@ -135,6 +139,10 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     {
                         _packetCounter++;
                         var raw = SteamDeckRawState.Parse(data);
+
+                        // Aplica o remapeamento de hardware configurado
+                        ApplyHardwareRemap(ref raw);
+
                         _lastRawState = raw;
 
                         // Despacha para o controle virtual Xbox 360
@@ -153,6 +161,89 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 {
                     Thread.Sleep(20);
                 }
+            }
+        }
+
+        public void ApplyHardwareRemap(ref SteamDeckRawState raw)
+        {
+            if (raw.IsL4 && L4Remap != SteamDeckHardwareRemap.None)
+            {
+                MapRemapTarget(ref raw, L4Remap);
+            }
+
+            if (raw.IsL5 && L5Remap != SteamDeckHardwareRemap.None)
+            {
+                MapRemapTarget(ref raw, L5Remap);
+            }
+
+            if (raw.IsR4 && R4Remap != SteamDeckHardwareRemap.None)
+            {
+                MapRemapTarget(ref raw, R4Remap);
+            }
+
+            if (raw.IsR5 && R5Remap != SteamDeckHardwareRemap.None)
+            {
+                MapRemapTarget(ref raw, R5Remap);
+            }
+        }
+
+        private static void MapRemapTarget(ref SteamDeckRawState raw, SteamDeckHardwareRemap target)
+        {
+            switch (target)
+            {
+                case SteamDeckHardwareRemap.LeftShoulder:
+                    raw.Buttons0 |= SDCButton0.BTN_L1;
+                    break;
+                case SteamDeckHardwareRemap.RightShoulder:
+                    raw.Buttons0 |= SDCButton0.BTN_R1;
+                    break;
+                case SteamDeckHardwareRemap.A:
+                    raw.Buttons0 |= SDCButton0.BTN_A;
+                    break;
+                case SteamDeckHardwareRemap.B:
+                    raw.Buttons0 |= SDCButton0.BTN_B;
+                    break;
+                case SteamDeckHardwareRemap.X:
+                    raw.Buttons0 |= SDCButton0.BTN_X;
+                    break;
+                case SteamDeckHardwareRemap.Y:
+                    raw.Buttons0 |= SDCButton0.BTN_Y;
+                    break;
+                case SteamDeckHardwareRemap.LeftTrigger:
+                    raw.Buttons0 |= SDCButton0.BTN_L2;
+                    raw.LeftTrigger = 32767;
+                    break;
+                case SteamDeckHardwareRemap.RightTrigger:
+                    raw.Buttons0 |= SDCButton0.BTN_R2;
+                    raw.RightTrigger = 32767;
+                    break;
+                case SteamDeckHardwareRemap.LeftStickClick:
+                    raw.Buttons1 |= SDCButton1.BTN_LSTICK_PRESS;
+                    break;
+                case SteamDeckHardwareRemap.RightStickClick:
+                    raw.Buttons2 |= SDCButton2.BTN_RSTICK_PRESS;
+                    break;
+                case SteamDeckHardwareRemap.DPadUp:
+                    raw.Buttons0 |= SDCButton0.BTN_DPAD_UP;
+                    break;
+                case SteamDeckHardwareRemap.DPadDown:
+                    raw.Buttons0 |= SDCButton0.BTN_DPAD_DOWN;
+                    break;
+                case SteamDeckHardwareRemap.DPadLeft:
+                    raw.Buttons0 |= SDCButton0.BTN_DPAD_LEFT;
+                    break;
+                case SteamDeckHardwareRemap.DPadRight:
+                    raw.Buttons0 |= SDCButton0.BTN_DPAD_RIGHT;
+                    break;
+                case SteamDeckHardwareRemap.Start:
+                    raw.Buttons0 |= SDCButton0.BTN_OPTIONS;
+                    break;
+                case SteamDeckHardwareRemap.Back:
+                    raw.Buttons0 |= SDCButton0.BTN_MENU;
+                    break;
+                case SteamDeckHardwareRemap.Guide:
+                    raw.Buttons0 |= SDCButton0.BTN_STEAM;
+                    break;
             }
         }
 

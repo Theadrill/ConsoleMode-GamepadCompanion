@@ -1,6 +1,6 @@
 namespace ConsoleMode.GamepadCompanion.Core.Models
 {
-    /// <summary>Configurações em memória do Companion (persistência entra em fase futura).</summary>
+    /// <summary>Configurações em memória do Companion (persistência via Config.ini).</summary>
     public sealed class AppSettings
     {
         /// <summary>Slot XInput (0-3) ou -1 para automático.</summary>
@@ -29,5 +29,17 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 
         /// <summary>Prende o cursor na janela do jogo em foco para evitar que o mouse escape para outros monitores ou janelas.</summary>
         public bool ClipCursorToGameWindow { get; set; } = true;
+
+        /// <summary>Remapeamento de hardware para botão traseiro L4 (ex: LeftShoulder para contornar L1 quebrado).</summary>
+        public SteamDeckHardwareRemap L4HardwareRemap { get; set; } = SteamDeckHardwareRemap.None;
+
+        /// <summary>Remapeamento de hardware para botão traseiro L5.</summary>
+        public SteamDeckHardwareRemap L5HardwareRemap { get; set; } = SteamDeckHardwareRemap.None;
+
+        /// <summary>Remapeamento de hardware para botão traseiro R4.</summary>
+        public SteamDeckHardwareRemap R4HardwareRemap { get; set; } = SteamDeckHardwareRemap.None;
+
+        /// <summary>Remapeamento de hardware para botão traseiro R5.</summary>
+        public SteamDeckHardwareRemap R5HardwareRemap { get; set; } = SteamDeckHardwareRemap.None;
     }
 }

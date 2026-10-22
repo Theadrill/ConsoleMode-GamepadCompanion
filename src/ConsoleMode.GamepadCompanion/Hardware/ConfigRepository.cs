@@ -46,7 +46,21 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             settings.ClipCursorToGameWindow = ini.GetBool("Settings", "ClipCursorToGameWindow", true);
             settings.SteamGridDbApiKey = ini.GetValue("SteamGridDB", "ApiKey") ?? string.Empty;
 
+            settings.L4HardwareRemap = ParseRemap(ini.GetValue("SteamDeck", "L4Remap"));
+            settings.L5HardwareRemap = ParseRemap(ini.GetValue("SteamDeck", "L5Remap"));
+            settings.R4HardwareRemap = ParseRemap(ini.GetValue("SteamDeck", "R4Remap"));
+            settings.R5HardwareRemap = ParseRemap(ini.GetValue("SteamDeck", "R5Remap"));
+
             return settings;
+        }
+
+        private static SteamDeckHardwareRemap ParseRemap(string val)
+        {
+            if (!string.IsNullOrEmpty(val) && Enum.TryParse(val, true, out SteamDeckHardwareRemap remap))
+            {
+                return remap;
+            }
+            return SteamDeckHardwareRemap.None;
         }
 
         public void Save(AppSettings settings)
@@ -63,6 +77,11 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             ini.SetValue("Settings", "MappingEnabled", settings.MappingEnabled.ToString());
             ini.SetValue("Settings", "ClipCursorToGameWindow", settings.ClipCursorToGameWindow.ToString());
             ini.SetValue("SteamGridDB", "ApiKey", settings.SteamGridDbApiKey ?? string.Empty);
+
+            ini.SetValue("SteamDeck", "L4Remap", settings.L4HardwareRemap.ToString());
+            ini.SetValue("SteamDeck", "L5Remap", settings.L5HardwareRemap.ToString());
+            ini.SetValue("SteamDeck", "R4Remap", settings.R4HardwareRemap.ToString());
+            ini.SetValue("SteamDeck", "R5Remap", settings.R5HardwareRemap.ToString());
 
             ini.Save(_filePath);
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -702,6 +702,13 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void Refresh_Tick()
         {
             GamepadState state = _gamepad.CurrentState;
+            var visualMode = Hardware.ControllerVisualModeResolver.Resolve(_settings.SelectedSlot);
+            _debugger.VisualMode = visualMode;
+            if (visualMode == Core.Models.ControllerVisualMode.HandheldSteamDeck && Hardware.SteamDeckManager.ActiveService != null)
+            {
+                _debugger.SetSteamDeckRawState(Hardware.SteamDeckManager.ActiveService.CurrentRawState);
+            }
+
             _debugger.StickDeadzone = _settings.StickDeadzone;
             _debugger.TriggerThreshold = _settings.TriggerThreshold;
             _debugger.SetState(state);
@@ -870,6 +877,10 @@ namespace ConsoleMode.GamepadCompanion.UI
             _settings.SelectedSlot = _slotCombo.SelectedIndex - 1;
             _gamepad.SelectedSlot = _settings.SelectedSlot;
             _configRepo.Save(_settings);
+
+            var visualMode = Hardware.ControllerVisualModeResolver.Resolve(_settings.SelectedSlot);
+            _debugger.VisualMode = visualMode;
+            _profileEditor.VisualMode = visualMode;
         }
 
         private void OnConfigureControls(GameEntry game)
@@ -884,6 +895,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _visualSelector.Visible = false;
             _steamDeckSetup.Visible = false;
             _profileEditor.Visible = true;
+            _profileEditor.VisualMode = Hardware.ControllerVisualModeResolver.Resolve(_settings.SelectedSlot);
             _profileEditor.LoadGameProfile(game, _settings, _gameRepo.GetAll());
             _profileEditor.BringToFront();
             _focusOverlay.BringToFront();

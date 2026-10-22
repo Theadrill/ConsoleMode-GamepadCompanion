@@ -4,6 +4,7 @@ using System.Linq;
 using ConsoleMode.GamepadCompanion.Core.Interfaces;
 using ConsoleMode.GamepadCompanion.Core.Models;
 using ConsoleMode.GamepadCompanion.Engine;
+using ConsoleMode.GamepadCompanion.Hardware;
 
 namespace ConsoleMode.GamepadCompanion.Profiles
 {
@@ -161,6 +162,16 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             {
                 AccumulateActions(page.GetActions(ControllerButton.RightStickClick));
                 if (page.RightStick?.ClickActions != null) AccumulateActions(page.RightStick.ClickActions);
+            }
+
+            // 3.1. Avaliação dos Botões Traseiros (Steam Deck / Handheld)
+            if (SteamDeckManager.IsActive && SteamDeckManager.ActiveService != null)
+            {
+                var deckRaw = SteamDeckManager.ActiveService.CurrentRawState;
+                if (deckRaw.IsL4) AccumulateActions(page.GetActions(ControllerButton.L4));
+                if (deckRaw.IsL5) AccumulateActions(page.GetActions(ControllerButton.L5));
+                if (deckRaw.IsR4) AccumulateActions(page.GetActions(ControllerButton.R4));
+                if (deckRaw.IsR5) AccumulateActions(page.GetActions(ControllerButton.R5));
             }
 
             // 4. Avaliação do Analógico Esquerdo

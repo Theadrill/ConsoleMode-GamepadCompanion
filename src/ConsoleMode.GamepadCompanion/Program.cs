@@ -36,7 +36,7 @@ namespace ConsoleMode.GamepadCompanion
 
                 try
                 {
-                    SteamDeckManager.TryStart();
+                    SteamDeckManager.TryStart(settings);
 
                     using (IGamepadService gamepad = new GamepadService())
                     {

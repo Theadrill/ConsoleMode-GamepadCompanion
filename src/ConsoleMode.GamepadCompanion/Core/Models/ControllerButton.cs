@@ -1,7 +1,7 @@
 namespace ConsoleMode.GamepadCompanion.Core.Models
 {
     /// <summary>
-    /// Identifica os 14 botões e gatilhos físicos mapeáveis de um controle de jogo padrão.
+    /// Identifica os botões e gatilhos físicos mapeáveis de um controle de jogo padrão ou handheld.
     /// </summary>
     public enum ControllerButton
     {
@@ -31,6 +31,12 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 
         // Cliques dos Analógicos
         LeftStickClick,  // L3
-        RightStickClick  // R3
+        RightStickClick, // R3
+
+        // Botões Traseiros (Handheld / Steam Deck)
+        L4,
+        L5,
+        R4,
+        R5
     }
 }

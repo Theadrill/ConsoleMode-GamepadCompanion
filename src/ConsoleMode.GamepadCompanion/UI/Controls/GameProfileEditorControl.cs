@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -56,6 +56,12 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         RightStickRight,
         RightStickAdditional,
         RightStickClick,
+
+        // BotÃµes Traseiros (Handheld / Steam Deck)
+        ButtonL4,
+        ButtonL5,
+        ButtonR5,
+        ButtonR4,
 
         // Ações de Rodapé
         FooterSave,
@@ -146,6 +152,18 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         public GameEntry CurrentGame => _game;
         public GameProfile WorkingProfile => _workingProfile;
+        private ControllerVisualMode _visualMode = ControllerVisualMode.StandardGamepad;
+        public ControllerVisualMode VisualMode
+        {
+            get => _visualMode;
+            set
+            {
+                if (_visualMode == value) return;
+                _visualMode = value;
+                Invalidate();
+            }
+        }
+
         public ProfileEditorSlot FocusedSlot => _focusedSlot;
         public bool IsPresetMenuOpen => _isPresetMenuOpen;
         public int PresetMenuFocusedIndex => _presetMenuFocusedIndex;
@@ -160,6 +178,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 : GameProfilePresets.CreateWowClassic();
 
             SyncClickActionsToMappings(_workingProfile.ActivePage);
+            _visualMode = Hardware.ControllerVisualModeResolver.Resolve(_settings.SelectedSlot);
 
             _otherGames.Clear();
             if (allGames != null)
@@ -248,6 +267,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             var preset = GameProfilePresets.CreatePreset(presetName);
             _workingProfile = preset;
             SyncClickActionsToMappings(_workingProfile.ActivePage);
+            _visualMode = Hardware.ControllerVisualModeResolver.Resolve(_settings.SelectedSlot);
             Invalidate();
         }
 
@@ -256,6 +276,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             if (sourceGame?.Profile == null) return;
             _workingProfile = sourceGame.Profile.Clone();
             SyncClickActionsToMappings(_workingProfile.ActivePage);
+            _visualMode = Hardware.ControllerVisualModeResolver.Resolve(_settings.SelectedSlot);
             Invalidate();
         }
 
@@ -332,6 +353,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 case ProfileEditorSlot.RightStickRight: return CloneActionList(page.RightStick.Right);
                 case ProfileEditorSlot.RightStickAdditional: return CloneActionList(page.RightStick.AdditionalActions);
                 case ProfileEditorSlot.RightStickClick: return CloneActionList(page.GetActions(ControllerButton.RightStickClick));
+                case ProfileEditorSlot.ButtonL4: return CloneActionList(page.GetActions(ControllerButton.L4));
+                case ProfileEditorSlot.ButtonL5: return CloneActionList(page.GetActions(ControllerButton.L5));
+                case ProfileEditorSlot.ButtonR5: return CloneActionList(page.GetActions(ControllerButton.R5));
+                case ProfileEditorSlot.ButtonR4: return CloneActionList(page.GetActions(ControllerButton.R4));
                 default: return new List<InputAction>();
             }
         }
@@ -374,6 +399,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     page.RightStick.ClickActions = CloneActionList(cloned);
                     page.SetActions(ControllerButton.RightStickClick, cloned);
                     break;
+                case ProfileEditorSlot.ButtonL4: page.SetActions(ControllerButton.L4, cloned); break;
+                case ProfileEditorSlot.ButtonL5: page.SetActions(ControllerButton.L5, cloned); break;
+                case ProfileEditorSlot.ButtonR5: page.SetActions(ControllerButton.R5, cloned); break;
+                case ProfileEditorSlot.ButtonR4: page.SetActions(ControllerButton.R4, cloned); break;
             }
             Invalidate();
         }
@@ -413,6 +442,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 case ProfileEditorSlot.RightStickRight: return "STICK DIREITO (DIREITA)";
                 case ProfileEditorSlot.RightStickAdditional: return "STICK DIREITO (COMANDO ADICIONAL)";
                 case ProfileEditorSlot.RightStickClick: return "CLIQUE DO STICK DIREITO (R3)";
+                case ProfileEditorSlot.ButtonL4: return "BOTÃƒO TRASEIRO (L4)";
+                case ProfileEditorSlot.ButtonL5: return "BOTÃƒO TRASEIRO (L5)";
+                case ProfileEditorSlot.ButtonR5: return "BOTÃƒO TRASEIRO (R5)";
+                case ProfileEditorSlot.ButtonR4: return "BOTÃƒO TRASEIRO (R4)";
                 default: return slot.ToString();
             }
         }
@@ -447,6 +480,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 case ProfileEditorSlot.RightStickRight:
                 case ProfileEditorSlot.RightStickAdditional:
                 case ProfileEditorSlot.RightStickClick:
+                case ProfileEditorSlot.ButtonL4:
+                case ProfileEditorSlot.ButtonL5:
+                case ProfileEditorSlot.ButtonR5:
+                case ProfileEditorSlot.ButtonR4:
                     return true;
                 default:
                     return false;
@@ -470,6 +507,14 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 slot == ProfileEditorSlot.RightStickRight)
             {
                 return page.RightStick.Mode == StickMode.DirectionalKeys;
+            }
+
+            if (slot == ProfileEditorSlot.ButtonL4 ||
+                slot == ProfileEditorSlot.ButtonL5 ||
+                slot == ProfileEditorSlot.ButtonR5 ||
+                slot == ProfileEditorSlot.ButtonR4)
+            {
+                return _visualMode == ControllerVisualMode.HandheldSteamDeck;
             }
 
             return true;
@@ -959,6 +1004,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             DrawHeader(g);
             DrawSlidersSection(g);
             DrawControllerCenterDiagram(g);
+            if (_visualMode == ControllerVisualMode.HandheldSteamDeck)
+            {
+                DrawRearButtonsRow(g);
+            }
             DrawTopShoulderSlots(g);
             DrawLeftStickCard(g);
             DrawDPadCard(g);
@@ -1441,6 +1490,11 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawControllerCenterDiagram(Graphics g)
         {
+            if (_visualMode == ControllerVisualMode.HandheldSteamDeck)
+            {
+                DrawHandheldCenterDiagram(g);
+                return;
+            }
             // Desenha um diagrama estilizado do controle no centro (entre X=196 e X=424, Y=140 a Y=430)
             var state = g.Save();
             float targetCenterX = 310f;
@@ -1671,6 +1725,189 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     new RectangleF(boxX, boxY + boxH - 26f, boxW, 22f),
                     sf);
             }
+        }
+
+        private void DrawHandheldCenterDiagram(Graphics g)
+        {
+            var state = g.Save();
+            float targetCenterX = 310f;
+            float targetCenterY = 265f;
+            float diagScale = 0.36f;
+
+            g.TranslateTransform(targetCenterX - (620f * diagScale) / 2f, targetCenterY - (346f * diagScale) / 2f);
+            g.ScaleTransform(diagScale, diagScale);
+
+            // CarcaÃ§a do Handheld
+            var rect = new RectangleF(24, 28, 572, 258);
+            using (var path = CreateRoundedRectanglePath(rect, 22f))
+            using (var brush = new SolidBrush(CardBg))
+            using (var pen = new Pen(BorderIdle, 3f))
+            {
+                g.FillPath(brush, path);
+                g.DrawPath(pen, path);
+            }
+
+            // Tela Central
+            var screenRect = new RectangleF(186, 44, 248, 192);
+            using (var path = CreateRoundedRectanglePath(screenRect, 8f))
+            using (var brush = new SolidBrush(Color.FromArgb(16, 18, 23)))
+            using (var pen = new Pen(BorderSubtle, 2f))
+            {
+                g.FillPath(brush, path);
+                g.DrawPath(pen, path);
+            }
+
+            using (var font = new Font("Segoe UI", 12f, FontStyle.Bold))
+            using (var brush = new SolidBrush(Color.FromArgb(90, 96, 115)))
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            {
+                g.DrawString("STEAM DECK", font, brush, screenRect, sf);
+            }
+
+            // Gatilhos e Bumpers
+            DrawDiagramBox(g, new RectangleF(55, 6, 85, 20), "LT", _focusedSlot == ProfileEditorSlot.ButtonLT);
+            DrawDiagramBox(g, new RectangleF(480, 6, 85, 20), "RT", _focusedSlot == ProfileEditorSlot.ButtonRT);
+            DrawDiagramBox(g, new RectangleF(55, 30, 85, 18), "LB", _focusedSlot == ProfileEditorSlot.ButtonLB);
+            DrawDiagramBox(g, new RectangleF(480, 30, 85, 18), "RB", _focusedSlot == ProfileEditorSlot.ButtonRB);
+
+            // Sticks
+            bool lStickFocused = _focusedSlot == ProfileEditorSlot.LeftStickMode ||
+                                 _focusedSlot == ProfileEditorSlot.LeftStickUp ||
+                                 _focusedSlot == ProfileEditorSlot.LeftStickDown ||
+                                 _focusedSlot == ProfileEditorSlot.LeftStickLeft ||
+                                 _focusedSlot == ProfileEditorSlot.LeftStickRight ||
+                                 _focusedSlot == ProfileEditorSlot.LeftStickAdditional ||
+                                 _focusedSlot == ProfileEditorSlot.LeftStickClick;
+
+            bool rStickFocused = _focusedSlot == ProfileEditorSlot.RightStickMode ||
+                                 _focusedSlot == ProfileEditorSlot.RightStickUp ||
+                                 _focusedSlot == ProfileEditorSlot.RightStickDown ||
+                                 _focusedSlot == ProfileEditorSlot.RightStickLeft ||
+                                 _focusedSlot == ProfileEditorSlot.RightStickRight ||
+                                 _focusedSlot == ProfileEditorSlot.RightStickAdditional ||
+                                 _focusedSlot == ProfileEditorSlot.RightStickClick;
+
+            DrawDiagramStick(g, 100, 92, "L", lStickFocused, _focusedSlot == ProfileEditorSlot.LeftStickClick);
+            DrawDiagramStick(g, 520, 168, "R", rStickFocused, _focusedSlot == ProfileEditorSlot.RightStickClick);
+
+            // D-Pad
+            const float s = 20f;
+            float dcx = 100f, dcy = 168f;
+            DrawDiagramBox(g, new RectangleF(dcx - s / 2, dcy - s * 1.5f, s, s), "â–²", _focusedSlot == ProfileEditorSlot.DPadUp);
+            DrawDiagramBox(g, new RectangleF(dcx - s / 2, dcy + s * 0.5f, s, s), "â–¼", _focusedSlot == ProfileEditorSlot.DPadDown);
+            DrawDiagramBox(g, new RectangleF(dcx - s * 1.5f, dcy - s / 2, s, s), "â—„", _focusedSlot == ProfileEditorSlot.DPadLeft);
+            DrawDiagramBox(g, new RectangleF(dcx + s * 0.5f, dcy - s / 2, s, s), "â–º", _focusedSlot == ProfileEditorSlot.DPadRight);
+
+            // BotÃµes Faciais
+            float fcx = 520f, fcy = 92f;
+            DrawDiagramCircle(g, fcx, fcy + 28, "A", _focusedSlot == ProfileEditorSlot.ButtonA, Color.FromArgb(90, 200, 90));
+            DrawDiagramCircle(g, fcx + 28, fcy, "B", _focusedSlot == ProfileEditorSlot.ButtonB, Color.FromArgb(230, 80, 70));
+            DrawDiagramCircle(g, fcx - 28, fcy, "X", _focusedSlot == ProfileEditorSlot.ButtonX, Color.FromArgb(70, 140, 240));
+            DrawDiagramCircle(g, fcx - 28, fcy - 28, "Y", _focusedSlot == ProfileEditorSlot.ButtonY, Color.FromArgb(240, 200, 60));
+
+            // Trackpads
+            DrawDiagramTrackpad(g, new RectangleF(72, 212, 56, 56), "L-PAD");
+            DrawDiagramTrackpad(g, new RectangleF(492, 212, 56, 56), "R-PAD");
+
+            // BotÃµes Centrais
+            DrawDiagramBox(g, new RectangleF(150, 72, 26, 18), "Sel", _focusedSlot == ProfileEditorSlot.ButtonBack);
+            DrawDiagramBox(g, new RectangleF(444, 72, 26, 18), "Sta", _focusedSlot == ProfileEditorSlot.ButtonStart);
+
+            g.Restore(state);
+        }
+
+        private static void DrawDiagramTrackpad(Graphics g, RectangleF rect, string label)
+        {
+            using (var path = CreateRoundedRectanglePath(rect, 6f))
+            using (var brush = new SolidBrush(Color.FromArgb(44, 48, 58)))
+            using (var pen = new Pen(BorderIdle, 2f))
+            using (var font = new Font("Segoe UI", 8f, FontStyle.Bold))
+            using (var textBrush = new SolidBrush(TextSecondary))
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            {
+                g.FillPath(brush, path);
+                g.DrawPath(pen, path);
+                g.DrawString(label, font, textBrush, rect, sf);
+            }
+        }
+
+        private void DrawRearButtonsRow(Graphics g)
+        {
+            var page = _workingProfile.ActivePage;
+
+            DrawRearButtonSlot(g, ProfileEditorSlot.ButtonL4, "L4", _settings.L4HardwareRemap, page.GetActions(ControllerButton.L4));
+            DrawRearButtonSlot(g, ProfileEditorSlot.ButtonL5, "L5", _settings.L5HardwareRemap, page.GetActions(ControllerButton.L5));
+            DrawRearButtonSlot(g, ProfileEditorSlot.ButtonR5, "R5", _settings.R5HardwareRemap, page.GetActions(ControllerButton.R5));
+            DrawRearButtonSlot(g, ProfileEditorSlot.ButtonR4, "R4", _settings.R4HardwareRemap, page.GetActions(ControllerButton.R4));
+        }
+
+        private void DrawRearButtonSlot(Graphics g, ProfileEditorSlot slot, string label, SteamDeckHardwareRemap hwRemap, List<InputAction> actions)
+        {
+            var rect = _slotBounds[slot];
+            bool isFocused = _focusedSlot == slot;
+            bool hasActions = actions != null && actions.Count > 0;
+            bool hasHwRemap = hwRemap != SteamDeckHardwareRemap.None;
+
+            Color bgColor = isFocused ? FocusBg : (hasActions || hasHwRemap ? Color.FromArgb(30, 48, 40) : CardBg);
+            DrawInteractiveSlotBox(g, rect, isFocused, bgColor);
+
+            using (var titleFont = new Font("Segoe UI", 7.5f, FontStyle.Bold))
+            using (var titleBrush = new SolidBrush(isFocused ? BorderFocused : TextSecondary))
+            {
+                g.DrawString(label, titleFont, titleBrush, rect.X + 4, rect.Y + 2);
+            }
+
+            string displayVal;
+            Color valColor;
+            if (hasHwRemap)
+            {
+                displayVal = "HW:" + FormatHardwareRemapShort(hwRemap);
+                valColor = AlertAmber;
+            }
+            else if (hasActions)
+            {
+                displayVal = InputAction.FormatComboDisplay(actions);
+                valColor = ActiveGreen;
+            }
+            else
+            {
+                displayVal = "-";
+                valColor = TextSecondary;
+            }
+
+            var textRect = new RectangleF(rect.X + 2, rect.Y + 14, rect.Width - 4, 14);
+            using (var valFont = new Font("Segoe UI", 7.2f, FontStyle.Bold))
+            using (var valBrush = new SolidBrush(valColor))
+            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
+            {
+                g.DrawString(displayVal, valFont, valBrush, textRect, sf);
+            }
+        }
+
+        private static string FormatHardwareRemapShort(SteamDeckHardwareRemap remap)
+        {
+            switch (remap)
+            {
+                case SteamDeckHardwareRemap.LeftShoulder: return "LB";
+                case SteamDeckHardwareRemap.RightShoulder: return "RB";
+                case SteamDeckHardwareRemap.LeftTrigger: return "LT";
+                case SteamDeckHardwareRemap.RightTrigger: return "RT";
+                case SteamDeckHardwareRemap.LeftStickClick: return "L3";
+                case SteamDeckHardwareRemap.RightStickClick: return "R3";
+                default: return remap.ToString();
+            }
+        }
+
+        private static GraphicsPath CreateRoundedRectanglePath(RectangleF rect, float radius)
+        {
+            var path = new GraphicsPath();
+            float d = radius * 2f;
+            path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+            path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
         }
 
         private static void DrawCardFrame(Graphics g, RectangleF rect, string title)
