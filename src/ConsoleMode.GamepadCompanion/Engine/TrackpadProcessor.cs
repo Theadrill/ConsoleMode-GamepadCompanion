@@ -35,13 +35,14 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
         private const float DeadzoneThreshold = 28f;
         private const float MinFlickSpeed = 40f;
-        private const float TrackballHapticStep = 28f;
+        private const float TrackballHapticStep = 36f;
         private const float ScrollStep = 650f;
 
         public bool IsRightPad { get; }
 
         private bool _wasTouched;
         private bool _isFirstTouch = true;
+        private bool _wasEffectivePress;
         private short _lastRawX;
         private short _lastRawY;
 
@@ -60,13 +61,30 @@ namespace ConsoleMode.GamepadCompanion.Engine
         }
 
         /// <summary>
-        /// Processa um frame de entrada do trackpad e retorna as ações de mouse, scroll e botões a serem aplicadas.
+        /// Processa um frame de entrada do trackpad (compatibilidade sem sensor de pressão analógica).
         /// </summary>
         public TrackpadOutput Process(
             bool isTouch,
             bool isPress,
             short rawX,
             short rawY,
+            TrackpadConfig config,
+            float dt)
+        {
+            return Process(isTouch, isPress, rawX, rawY, 0, config, dt);
+        }
+
+        /// <summary>
+        /// Processa um frame de entrada do trackpad com coordenadas brutas, pressão analógica e deltas de tempo.
+        /// Suporta disparo de clique por limiar de pressão analógica configurável (estilo Force Touch)
+        /// com histerese e pulso háptico na borda de subida.
+        /// </summary>
+        public TrackpadOutput Process(
+            bool isTouch,
+            bool isPress,
+            short rawX,
+            short rawY,
+            short rawPressure,
             TrackpadConfig config,
             float dt)
         {
@@ -84,12 +102,44 @@ namespace ConsoleMode.GamepadCompanion.Engine
             {
                 _wasTouched = false;
                 _isFirstTouch = true;
+                _wasEffectivePress = false;
                 _velocityX = 0f;
                 _velocityY = 0f;
                 return output;
             }
 
             if (dt <= 0.0001f) dt = 0.008f; // Fallback defensivo para 120Hz
+
+            // Avaliação do clique efetivo (Chave mecânica física OU Pressão analógica com histerese)
+            int pressureThreshold = config.ClickPressureThreshold;
+            bool isEffectivePress = isPress;
+
+            if (isTouch && pressureThreshold > 0)
+            {
+                if (_wasEffectivePress)
+                {
+                    // Mantém pressionado até cair 1500 unidades abaixo do limiar (evita trepidação)
+                    isEffectivePress = isPress || (rawPressure >= Math.Max(1000, pressureThreshold - 1500));
+                }
+                else
+                {
+                    isEffectivePress = isPress || (rawPressure >= pressureThreshold);
+                }
+            }
+            else if (!isTouch)
+            {
+                isEffectivePress = false;
+            }
+
+            // Pulso háptico tátil de clique instantâneo na borda de subida (ao acionar o clique)
+            if (isEffectivePress && !_wasEffectivePress)
+            {
+                if (config.HapticIntensity != TrackpadHapticIntensity.Off)
+                {
+                    output.TriggerHaptic = true;
+                }
+            }
+            _wasEffectivePress = isEffectivePress;
 
             // 1. Processamento específico do modo funcional
             switch (config.Mode)
@@ -107,14 +157,14 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     break;
 
                 case TrackpadMode.SingleButton:
-                    ProcessSingleButton(isTouch, isPress, config, ref output);
+                    ProcessSingleButton(isTouch, isEffectivePress, config, ref output);
                     break;
             }
 
             // 2. Dupla Ação Universal (Touch e/ou Press)
-            // Se PressActions estiver configurado em qualquer modo (ex: clique mecânico no MouseTrackball),
-            // dispara ao afundar o botão físico.
-            if (isPress && config.PressActions != null && config.PressActions.Count > 0)
+            // Se PressActions estiver configurado em qualquer modo (ex: clique no MouseTrackball),
+            // dispara quando o clique efetivo estiver ativo.
+            if (isEffectivePress && config.PressActions != null && config.PressActions.Count > 0)
             {
                 output.Actions.AddRange(config.PressActions);
             }
@@ -164,8 +214,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 // Elimina ruídos elétricos/capacitivos em repouso sem degrau de descontinuidade ("jump/pulando").
                 if (deltaDist <= DeadzoneThreshold)
                 {
-                    _smoothDx *= 0.5f;
-                    _smoothDy *= 0.5f;
+                    _smoothDx *= 0.70f;
+                    _smoothDy *= 0.70f;
                     if (Math.Abs(_smoothDx) < 0.05f) _smoothDx = 0f;
                     if (Math.Abs(_smoothDy) < 0.05f) _smoothDy = 0f;
                     return;
@@ -193,8 +243,19 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 float targetDy = -cleanDy * sensFactor * accel; // Deck Y positivo é para cima; tela Windows Y positivo é para baixo.
 
                 // 4. Filtro Passa-Baixa Dinâmico (EMA - Exponential Moving Average):
-                // Remove trepidações ("tremendo") em micro-ajustes enquanto preserva resposta imediata em flicks rápidos.
-                float alpha = Math.Min(0.85f, Math.Max(0.45f, speed / 35000f));
+                // Amortecimento aveludado anti-tremor em micro-mira/baixa velocidade (0.24 a 0.38)
+                // que absorve 100% da trepidação involuntária da mão sem criar lag perceptível,
+                // escalando até 0.85 em varreduras e flicks rápidos.
+                float alpha;
+                if (speed < 12000f)
+                {
+                    alpha = 0.24f + (speed / 12000f) * 0.14f;
+                }
+                else
+                {
+                    alpha = Math.Min(0.85f, 0.38f + ((speed - 12000f) / 30000f) * 0.47f);
+                }
+
                 _smoothDx = (_smoothDx * (1f - alpha)) + (targetDx * alpha);
                 _smoothDy = (_smoothDy * (1f - alpha)) + (targetDy * alpha);
 
@@ -401,6 +462,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         {
             _wasTouched = false;
             _isFirstTouch = true;
+            _wasEffectivePress = false;
             _lastRawX = 0;
             _lastRawY = 0;
             _smoothDx = 0f;

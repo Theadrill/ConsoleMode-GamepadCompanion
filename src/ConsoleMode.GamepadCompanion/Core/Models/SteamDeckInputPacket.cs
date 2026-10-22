@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace ConsoleMode.GamepadCompanion.Core.Models
 {
@@ -76,6 +76,8 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         public short LPadY;
         public short RPadX;
         public short RPadY;
+        public short LPadPressure;
+        public short RPadPressure;
 
         public bool IsA => (Buttons0 & SDCButton0.BTN_A) != 0;
         public bool IsB => (Buttons0 & SDCButton0.BTN_B) != 0;
@@ -146,6 +148,9 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             state.LeftThumbY = BitConverter.ToInt16(buffer, 0x32);
             state.RightThumbX = BitConverter.ToInt16(buffer, 0x34);
             state.RightThumbY = BitConverter.ToInt16(buffer, 0x36);
+
+            state.LPadPressure = BitConverter.ToInt16(buffer, 0x38);
+            state.RPadPressure = BitConverter.ToInt16(buffer, 0x3A);
 
             return state;
         }

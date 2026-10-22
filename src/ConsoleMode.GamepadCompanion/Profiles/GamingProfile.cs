@@ -195,6 +195,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                     deckRaw.IsLPadPress,
                     deckRaw.LPadX,
                     deckRaw.LPadY,
+                    deckRaw.LPadPressure,
                     page.LeftTrackpad,
                     deltaSeconds);
 
@@ -216,6 +217,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                     deckRaw.IsRPadPress,
                     deckRaw.RPadX,
                     deckRaw.RPadY,
+                    deckRaw.RPadPressure,
                     page.RightTrackpad,
                     deltaSeconds);
 

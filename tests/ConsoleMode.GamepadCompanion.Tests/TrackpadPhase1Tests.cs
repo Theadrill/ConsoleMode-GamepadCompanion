@@ -64,6 +64,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(TrackpadHapticIntensity.Low, config.HapticIntensity);
             Assert.True(config.InvertScroll);
             Assert.Equal(15, config.DeadzonePercent);
+            Assert.Equal(11000, config.ClickPressureThreshold);
             Assert.Empty(config.TouchActions);
             Assert.Empty(config.PressActions);
             Assert.Empty(config.Up);
@@ -83,6 +84,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
                 HapticIntensity = TrackpadHapticIntensity.High,
                 InvertScroll = false,
                 DeadzonePercent = 20,
+                ClickPressureThreshold = 9500,
                 TouchActions = new List<InputAction> { InputAction.FromKey(VirtualKey.Space) },
                 PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) },
                 Up = new List<InputAction> { InputAction.FromKey(VirtualKey.W) },
@@ -100,6 +102,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(original.HapticIntensity, clone.HapticIntensity);
             Assert.Equal(original.InvertScroll, clone.InvertScroll);
             Assert.Equal(original.DeadzonePercent, clone.DeadzonePercent);
+            Assert.Equal(original.ClickPressureThreshold, clone.ClickPressureThreshold);
 
             Assert.NotSame(original.TouchActions, clone.TouchActions);
             Assert.Equal(VirtualKey.Space, clone.TouchActions[0].Key);
@@ -165,6 +168,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             page.RightTrackpad.Mode = TrackpadMode.MouseTrackball;
             page.RightTrackpad.Sensitivity = 70;
             page.RightTrackpad.Friction = 40;
+            page.RightTrackpad.ClickPressureThreshold = 14500;
             page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.High;
             page.RightTrackpad.PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) };
 
@@ -182,6 +186,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(TrackpadMode.MouseTrackball, loadedPage.RightTrackpad.Mode);
             Assert.Equal(70, loadedPage.RightTrackpad.Sensitivity);
             Assert.Equal(40, loadedPage.RightTrackpad.Friction);
+            Assert.Equal(14500, loadedPage.RightTrackpad.ClickPressureThreshold);
             Assert.Equal(TrackpadHapticIntensity.High, loadedPage.RightTrackpad.HapticIntensity);
             Assert.Single(loadedPage.RightTrackpad.PressActions);
             Assert.Equal(MouseButton.Left, loadedPage.RightTrackpad.PressActions[0].MouseButton);
@@ -422,6 +427,38 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(MouseButton.Left, pressOut.Actions[0].MouseButton);
         }
 
+        [Fact]
+        public void TrackpadProcessor_AnalogPressureClick_TriggersPressActionAndHapticWithoutMechanicalBottoming()
+        {
+            var processor = new TrackpadProcessor(isRightPad: true);
+            var config = new TrackpadConfig
+            {
+                Mode = TrackpadMode.MouseTrackball,
+                ClickPressureThreshold = 11000,
+                HapticIntensity = TrackpadHapticIntensity.Low,
+                PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) }
+            };
+
+            // 1. Toque leve de navegação (pressão 4000 < 11000): sem clique
+            var lightTouch = processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 4000, config: config, dt: 0.008f);
+            Assert.Empty(lightTouch.Actions);
+
+            // 2. Aperto firme com o polegar (pressão 12500 >= 11000, chave mecânica NÃO afundada): DISPARA CLIQUE E HÁPTICO
+            var pressureClick = processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 12500, config: config, dt: 0.008f);
+            Assert.Single(pressureClick.Actions);
+            Assert.Equal(MouseButton.Left, pressureClick.Actions[0].MouseButton);
+            Assert.True(pressureClick.TriggerHaptic, "Borda de subida do clique por pressão deve disparar pulso háptico tátil");
+
+            // 3. Mantendo o polegar pressionado (pressão 10500, acima da histerese 9500): mantém o clique sem re-disparar pulso
+            var sustainedPress = processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 10500, config: config, dt: 0.008f);
+            Assert.Single(sustainedPress.Actions);
+            Assert.False(sustainedPress.TriggerHaptic, "Clique sustentado não deve ficar vibrando repetidamente");
+
+            // 4. Aliviando a pressão (pressão 7000 < histerese 9500): solta o clique
+            var releasePress = processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 7000, config: config, dt: 0.008f);
+            Assert.Empty(releasePress.Actions);
+        }
+
         #endregion
 
         #region 4. Integração com GamingProfile e DesktopProfile
@@ -554,6 +591,38 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             var clicks = sim.Events.FindAll(e => e.Type == TestInputSimulator.EventType.MouseDown && e.Button == MouseButton.Left);
             Assert.NotEmpty(clicks);
+
+            DesktopProfile.ForegroundCheckOverride = null;
+        }
+
+        [Fact]
+        public void DesktopProfile_RightTrackpadAnalogPressure_FiresLeftClickWithoutMechanicalPress()
+        {
+            var sim = new TestInputSimulator();
+            var haptics = new TestHapticsProvider();
+            var settings = new AppSettings { MappingEnabled = true, DesktopModeEnabled = true };
+            DesktopProfile.ForegroundCheckOverride = () => false;
+
+            var desktopProfile = new DesktopProfile(sim, settings, GameProfilePresets.CreateDesktopDefault(), haptics);
+            var gamepadState = new GamepadState(true, 1, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+
+            // Toque com pressão analógica acima de 11000, mas SEM afundar chave mecânica física (Buttons1 tem só BTN_RPAD_TOUCH)
+            var deckRaw = new SteamDeckRawState
+            {
+                Buttons1 = SDCButton1.BTN_RPAD_TOUCH,
+                RPadX = 500,
+                RPadY = 500,
+                RPadPressure = 13000
+            };
+
+            desktopProfile.Update(gamepadState, deckRaw, 0.008f);
+
+            var clicks = sim.Events.FindAll(e => e.Type == TestInputSimulator.EventType.MouseDown && e.Button == MouseButton.Left);
+            Assert.NotEmpty(clicks);
+
+            // Verifica que o pulso háptico tátil de clique foi despachado
+            Assert.NotEmpty(haptics.Pulses);
+            Assert.True(haptics.Pulses[0].isRightPad, "Pulso háptico de clique deve ser no trackpad direito");
 
             DesktopProfile.ForegroundCheckOverride = null;
         }

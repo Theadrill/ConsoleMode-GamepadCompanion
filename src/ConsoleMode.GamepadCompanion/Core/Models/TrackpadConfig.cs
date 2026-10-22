@@ -29,6 +29,13 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         /// <summary>Zona morta central percentual para descanso do polegar no modo DPad (padrão: 15%).</summary>
         public int DeadzonePercent { get; set; } = 15;
 
+        /// <summary>
+        /// Limiar de ativação de clique por pressão analógica (0 a 32767).
+        /// Se 0, desativa o gatilho por pressão e utiliza exclusivamente o microswitch mecânico físico.
+        /// Padrão: 11000 (~pressão suave a média com o polegar, sem exigir esmagamento mecânico).
+        /// </summary>
+        public int ClickPressureThreshold { get; set; } = 11000;
+
         /// <summary>Ações disparadas ao tocar a superfície capacitiva (Touch).</summary>
         public List<InputAction> TouchActions { get; set; } = new List<InputAction>();
 
@@ -57,6 +64,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
                 HapticIntensity = this.HapticIntensity,
                 InvertScroll = this.InvertScroll,
                 DeadzonePercent = this.DeadzonePercent,
+                ClickPressureThreshold = this.ClickPressureThreshold,
                 TouchActions = CloneList(this.TouchActions),
                 PressActions = CloneList(this.PressActions),
                 Up = CloneList(this.Up),

@@ -177,6 +177,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             ini.SetValue(section, prefix + "Haptics", config.HapticIntensity.ToString());
             ini.SetValue(section, prefix + "InvertScroll", config.InvertScroll.ToString());
             ini.SetValue(section, prefix + "Deadzone", config.DeadzonePercent.ToString());
+            ini.SetValue(section, prefix + "ClickPressure", config.ClickPressureThreshold.ToString());
             ini.SetValue(section, prefix + "Touch", InputAction.SerializeCombo(config.TouchActions));
             ini.SetValue(section, prefix + "Press", InputAction.SerializeCombo(config.PressActions));
             ini.SetValue(section, prefix + "Up", InputAction.SerializeCombo(config.Up));
@@ -205,6 +206,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
             config.InvertScroll = ini.GetBool(section, prefix + "InvertScroll", true);
             config.DeadzonePercent = ini.GetInt(section, prefix + "Deadzone", 15);
+            config.ClickPressureThreshold = ini.GetInt(section, prefix + "ClickPressure", 11000);
 
             config.TouchActions = InputAction.DeserializeCombo(ini.GetValue(section, prefix + "Touch"));
             config.PressActions = InputAction.DeserializeCombo(ini.GetValue(section, prefix + "Press"));
