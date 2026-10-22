@@ -44,7 +44,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             public List<(bool isRightPad, TrackpadHapticIntensity intensity)> Pulses { get; } =
                 new List<(bool, TrackpadHapticIntensity)>();
 
-            public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
+            public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity, bool isClick = false)
             {
                 Pulses.Add((isRightPad, intensity));
                 return true;

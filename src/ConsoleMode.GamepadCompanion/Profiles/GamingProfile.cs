@@ -242,7 +242,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
                 if (lpadOut.TriggerHaptic && lpadOut.HapticIntensity != TrackpadHapticIntensity.Off)
                 {
-                    DispatchHaptic(isRightPad: false, lpadOut.HapticIntensity);
+                    DispatchHaptic(isRightPad: false, lpadOut.HapticIntensity, lpadOut.IsHapticClick);
                 }
             }
 
@@ -264,7 +264,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
                 if (rpadOut.TriggerHaptic && rpadOut.HapticIntensity != TrackpadHapticIntensity.Off)
                 {
-                    DispatchHaptic(isRightPad: true, rpadOut.HapticIntensity);
+                    DispatchHaptic(isRightPad: true, rpadOut.HapticIntensity, rpadOut.IsHapticClick);
                 }
             }
 
@@ -504,17 +504,17 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             _rightTrackpadProcessor.Reset();
         }
 
-        private void DispatchHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
+        private void DispatchHaptic(bool isRightPad, TrackpadHapticIntensity intensity, bool isClick = false)
         {
             try
             {
                 if (_hapticsProvider != null)
                 {
-                    _hapticsProvider.TriggerHaptic(isRightPad, intensity);
+                    _hapticsProvider.TriggerHaptic(isRightPad, intensity, isClick);
                 }
                 else
                 {
-                    SteamDeckManager.TriggerHaptic(isRightPad, intensity);
+                    SteamDeckManager.TriggerHaptic(isRightPad, intensity, isClick);
                 }
             }
             catch { }

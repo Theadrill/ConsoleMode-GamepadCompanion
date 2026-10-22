@@ -84,12 +84,12 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         /// <summary>
         /// Emite um pulso háptico no trackpad especificado caso o serviço do Steam Deck esteja ativo.
         /// </summary>
-        public static bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
+        public static bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity, bool isClick = false)
         {
             var s = _service;
             if (s != null && s.IsRunning)
             {
-                return s.TriggerHaptic(isRightPad, intensity);
+                return s.TriggerHaptic(isRightPad, intensity, isClick);
             }
             return false;
         }

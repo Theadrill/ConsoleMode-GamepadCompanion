@@ -13,7 +13,8 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         /// </summary>
         /// <param name="isRightPad">true para o Trackpad Direito; false para o Trackpad Esquerdo.</param>
         /// <param name="intensity">Nível de intensidade (Off, Low, Medium, High).</param>
+        /// <param name="isClick">true para clique mecânico nítido; false para tick de textura sutil.</param>
         /// <returns>true se o relatório foi enviado ao hardware com sucesso; false caso contrário.</returns>
-        bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity);
+        bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity, bool isClick = false);
     }
 }

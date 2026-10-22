@@ -291,37 +291,31 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 clearMappings[1] = 0x81; // ID_CLEAR_DIGITAL_MAPPINGS
                 SteamDeckHidNative.SendFeatureReport(_device, clearMappings);
 
-                // 2. Desativa mouse de hardware e clicky-pad (protocolo oficial Valve / SDL):
-                // 5 registros x 3 bytes = 15 bytes de payload (0x0F)
+                // 2. Desativa mouse de hardware e configura modos oficiais Valve Neptune:
+                // 3 registros x 3 bytes = 9 bytes de payload (0x09)
                 byte[] setSettings = new byte[65];
                 setSettings[0] = 0x00;
                 setSettings[1] = 0x87; // ID_SET_SETTINGS_VALUES
-                setSettings[2] = 15;   // length
+                setSettings[2] = 9;    // 3 registros x 3 bytes
                 
                 // Reg 0: 0x18 (SETTING_DECK_RPAD_MARGIN) = 0
                 setSettings[3] = 0x18;
                 setSettings[4] = 0x00;
                 setSettings[5] = 0x00;
 
-                // Reg 1: 0x07 (SETTING_DECK_LPAD_MODE) = 7 (TRACKPAD_NONE)
+                // Reg 1: 0x07 (SETTING_DECK_LPAD_MODE) = 7 (TRACKPAD_NONE -> Desativa mouse/scroll de firmware do pad esquerdo)
                 setSettings[6] = 0x07;
                 setSettings[7] = 0x07;
                 setSettings[8] = 0x00;
 
-                // Reg 2: 0x08 (SETTING_DECK_RPAD_MODE) = 7 (TRACKPAD_NONE)
+                // Reg 2: 0x08 (SETTING_DECK_RPAD_MODE) = 7 (TRACKPAD_NONE -> Desativa mouse de firmware do pad direito)
                 setSettings[9] = 0x08;
                 setSettings[10] = 0x07;
                 setSettings[11] = 0x00;
 
-                // Reg 3: 0x34 (SETTING_DECK_LPAD_CLICK_PRESSURE) = 0xFFFF (desativa click mecânico de fábrica do pad esquerdo)
-                setSettings[12] = 0x34;
-                setSettings[13] = 0xFF;
-                setSettings[14] = 0xFF;
-
-                // Reg 4: 0x35 (SETTING_DECK_RPAD_CLICK_PRESSURE) = 0xFFFF (desativa click mecânico de fábrica do pad direito)
-                setSettings[15] = 0x35;
-                setSettings[16] = 0xFF;
-                setSettings[17] = 0xFF;
+                // NOTA CRÍTICA: NÃO definir SETTING_DECK_LPAD_CLICK_PRESSURE (0x34) nem RPAD (0x35) para 0xFFFF!
+                // Colocar 0xFFFF desativa os switches mecânicos físicos dos trackpads no firmware do Neptune,
+                // impedindo que o hardware reporte BTN_LPAD_PRESS e que os atuadores LRA recebam comandos de vibração.
 
                 SteamDeckHidNative.SendFeatureReport(_device, setSettings);
                 _lastLizardUpdate = DateTime.Now;
@@ -353,42 +347,72 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         /// utilizando o protocolo nativo de haptics da Valve (0xEA ID_TRIGGER_HAPTIC_CMD)
         /// com disparo complementar via relatório 0x8F (ID_TRIGGER_HAPTIC_PULSE).
         /// </summary>
-        public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
+        public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity, bool isClick = false)
         {
             if (intensity == TrackpadHapticIntensity.Off) return false;
             if (_device == null || !_isRunning) return false;
 
             byte side = (byte)(isRightPad ? 0x02 : 0x01); // 0x01 = Left Pad, 0x02 = Right Pad
+            byte pad8F = (byte)(isRightPad ? 0x01 : 0x00);
+
             byte uiIntensity;
             sbyte dBGain;
-            ushort freq;
+            ushort freq = 240;
             ushort durMs;
             ushort amp8f;
 
-            switch (intensity)
+            if (isClick)
             {
-                case TrackpadHapticIntensity.Low:
-                    uiIntensity = 1;
-                    dBGain = 0;
-                    freq = 240;
-                    durMs = 18;
-                    amp8f = 2000;
-                    break;
-                case TrackpadHapticIntensity.Medium:
-                    uiIntensity = 2;
-                    dBGain = 4;
-                    freq = 240;
-                    durMs = 24;
-                    amp8f = 3500;
-                    break;
-                case TrackpadHapticIntensity.High:
-                default:
-                    uiIntensity = 3;
-                    dBGain = 8;
-                    freq = 240;
-                    durMs = 32;
-                    amp8f = 5000;
-                    break;
+                // Pulso de CLIQUE mecânico nítido e definido (para botões físicos e notches de scroll)
+                switch (intensity)
+                {
+                    case TrackpadHapticIntensity.Low:
+                        uiIntensity = 2;
+                        dBGain = 2;
+                        durMs = 20;
+                        amp8f = 1600;
+                        break;
+                    case TrackpadHapticIntensity.Medium:
+                        uiIntensity = 3;
+                        dBGain = 5;
+                        durMs = 24;
+                        amp8f = 2400;
+                        break;
+                    case TrackpadHapticIntensity.High:
+                    default:
+                        uiIntensity = 3;
+                        dBGain = 8;
+                        durMs = 28;
+                        amp8f = 3500;
+                        break;
+                }
+            }
+            else
+            {
+                // Pulso de TICK / TEXTURA tátil suave para rolagem contínua e trackball
+                // Evita efeito "britadeira" ou vibração descontrolada durante o movimento
+                switch (intensity)
+                {
+                    case TrackpadHapticIntensity.Low:
+                        uiIntensity = 1;
+                        dBGain = -4;
+                        durMs = 10;
+                        amp8f = 450;
+                        break;
+                    case TrackpadHapticIntensity.Medium:
+                        uiIntensity = 1;
+                        dBGain = 0;
+                        durMs = 12;
+                        amp8f = 750;
+                        break;
+                    case TrackpadHapticIntensity.High:
+                    default:
+                        uiIntensity = 2;
+                        dBGain = 3;
+                        durMs = 14;
+                        amp8f = 1100;
+                        break;
+                }
             }
 
             // 1. Protocolo nativo Neptune 0xEA (Deck-specific MsgTriggerHaptic)
@@ -397,7 +421,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             packetEA[1] = 0xEA; // ID_TRIGGER_HAPTIC_CMD
             packetEA[2] = 19;   // Length = sizeof(MsgTriggerHaptic)
             packetEA[3] = side; // 0x01 = Left, 0x02 = Right
-            packetEA[4] = 0x02; // cmd = 2 (Click tátil nítido)
+            packetEA[4] = (byte)(isClick ? 0x02 : 0x01); // 1 = tick, 2 = click
             packetEA[5] = uiIntensity;
             packetEA[6] = (byte)dBGain;
             packetEA[7] = (byte)(freq & 0xFF);
@@ -411,14 +435,15 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             byte[] packet8F = new byte[65];
             packet8F[0] = 0x00;
             packet8F[1] = 0x8F;
-            packet8F[2] = 0x07;
-            packet8F[3] = (byte)(isRightPad ? 0x01 : 0x00); // 0 = Left, 1 = Right
+            packet8F[2] = 0x08; // 8 bytes
+            packet8F[3] = pad8F;
             packet8F[4] = (byte)(amp8f & 0xFF);
             packet8F[5] = (byte)((amp8f >> 8) & 0xFF);
             packet8F[6] = 0x40; // 320µs período
             packet8F[7] = 0x01;
             packet8F[8] = 0x01; // count = 1
             packet8F[9] = 0x00;
+            packet8F[10] = 0x00;
 
             int res8F = SteamDeckHidNative.SendFeatureReport(_device, packet8F);
 
@@ -433,7 +458,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 <= 2 => TrackpadHapticIntensity.Medium,
                 _ => TrackpadHapticIntensity.High
             };
-            return TriggerHaptic(isRightPad, hapticIntensity);
+            return TriggerHaptic(isRightPad, hapticIntensity, isClick: true);
         }
 
         public bool TriggerHapticRaw(bool isRightPad, ushort amplitude, ushort period = 300, ushort count = 1)

@@ -14,6 +14,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         public int WheelDelta;
         public List<InputAction> Actions;
         public bool TriggerHaptic;
+        public bool IsHapticClick;
         public TrackpadHapticIntensity HapticIntensity;
     }
 
@@ -132,15 +133,15 @@ namespace ConsoleMode.GamepadCompanion.Engine
         // ==========================================
         /// <summary>
         /// Janela de tempo (em segundos) após um clique durante a qual o cursor é magneticamente travado (0 px)
-        /// para garantir que o segundo clique caia no mesmo pixel e o Windows registre duplo clique com 100% de sucesso.
+        /// para absorver o impacto mecânico inicial e garantir o duplo clique perfeito no Windows.
         /// </summary>
-        public static float DoubleClickLockDuration = 0.50f;
+        public static float DoubleClickLockDuration = 0.25f;
 
         /// <summary>
         /// Distância bruta acumulada no pad necessária para quebrar a âncora de clique caso o usuário
         /// queira intencionalmente arrastar uma janela ou selecionar texto (Click & Drag).
         /// </summary>
-        public static float DoubleClickBreakDistance = 200f;
+        public static float DoubleClickBreakDistance = 120f;
 
         // ==========================================
         // 6. INÉRCIA DA TRACKBALL (GESTOS DE VARREDURA)
@@ -173,8 +174,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
         /// <summary>Intervalo mínimo (em segundos) entre emissões consecutivas de notches de scroll (cooldown mecânico anti-rajada de ~12 notches/s máx).</summary>
         public static float ScrollMinIntervalSeconds = 0.080f;
 
-        /// <summary>Distância percorrida pelo mouse para emitir 1 micro-pulso tátil de rotação da trackball.</summary>
-        public static float TrackballHapticStep = 16f;
+        /// <summary>Distância percorrida pelo mouse para emitir 1 micro-pulso tátil suave de rotação da trackball.</summary>
+        public static float TrackballHapticStep = 36f;
 
         // ==========================================
         // 8. FEEDBACK HÁPTICO (INTENSIDADE DO HARDWARE NEPTUNE)
@@ -232,6 +233,9 @@ namespace ConsoleMode.GamepadCompanion.Engine
         private int _touchFrames;
         private float _clickLockRemainingTime;
         private float _clickLockAccumulatedDist;
+        private float _clickDampingTimer;
+        private bool _isClickDragActive;
+        private float _scrollHapticAccumulator;
         private float _velocityX;
         private float _velocityY;
         private float _hapticDistanceAccumulator;
@@ -321,11 +325,19 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 // Arma a âncora magnética de clique (trava 0px) para garantir o duplo clique perfeito
                 _clickLockRemainingTime = TrackpadTuning.DoubleClickLockDuration;
                 _clickLockAccumulatedDist = 0f;
+                _clickDampingTimer = 0.080f; // Janela inicial breve para amortecer o choque do clique mecânico
+                _isClickDragActive = false;
 
                 if (config.HapticIntensity != TrackpadHapticIntensity.Off)
                 {
                     output.TriggerHaptic = true;
+                    output.IsHapticClick = true; // Clique mecânico com força definida
                 }
+            }
+            else if (!isEffectivePress && _wasEffectivePress)
+            {
+                _isClickDragActive = false;
+                _clickDampingTimer = 0f;
             }
             _wasEffectivePress = isEffectivePress;
 
@@ -435,16 +447,14 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 _strokeDistanceAccumulator += deltaDist;
 
                 // 2. Âncora Magnética de Duplo Clique (Valve / SteamOS Click Lock):
-                // Durante a janela após um clique, qualquer movimento residual do polegar abaixo do
-                // limiar de quebra (DoubleClickBreakDistance) é totalmente congelado (0 px).
-                // Isso garante que o segundo clique caia com precisão absoluta no mesmo pixel do primeiro,
-                // fazendo com que o Windows reconheça 100% dos duplos cliques (caixa de 4x4 pixels do Win32).
+                // Durante a janela inicial após um clique, qualquer movimento residual do polegar abaixo do
+                // limiar de quebra (DoubleClickBreakDistance) é congelado (0 px) para garantir o duplo clique perfeito.
                 if (_clickLockRemainingTime > 0f)
                 {
                     _clickLockAccumulatedDist += deltaDist;
                     if (_clickLockAccumulatedDist < TrackpadTuning.DoubleClickBreakDistance)
                     {
-                        // Trava o cursor no lugar (zero absoluto)
+                        // Trava o cursor no lugar (zero absoluto) para o clique estático
                         _smoothDx = 0f;
                         _smoothDy = 0f;
                         _velocityX = 0f;
@@ -455,21 +465,36 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     }
                     else
                     {
-                        // O usuário intencionalmente arrastou para longe (Click & Drag): quebra a âncora
+                        // Quebrou o travamento: usuário começou a arrastar intencionalmente (Click & Drag)!
                         _clickLockRemainingTime = 0f;
+                        _isClickDragActive = true;
                     }
+                }
+
+                // 3. Estabilização de Mira Anti-Squash (Padrão SteamOS / macOS):
+                // Durante a aplicação de força para o clique analógico ou acionamento mecânico,
+                // a polpa do polegar deforma contra o sensor capacitivo gerando um salto espúrio de baricentro.
+                // Atenuamos o movimento APENAS nos primeiros 80ms ou enquanto o arrasto intencional não começou.
+                // Assim que o usuário começa a arrastar (_isClickDragActive), o amortecimento é DESATIVADO (1.0x),
+                // permitindo arrastar janelas e selecionar texto com velocidade normal e fluida!
+                if (_clickDampingTimer > 0f)
+                {
+                    _clickDampingTimer -= dt;
+                }
+
+                if (deltaDist > 25f && isEffectivePress)
+                {
+                    _isClickDragActive = true;
                 }
 
                 float scale = (deltaDist - TrackpadTuning.DeadzoneThreshold) / deltaDist;
                 float cleanDx = rawDeltaX * scale;
                 float cleanDy = rawDeltaY * scale;
 
-                // 3. Estabilização de Mira Anti-Squash (Padrão SteamOS / macOS):
-                // Durante a aplicação de força para o clique analógico ou acionamento mecânico,
-                // a polpa do polegar deforma contra o sensor capacitivo gerando um salto espúrio de baricentro.
-                // Atenuamos severamente o movimento para que o cursor trave com precisão sobre o botão/aba que o jogador quer clicar.
-                bool isClickingOrPrepping = isEffectivePress || (rawPressure >= TrackpadTuning.ClickPressurePrepThreshold);
-                if (isClickingOrPrepping)
+                bool isPreppingOrStartingClick = (rawPressure >= TrackpadTuning.ClickPressurePrepThreshold && !_isClickDragActive) ||
+                                                 (_clickDampingTimer > 0f && !_isClickDragActive);
+
+                if (isPreppingOrStartingClick)
                 {
                     cleanDx *= TrackpadTuning.ClickStabilizationDamping;
                     cleanDy *= TrackpadTuning.ClickStabilizationDamping;
@@ -515,7 +540,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 output.MouseDy = _smoothDy;
 
                 // Atualiza velocidade instantânea filtrada para a física da trackball (apenas se não estiver clicando)
-                if (!isClickingOrPrepping)
+                if (!isPreppingOrStartingClick)
                 {
                     float instVx = output.MouseDx / dt;
                     float instVy = output.MouseDy / dt;
@@ -536,6 +561,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     {
                         _hapticDistanceAccumulator -= TrackpadTuning.TrackballHapticStep;
                         output.TriggerHaptic = true;
+                        output.IsHapticClick = false; // Tick tátil suave de rotação de trackball (não estremece a mão)
                     }
                 }
             }
@@ -635,6 +661,18 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 float sens = Math.Max(1, config.Sensitivity);
                 _scrollAccumulator += diffY * (sens / 50f);
 
+                // Feedback tátil sutil enquanto o polegar corre pelo trackpad (dá sensação física de textura ao deslizar)
+                if (config.HapticIntensity != TrackpadHapticIntensity.Off && Math.Abs(diffY) > 0f)
+                {
+                    _scrollHapticAccumulator += Math.Abs(diffY);
+                    if (_scrollHapticAccumulator >= 1500f)
+                    {
+                        _scrollHapticAccumulator = 0f;
+                        output.TriggerHaptic = true;
+                        output.IsHapticClick = false; // Tick leve de rolagem
+                    }
+                }
+
                 // Só emite notch se atingiu o limiar físico configurado E o cooldown mecânico expirou
                 if (_scrollCooldownTimer <= 0f)
                 {
@@ -643,18 +681,22 @@ namespace ConsoleMode.GamepadCompanion.Engine
                         // Emite exatamente 1 notch (1 dente da catraca)
                         output.WheelDelta = (config.InvertScroll ? -1 : 1) * 120;
                         output.TriggerHaptic = config.HapticIntensity != TrackpadHapticIntensity.Off;
+                        output.IsHapticClick = true; // Clique de catraca mecânica firme
 
                         // Consome integralmente o acúmulo: NUNCA estoca notches futuros!
                         // Para emitir outro notch, o polegar é obrigado a percorrer outro trajeto completo de ScrollStep.
                         _scrollAccumulator = 0f;
+                        _scrollHapticAccumulator = 0f;
                         _scrollCooldownTimer = TrackpadTuning.ScrollMinIntervalSeconds;
                     }
                     else if (_scrollAccumulator <= -TrackpadTuning.ScrollStep)
                     {
                         output.WheelDelta = (config.InvertScroll ? 1 : -1) * 120;
                         output.TriggerHaptic = config.HapticIntensity != TrackpadHapticIntensity.Off;
+                        output.IsHapticClick = true; // Clique de catraca mecânica firme
 
                         _scrollAccumulator = 0f;
+                        _scrollHapticAccumulator = 0f;
                         _scrollCooldownTimer = TrackpadTuning.ScrollMinIntervalSeconds;
                     }
                 }
@@ -757,6 +799,11 @@ namespace ConsoleMode.GamepadCompanion.Engine
             _smoothDy = 0f;
             _strokeDistanceAccumulator = 0f;
             _touchFrames = 0;
+            _clickLockRemainingTime = 0f;
+            _clickLockAccumulatedDist = 0f;
+            _clickDampingTimer = 0f;
+            _isClickDragActive = false;
+            _scrollHapticAccumulator = 0f;
             _velocityX = 0f;
             _velocityY = 0f;
             _hapticDistanceAccumulator = 0f;
