@@ -17,7 +17,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
                 var settings = repo.Load();
 
                 Assert.True(File.Exists(tempFile));
-                Assert.Equal(50, settings.MouseSensitivity);
+                Assert.Equal(20, settings.MouseSensitivity);
                 Assert.Equal(24, settings.StickDeadzonePercent);
                 Assert.Equal(20, settings.TriggerThresholdPercent);
                 Assert.Equal(-1, settings.SelectedSlot);

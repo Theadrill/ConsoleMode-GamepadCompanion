@@ -84,7 +84,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             };
 
             var page = profile.ActivePage;
-            page.MouseSensitivity = ini.GetInt(section, KeyPrefix + "Sens", 50);
+            page.MouseSensitivity = ini.GetInt(section, KeyPrefix + "Sens", 20);
 
             // Analógico Esquerdo
             if (Enum.TryParse(lStickModeStr, true, out StickMode lMode))

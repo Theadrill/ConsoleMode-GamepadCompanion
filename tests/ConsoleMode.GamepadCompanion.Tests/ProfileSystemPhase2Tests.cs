@@ -27,7 +27,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             editor.LoadGameProfile(game, new AppSettings());
 
             Assert.Equal(ProfileEditorSlot.MouseSensitivity, editor.FocusedSlot);
-            Assert.Equal(50, editor.WorkingProfile.ActivePage.MouseSensitivity);
+            Assert.Equal(20, editor.WorkingProfile.ActivePage.MouseSensitivity);
             Assert.True(editor.WorkingProfile.UseGlobalDeadzone);
             Assert.True(editor.WorkingProfile.UseGlobalTriggerThreshold);
         }
@@ -45,7 +45,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // 1. Ajusta Sensibilidade do Mouse para a direita (+2)
             editor.ProcessGamepad(MakeState(2, GamepadButtons.DPadRight), 50);
             editor.ProcessGamepad(MakeState(3), 70);
-            Assert.Equal(52, editor.WorkingProfile.ActivePage.MouseSensitivity);
+            Assert.Equal(22, editor.WorkingProfile.ActivePage.MouseSensitivity);
 
             // 2. Desce para DeadzoneSlider
             editor.ProcessGamepad(MakeState(4, GamepadButtons.DPadDown), 100);

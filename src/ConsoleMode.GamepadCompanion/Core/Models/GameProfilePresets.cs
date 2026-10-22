@@ -64,7 +64,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             };
 
             var page = profile.ActivePage;
-            page.MouseSensitivity = 50;
+            page.MouseSensitivity = 20;
 
             // Analógico Esquerdo: WASD + F9 adicional + L3 Mouse L
             page.LeftStick.Mode = StickMode.DirectionalKeys;
@@ -132,7 +132,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             };
 
             var page = profile.ActivePage;
-            page.MouseSensitivity = 50;
+            page.MouseSensitivity = 20;
 
             page.LeftStick.Mode = StickMode.DirectionalKeys;
             page.LeftStick.Up = new List<InputAction> { InputAction.FromKey(VirtualKey.W) };
@@ -197,7 +197,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             };
 
             var page = profile.ActivePage;
-            page.MouseSensitivity = 50;
+            page.MouseSensitivity = 20;
 
             page.LeftStick.Mode = StickMode.DirectionalKeys;
             page.LeftStick.Up = new List<InputAction> { InputAction.FromKey(VirtualKey.W) };
@@ -267,7 +267,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             };
 
             var page = profile.ActivePage;
-            page.MouseSensitivity = 50;
+            page.MouseSensitivity = 20;
 
             // Analógico Esquerdo: MouseMove com clique do meio no L3
             page.LeftStick.Mode = StickMode.MouseMove;

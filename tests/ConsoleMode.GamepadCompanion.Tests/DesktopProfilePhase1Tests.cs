@@ -23,7 +23,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             var page = profile.ActivePage;
             Assert.NotNull(page);
-            Assert.Equal(50, page.MouseSensitivity);
+            Assert.Equal(20, page.MouseSensitivity);
 
             // Analógicos
             Assert.Equal(StickMode.MouseMove, page.LeftStick.Mode);

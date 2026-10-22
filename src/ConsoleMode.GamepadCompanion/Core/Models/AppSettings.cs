@@ -7,7 +7,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         public int SelectedSlot { get; set; } = -1;
 
         /// <summary>Sensibilidade do mouse no analógico direito (1-100).</summary>
-        public int MouseSensitivity { get; set; } = 50;
+        public int MouseSensitivity { get; set; } = 20;
 
         /// <summary>Mapeamento ativo (false = pausado).</summary>
         public bool MappingEnabled { get; set; } = true;

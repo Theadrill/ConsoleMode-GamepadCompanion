@@ -39,7 +39,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             ini.Load(_filePath);
 
             settings.SelectedSlot = ini.GetInt("Settings", "SelectedSlot", -1);
-            settings.MouseSensitivity = ini.GetInt("Settings", "MouseSensitivity", 50);
+            settings.MouseSensitivity = ini.GetInt("Settings", "MouseSensitivity", 20);
             settings.StickDeadzonePercent = ini.GetInt("Settings", "StickDeadzonePercent", 24);
             settings.TriggerThresholdPercent = ini.GetInt("Settings", "TriggerThresholdPercent", 20);
             settings.MappingEnabled = ini.GetBool("Settings", "MappingEnabled", true);

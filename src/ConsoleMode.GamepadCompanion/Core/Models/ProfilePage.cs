@@ -13,7 +13,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         public string Name { get; set; } = "Página 1";
 
         /// <summary>Sensibilidade do mouse específica desta página (1-100).</summary>
-        public int MouseSensitivity { get; set; } = 50;
+        public int MouseSensitivity { get; set; } = 20;
 
         /// <summary>Configuração do analógico esquerdo.</summary>
         public StickConfig LeftStick { get; set; } = new StickConfig();
