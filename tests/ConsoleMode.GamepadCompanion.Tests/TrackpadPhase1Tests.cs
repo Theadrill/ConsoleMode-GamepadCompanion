@@ -560,6 +560,62 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(0f, coast.MouseDy);
         }
 
+        [Fact]
+        public void TrackpadProcessor_CapacitiveLeap_IsDiscardedWhenDeltaExceedsThreshold()
+        {
+            var processor = new TrackpadProcessor(isRightPad: true);
+            var config = new TrackpadConfig { Mode = TrackpadMode.MouseTrackball, Sensitivity = 50 };
+
+            // Frame 1: Toque inicial em (1000, 1000)
+            processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, config: config, dt: 0.008f);
+
+            // Frame 2: Salto capacitivo anômalo impossível (teletransporte de +8000 unidades)
+            var leapOut = processor.Process(isTouch: true, isPress: false, rawX: 9000, rawY: 1000, config: config, dt: 0.008f);
+
+            // O salto deve ser rejeitado (0 px de deslocamento emitido para o cursor)
+            Assert.Equal(0f, leapOut.MouseDx);
+            Assert.Equal(0f, leapOut.MouseDy);
+        }
+
+        [Fact]
+        public void TrackpadProcessor_ShortTap_NeverArmsInertiaEvenWithHighInstantSpeed()
+        {
+            var processor = new TrackpadProcessor(isRightPad: true);
+            var config = new TrackpadConfig { Mode = TrackpadMode.MouseTrackball, Sensitivity = 50, Friction = 50 };
+
+            // Toquinho com deformação de polpa (stroke de 800 unidades < MinStrokeDistanceForInertia = 1600f)
+            // Frame 1: contato inicial
+            processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, config: config, dt: 0.008f);
+            // Frame 2: movimento rápido da polpa
+            processor.Process(isTouch: true, isPress: false, rawX: 1800, rawY: 1000, config: config, dt: 0.008f);
+
+            // Frame 3: soltura imediata (toquinho)
+            var coast = processor.Process(isTouch: false, isPress: false, rawX: 1800, rawY: 1000, config: config, dt: 0.016f);
+
+            // A inércia (estilingue) NÃO deve ser armada por causa do trajeto insuficiente para um flick intencional
+            Assert.Equal(0f, coast.MouseDx);
+            Assert.Equal(0f, coast.MouseDy);
+        }
+
+        [Fact]
+        public void TrackpadProcessor_StopInDeadzone_CancelsInertiaBeforeRelease()
+        {
+            var processor = new TrackpadProcessor(isRightPad: true);
+            var config = new TrackpadConfig { Mode = TrackpadMode.MouseTrackball, Sensitivity = 50, Friction = 50 };
+
+            // Swipe longo e rápido (acumula stroke e velocidade)
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
+            processor.Process(isTouch: true, isPress: false, rawX: 3000, rawY: 0, config: config, dt: 0.008f);
+
+            // Usuário para o polegar sobre o alvo (deadzone <= 10f) antes de soltar
+            processor.Process(isTouch: true, isPress: false, rawX: 3002, rawY: 0, config: config, dt: 0.008f);
+
+            // Solta o dedo: NÃO deve haver inércia pois o movimento parou antes da soltura
+            var coast = processor.Process(isTouch: false, isPress: false, rawX: 3002, rawY: 0, config: config, dt: 0.016f);
+            Assert.Equal(0f, coast.MouseDx);
+            Assert.Equal(0f, coast.MouseDy);
+        }
+
         #endregion
 
         #region 4. Integração com GamingProfile e DesktopProfile

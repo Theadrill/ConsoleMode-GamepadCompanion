@@ -144,10 +144,23 @@ namespace ConsoleMode.GamepadCompanion.Engine
         // 6. INÉRCIA DA TRACKBALL (GESTOS DE VARREDURA)
         // ==========================================
         /// <summary>Distância cumulativa mínima de trajeto no pad necessária para armar a inércia.</summary>
-        public static float MinStrokeDistanceForInertia = 700f;
+        public static float MinStrokeDistanceForInertia = 1600f;
 
         /// <summary>Velocidade mínima de decolagem do dedo (px/s) para a trackball continuar girando.</summary>
         public static float MinFlickSpeed = 180f;
+
+        /// <summary>
+        /// Quantidade mínima de frames contínuos de contato com o pad necessária para armar inércia de flick.
+        /// Toquinhos instantâneos (glitches de 1 frame) nunca devem arremessar o cursor com inércia (estilingue).
+        /// </summary>
+        public static int MinTouchFramesForInertia = 2;
+
+        /// <summary>
+        /// Deslocamento bruto máximo permitido em um único frame (~8ms).
+        /// Variações acima deste limiar indicam teletransporte/ruído capacitivo no pouso ou decolagem do dedo
+        /// e são rejeitadas para evitar "leaps" ou saltos repentinos no cursor.
+        /// </summary>
+        public static float MaxPhysicalDeltaPerFrame = 6000f;
 
         // ==========================================
         // 7. ROLAGEM & HÁPTICOS
@@ -211,6 +224,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         private float _smoothDy;
 
         private float _strokeDistanceAccumulator;
+        private int _touchFrames;
         private float _clickLockRemainingTime;
         private float _clickLockAccumulatedDist;
         private float _velocityX;
@@ -376,9 +390,12 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     _smoothDx = 0f;
                     _smoothDy = 0f;
                     _strokeDistanceAccumulator = 0f;
+                    _touchFrames = 1;
                     _isFirstTouch = false;
                     return;
                 }
+
+                _touchFrames++;
 
                 float rawDeltaX = rawX - _lastRawX;
                 float rawDeltaY = rawY - _lastRawY;
@@ -386,6 +403,14 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 _lastRawY = rawY;
 
                 float deltaDist = (float)Math.Sqrt(rawDeltaX * rawDeltaX + rawDeltaY * rawDeltaY);
+
+                // Rejeição de teletransporte capacitivo / leap:
+                // Se a variação de um frame para o outro for fisicamente impossível para um polegar (> MaxPhysicalDeltaPerFrame),
+                // absorve a re-ancoragem sem lançar o cursor nem armar inércia.
+                if (deltaDist > TrackpadTuning.MaxPhysicalDeltaPerFrame)
+                {
+                    return;
+                }
 
                 // 1. Filtro Anti-Jitter com Zona Morta Suave (Soft-knee Deadband):
                 // Elimina ruídos elétricos/capacitivos em repouso sem degrau de descontinuidade ("jump/pulando").
@@ -395,6 +420,9 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     _smoothDy *= 0.50f;
                     if (Math.Abs(_smoothDx) < 0.05f) _smoothDx = 0f;
                     if (Math.Abs(_smoothDy) < 0.05f) _smoothDy = 0f;
+                    _velocityX = 0f;
+                    _velocityY = 0f;
+                    _strokeDistanceAccumulator = 0f;
                     return;
                 }
 
@@ -515,13 +543,16 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 if (_wasTouched)
                 {
                     float liftSpeed = (float)Math.Sqrt(_velocityX * _velocityX + _velocityY * _velocityY);
-                    if (liftSpeed < TrackpadTuning.MinFlickSpeed || _strokeDistanceAccumulator < TrackpadTuning.MinStrokeDistanceForInertia)
+                    if (liftSpeed < TrackpadTuning.MinFlickSpeed || 
+                        _strokeDistanceAccumulator < TrackpadTuning.MinStrokeDistanceForInertia ||
+                        _touchFrames < TrackpadTuning.MinTouchFramesForInertia)
                     {
                         _velocityX = 0f;
                         _velocityY = 0f;
                     }
                 }
                 _strokeDistanceAccumulator = 0f;
+                _touchFrames = 0;
 
                 // Inércia física da trackball desacelerando com atrito natural
                 if (_velocityX != 0f || _velocityY != 0f)
@@ -694,6 +725,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
             _lastRawY = 0;
             _smoothDx = 0f;
             _smoothDy = 0f;
+            _strokeDistanceAccumulator = 0f;
+            _touchFrames = 0;
             _velocityX = 0f;
             _velocityY = 0f;
             _hapticDistanceAccumulator = 0f;
