@@ -65,7 +65,15 @@ O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Stea
   - [x] Captura direta USB HID, desativação/reativação do Lizard Mode e emulação de Xbox 360 virtual.
   - [x] Visual Debugger Handheld na Home (trackpads ao vivo e linha de botões traseiros L4/L5/R5/R4) & Remapeamento de hardware no driver.
 - [x] **Fase 5 (Steam Deck):** Reestruturação da Tela de Mapping para Controles Handheld (botões traseiros e placeholders para trackpads).
-- [ ] **Fase 6 (Steam Deck):** Configuração dos Trackpads Expandida (brainstorming dedicado).
+- [x] **Perfil do Modo Desktop (Navegação Windows 10/11) 🚀:**
+  - Acesso direto e toggle rápido via botão dedicado na Sidebar (`[ 🖥️ MODO DESKTOP [ATIVADO/DESATIVADO] ]`).
+  - Chaveamento automático de foco: executa o perfil do jogo quando o jogo está ativo e chaveia para o Modo Desktop em qualquer outra janela do Windows.
+  - Suspensão instantânea de emulação quando o Companion está em primeiro plano para garantir navegação fluida da UI sem interferência.
+  - Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md`](./docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md).
+- [ ] **Fase 6 (Steam Deck):** Configuração dos Trackpads (Mouse/Trackball de alta precisão, Scrollwheel vertical contínuo, D-Pad e Botão Único com Feedback Háptico). Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md`](./docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md).
+- [ ] **Menu Radial para Trackpads (Couch Gaming Overlay):**
+  - Overlay circular translúcido exibido em tela enquanto o polegar estiver em contato com o trackpad (`Touch`).
+  - Suporte a 4, 8 ou 12 fatias para atalhos de magias, poções, macros e comandos rápidos de sistema sem poluir a tela.
 - [ ] **Explorer Customizado Interno do Aplicativo:**
   - Navegador e gerenciador de arquivos e pastas nativo embutido no aplicativo com navegação 100% Couch Gaming via gamepad (D-Pad, botões [A] entrar/selecionar, [B] voltar nível de pasta, [X] buscar/filtrar).
   - Permite localizar e selecionar executáveis (`.exe`) de jogos, diretórios de instalação e artes/imagens personalizadas diretamente pela TV ou tela do Steam Deck, sem depender do Windows Explorer convencional.
@@ -73,10 +81,6 @@ O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Stea
   - Adicionar no `GameConfigPanel` um botão toggle idêntico ao do Input (`[ (●) PERMITIR MÚLTIPLAS INSTÂNCIAS / (○) INSTÂNCIA ÚNICA (Padrão) ]`).
   - Se estiver em **Instância Única (Desativado - Padrão)**: ao acionar `[A] INICIAR`, caso o executável principal já esteja em execução, em vez de abrir outro processo, o app traz a janela do jogo já existente para primeiro plano e oculta a interface do Companion.
   - Se estiver ativado: permite abrir múltiplas instâncias em paralelo.
-- [ ] **Perfil do Modo Desktop (Navegação Windows 10/11) 🚀:**
-  - Card fixo especial no início da biblioteca de jogos com arte do Windows 11 para configuração do perfil de desktop.
-  - Chaveamento automático por fallback no motor de foco: ao sair de qualquer jogo, o controle assume o perfil desktop para navegação fluida de mouse e atalhos couch gaming.
-  - Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md`](./docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md).
 - [ ] Sistema de Páginas / Camadas por Modificador (alternar entre páginas de mapeamento dentro do jogo, como Navegação vs. Interação/Menus, cada uma com sua própria sensibilidade de mouse e botões)
 - [ ] Avaliar expansão de comandos especiais do sistema na Aba 3
 - [ ] Overlay estilo Steam acionado pelo botão central do controle (Guide/Home)

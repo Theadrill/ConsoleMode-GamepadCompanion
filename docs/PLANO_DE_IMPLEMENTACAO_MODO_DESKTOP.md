@@ -70,3 +70,8 @@ Em vez de poluir a lista de jogos na biblioteca com um card fake, o **Modo Deskt
 5. Edições no perfil desktop persistem no `config.ini` e refletem imediatamente.
 6. Foco no Companion suspende inputs para manter a UI navegável.
 7. Todos os 201 testes unitários passam com 100% de sucesso e 0 avisos no build.
+
+---
+
+## 5. Próximos Passos & Integrações Futuras
+* **Configuração dos Trackpads do Steam Deck:** Consulte o [Plano de Implementação dos Trackpads](PLANO_DE_IMPLEMENTACAO_TRACKPADS.md) para a evolução da navegação de alta precisão e scroll tátil no Modo Desktop.
