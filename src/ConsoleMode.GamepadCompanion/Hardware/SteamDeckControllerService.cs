@@ -10,7 +10,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
     /// Serviço de captura direta USB HID do controle embutido do Steam Deck (Neptune)
     /// e despacho para o gamepad virtual de Xbox 360 no Windows.
     /// </summary>
-    public sealed class SteamDeckControllerService : IDisposable
+    public sealed class SteamDeckControllerService : IDisposable, ISteamDeckHaptics
     {
         public const ushort VendorId = 0x28DE;
         public const ushort ProductId = 0x1205;
@@ -302,6 +302,64 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 _device.RequestFeatureReport(new byte[] { 0x85, 0x00 });
             }
             catch { }
+        }
+
+        /// <summary>
+        /// Emite um pulso háptico tátil para o trackpad com a intensidade informada.
+        /// </summary>
+        public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
+        {
+            if (intensity == TrackpadHapticIntensity.Off) return false;
+            ushort amp = 400;
+            ushort period = 300;
+            switch (intensity)
+            {
+                case TrackpadHapticIntensity.Low:
+                    amp = 400;
+                    period = 300;
+                    break;
+                case TrackpadHapticIntensity.Medium:
+                    amp = 900;
+                    period = 350;
+                    break;
+                case TrackpadHapticIntensity.High:
+                    amp = 1600;
+                    period = 400;
+                    break;
+            }
+            return TriggerHapticRaw(isRightPad, amp, period, 1);
+        }
+
+        /// <summary>
+        /// Envia pacote de feature report nativo da Valve (0x8f PT_FEEDBACK) para o hardware do Steam Deck.
+        /// </summary>
+        public bool TriggerHapticRaw(bool isRightPad, ushort amplitude, ushort period = 300, ushort count = 1)
+        {
+            lock (_syncRoot)
+            {
+                if (_device == null || !_isRunning) return false;
+
+                try
+                {
+                    byte[] packet = new byte[9];
+                    packet[0] = 0x8f; // PT_FEEDBACK
+                    packet[1] = 0x07; // PL_FEEDBACK
+                    packet[2] = (byte)(isRightPad ? 1 : 0);
+                    packet[3] = (byte)(amplitude & 0xFF);
+                    packet[4] = (byte)((amplitude >> 8) & 0xFF);
+                    packet[5] = (byte)(period & 0xFF);
+                    packet[6] = (byte)((period >> 8) & 0xFF);
+                    packet[7] = (byte)(count & 0xFF);
+                    packet[8] = (byte)((count >> 8) & 0xFF);
+
+                    _device.RequestFeatureReport(packet);
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
         }
 
         public void Dispose()

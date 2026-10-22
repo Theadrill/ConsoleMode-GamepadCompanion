@@ -57,19 +57,27 @@ namespace ConsoleMode.GamepadCompanion.Tests
         [Fact]
         public void DesktopProfile_WhenEnabled_SimulatesInputs()
         {
-            var mockSim = new RecordingInputSimulator();
-            var settings = new AppSettings { DesktopModeEnabled = true, MappingEnabled = true };
-            var desktop = new DesktopProfile(mockSim, settings);
+            DesktopProfile.ForegroundCheckOverride = () => false;
+            try
+            {
+                var mockSim = new RecordingInputSimulator();
+                var settings = new AppSettings { DesktopModeEnabled = true, MappingEnabled = true };
+                var desktop = new DesktopProfile(mockSim, settings);
 
-            var state = new GamepadState(true, 1, GamepadButtons.A, 0, 0, 0, 0, 0, 0);
+                var state = new GamepadState(true, 1, GamepadButtons.A, 0, 0, 0, 0, 0, 0);
 
-            desktop.Update(state, 0.016f);
+                desktop.Update(state, 0.016f);
 
-            Assert.Contains(VirtualKey.Enter, mockSim.HeldKeys);
+                Assert.Contains(VirtualKey.Enter, mockSim.HeldKeys);
 
-            // Solta o botão
-            desktop.Update(new GamepadState(true, 2, GamepadButtons.None, 0, 0, 0, 0, 0, 0), 0.016f);
-            Assert.DoesNotContain(VirtualKey.Enter, mockSim.HeldKeys);
+                // Solta o botão
+                desktop.Update(new GamepadState(true, 2, GamepadButtons.None, 0, 0, 0, 0, 0, 0), 0.016f);
+                Assert.DoesNotContain(VirtualKey.Enter, mockSim.HeldKeys);
+            }
+            finally
+            {
+                DesktopProfile.ForegroundCheckOverride = null;
+            }
         }
 
         [Fact]

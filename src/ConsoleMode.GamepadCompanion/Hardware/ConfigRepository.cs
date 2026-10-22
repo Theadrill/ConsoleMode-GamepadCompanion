@@ -92,13 +92,31 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         {
             if (!File.Exists(_filePath))
             {
-                return GameProfilePresets.CreateDesktopDefault();
+                var def = GameProfilePresets.CreateDesktopDefault();
+                SaveDesktopProfile(def);
+                return def;
             }
 
             var ini = new IniFile();
             ini.Load(_filePath);
             var profile = ProfileSerializer.DeserializeFromIni(ini, "DesktopProfile");
-            return profile ?? GameProfilePresets.CreateDesktopDefault();
+            if (profile == null)
+            {
+                profile = GameProfilePresets.CreateDesktopDefault();
+                SaveDesktopProfile(profile);
+                return profile;
+            }
+
+            // Auto-migração: se o config.ini antigo não possuía trackpads configurados no arquivo,
+            // persiste imediatamente os presets ergonômicos de fábrica no arquivo.
+            bool hasLPad = !string.IsNullOrEmpty(ini.GetValue("DesktopProfile", "Profile_LPad_Mode"));
+            bool hasRPad = !string.IsNullOrEmpty(ini.GetValue("DesktopProfile", "Profile_RPad_Mode"));
+            if (!hasLPad || !hasRPad)
+            {
+                SaveDesktopProfile(profile);
+            }
+
+            return profile;
         }
 
         public void SaveDesktopProfile(GameProfile profile)

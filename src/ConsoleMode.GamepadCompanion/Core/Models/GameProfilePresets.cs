@@ -106,6 +106,12 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             page.SetActions(ControllerButton.LeftStickClick, new[] { InputAction.FromMouseButton(MouseButton.Left) });
             page.SetActions(ControllerButton.RightStickClick, new[] { InputAction.FromMouseButton(MouseButton.Right) });
 
+            // Trackpad Direito como mira suave de precisão
+            page.RightTrackpad.Mode = TrackpadMode.MouseTrackball;
+            page.RightTrackpad.Sensitivity = 50;
+            page.RightTrackpad.Friction = 50;
+            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.Low;
+
             return profile;
         }
 
@@ -161,6 +167,12 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 
             page.SetActions(ControllerButton.LeftStickClick, new[] { InputAction.FromMouseButton(MouseButton.Left) });
             page.SetActions(ControllerButton.RightStickClick, new[] { InputAction.FromMouseButton(MouseButton.Right) });
+
+            // Trackpad Direito como câmera de precisão
+            page.RightTrackpad.Mode = TrackpadMode.MouseTrackball;
+            page.RightTrackpad.Sensitivity = 50;
+            page.RightTrackpad.Friction = 50;
+            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.Low;
 
             return profile;
         }
@@ -219,6 +231,12 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 
             page.SetActions(ControllerButton.LeftStickClick, new[] { InputAction.FromKey(VirtualKey.LeftShift) });
             page.SetActions(ControllerButton.RightStickClick, new[] { InputAction.FromKey(VirtualKey.C) });
+
+            // Trackpad Direito como mira/câmera suave de precisão
+            page.RightTrackpad.Mode = TrackpadMode.MouseTrackball;
+            page.RightTrackpad.Sensitivity = 50;
+            page.RightTrackpad.Friction = 50;
+            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.Low;
 
             return profile;
         }
@@ -292,6 +310,20 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             page.SetActions(ControllerButton.R4, new[] { InputAction.FromKey(VirtualKey.VolumeUp) });
             page.SetActions(ControllerButton.L5, new[] { InputAction.FromKey(VirtualKey.MediaPlayPause) });
             page.SetActions(ControllerButton.R5, new[] { InputAction.FromKey(VirtualKey.PrintScreen) });
+
+            // Trackpads Steam Deck:
+            // - Trackpad Direito: Mouse / Trackball com clique mecânico disparando Clique Esquerdo do Mouse
+            page.RightTrackpad.Mode = TrackpadMode.MouseTrackball;
+            page.RightTrackpad.Sensitivity = 50;
+            page.RightTrackpad.Friction = 50;
+            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.Low;
+            page.RightTrackpad.PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) };
+
+            // - Trackpad Esquerdo: Scrollwheel vertical contínuo com rolagem natural (InvertScroll = true) e haptics
+            page.LeftTrackpad.Mode = TrackpadMode.Scrollwheel;
+            page.LeftTrackpad.Sensitivity = 50;
+            page.LeftTrackpad.InvertScroll = true;
+            page.LeftTrackpad.HapticIntensity = TrackpadHapticIntensity.Low;
 
             return profile;
         }

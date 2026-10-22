@@ -26,18 +26,20 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         public event Action ScreenClipRequested;
         public event Action AltTabRequested;
         public event Action ShowDesktopRequested;
+        public event Action<bool, TrackpadHapticIntensity> HapticPulseRequested;
 
-        public DesktopProfile(IInputSimulator input = null, AppSettings settings = null, GameProfile initialProfile = null)
+        public DesktopProfile(IInputSimulator input = null, AppSettings settings = null, GameProfile initialProfile = null, ISteamDeckHaptics haptics = null)
         {
             _settings = settings ?? new AppSettings();
             var sim = input ?? new MockInputSimulator();
-            _innerProfile = new GamingProfile(sim, _settings, initialProfile ?? GameProfilePresets.CreateDesktopDefault());
+            _innerProfile = new GamingProfile(sim, _settings, initialProfile ?? GameProfilePresets.CreateDesktopDefault(), haptics);
 
             _innerProfile.CenterCursorRequested += () => CenterCursorRequested?.Invoke();
             _innerProfile.ToggleClipCursorRequested += () => ToggleClipCursorRequested?.Invoke();
             _innerProfile.ScreenClipRequested += () => ScreenClipRequested?.Invoke();
             _innerProfile.AltTabRequested += () => AltTabRequested?.Invoke();
             _innerProfile.ShowDesktopRequested += () => ShowDesktopRequested?.Invoke();
+            _innerProfile.HapticPulseRequested += (right, intensity) => HapticPulseRequested?.Invoke(right, intensity);
         }
 
         public string Name => "Desktop";
@@ -58,13 +60,23 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
         public void Update(GamepadState state, float deltaSeconds)
         {
+            SteamDeckRawState deckRaw = default;
+            if (SteamDeckManager.IsActive && SteamDeckManager.ActiveService != null)
+            {
+                deckRaw = SteamDeckManager.ActiveService.CurrentRawState;
+            }
+            Update(state, deckRaw, deltaSeconds);
+        }
+
+        public void Update(GamepadState state, SteamDeckRawState deckRaw, float deltaSeconds)
+        {
             if (!_settings.DesktopModeEnabled || IsSuspended || IsCompanionInForeground())
             {
                 _innerProfile.Reset();
                 return;
             }
 
-            _innerProfile.Update(state, deltaSeconds);
+            _innerProfile.Update(state, deckRaw, deltaSeconds);
         }
 
         private static uint GetCurrentProcessId()

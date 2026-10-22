@@ -33,17 +33,24 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         private bool _wasShowDesktopActive;
         private readonly HashSet<CompanionActionType> _currentlyHeldSpecial = new HashSet<CompanionActionType>();
 
+        private readonly TrackpadProcessor _leftTrackpadProcessor = new TrackpadProcessor(isRightPad: false);
+        private readonly TrackpadProcessor _rightTrackpadProcessor = new TrackpadProcessor(isRightPad: true);
+        private readonly ISteamDeckHaptics _hapticsProvider;
+
+        public event Action<bool, TrackpadHapticIntensity> HapticPulseRequested;
+
         public event Action CenterCursorRequested;
         public event Action ToggleClipCursorRequested;
         public event Action ScreenClipRequested;
         public event Action AltTabRequested;
         public event Action ShowDesktopRequested;
 
-        public GamingProfile(IInputSimulator input, AppSettings settings, GameProfile initialProfile = null)
+        public GamingProfile(IInputSimulator input, AppSettings settings, GameProfile initialProfile = null, ISteamDeckHaptics haptics = null)
         {
             _input = input ?? throw new ArgumentNullException(nameof(input));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _activeProfile = initialProfile ?? GameProfilePresets.CreateWowClassic();
+            _hapticsProvider = haptics;
         }
 
         public string Name => "Gaming";
@@ -69,6 +76,16 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         }
 
         public void Update(GamepadState state, float deltaSeconds)
+        {
+            SteamDeckRawState deckRaw = default;
+            if (SteamDeckManager.IsActive && SteamDeckManager.ActiveService != null)
+            {
+                deckRaw = SteamDeckManager.ActiveService.CurrentRawState;
+            }
+            Update(state, deckRaw, deltaSeconds);
+        }
+
+        public void Update(GamepadState state, SteamDeckRawState deckRaw, float deltaSeconds)
         {
             if (!state.IsConnected || !_settings.MappingEnabled)
             {
@@ -165,13 +182,52 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             }
 
             // 3.1. Avaliação dos Botões Traseiros (Steam Deck / Handheld)
-            if (SteamDeckManager.IsActive && SteamDeckManager.ActiveService != null)
+            if (deckRaw.IsL4) AccumulateActions(page.GetActions(ControllerButton.L4));
+            if (deckRaw.IsL5) AccumulateActions(page.GetActions(ControllerButton.L5));
+            if (deckRaw.IsR4) AccumulateActions(page.GetActions(ControllerButton.R4));
+            if (deckRaw.IsR5) AccumulateActions(page.GetActions(ControllerButton.R5));
+
+            // 3.2. Avaliação dos Trackpads do Steam Deck (Esquerdo e Direito)
+            if (page.LeftTrackpad != null && page.LeftTrackpad.Mode != TrackpadMode.Disabled)
             {
-                var deckRaw = SteamDeckManager.ActiveService.CurrentRawState;
-                if (deckRaw.IsL4) AccumulateActions(page.GetActions(ControllerButton.L4));
-                if (deckRaw.IsL5) AccumulateActions(page.GetActions(ControllerButton.L5));
-                if (deckRaw.IsR4) AccumulateActions(page.GetActions(ControllerButton.R4));
-                if (deckRaw.IsR5) AccumulateActions(page.GetActions(ControllerButton.R5));
+                var lpadOut = _leftTrackpadProcessor.Process(
+                    deckRaw.IsLPadTouch,
+                    deckRaw.IsLPadPress,
+                    deckRaw.LPadX,
+                    deckRaw.LPadY,
+                    page.LeftTrackpad,
+                    deltaSeconds);
+
+                frameDx += lpadOut.MouseDx;
+                frameDy += lpadOut.MouseDy;
+                frameWheelDelta += lpadOut.WheelDelta;
+                AccumulateActions(lpadOut.Actions);
+
+                if (lpadOut.TriggerHaptic && lpadOut.HapticIntensity != TrackpadHapticIntensity.Off)
+                {
+                    DispatchHaptic(isRightPad: false, lpadOut.HapticIntensity);
+                }
+            }
+
+            if (page.RightTrackpad != null && page.RightTrackpad.Mode != TrackpadMode.Disabled)
+            {
+                var rpadOut = _rightTrackpadProcessor.Process(
+                    deckRaw.IsRPadTouch,
+                    deckRaw.IsRPadPress,
+                    deckRaw.RPadX,
+                    deckRaw.RPadY,
+                    page.RightTrackpad,
+                    deltaSeconds);
+
+                frameDx += rpadOut.MouseDx;
+                frameDy += rpadOut.MouseDy;
+                frameWheelDelta += rpadOut.WheelDelta;
+                AccumulateActions(rpadOut.Actions);
+
+                if (rpadOut.TriggerHaptic && rpadOut.HapticIntensity != TrackpadHapticIntensity.Off)
+                {
+                    DispatchHaptic(isRightPad: true, rpadOut.HapticIntensity);
+                }
             }
 
             // 4. Avaliação do Analógico Esquerdo
@@ -297,7 +353,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                 _input.MouseWheel(frameWheelDelta);
             }
 
-            // 6.6 Movimentação Relativa do Mouse com Acumulação de Subpixel
+            // 6.6 Movimentação Relativa do Mouse com Acumulação Contínua de Subpixel
             _remainderX += frameDx;
             _remainderY += frameDy;
             int moveX = (int)_remainderX;
@@ -305,13 +361,10 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             _remainderX -= moveX;
             _remainderY -= moveY;
 
-            if (frameDx == 0f && frameDy == 0f)
+            if (moveX != 0 || moveY != 0)
             {
-                _remainderX = 0f;
-                _remainderY = 0f;
+                _input.MouseMoveRelative(moveX, moveY);
             }
-
-            _input.MouseMoveRelative(moveX, moveY);
 
             // 6.7 Detecção de Atalhos de Sistema do Windows (Win+Shift+S, Alt+Tab, Win+D) e Ações Especiais
             bool hasWin = frameKeys.Contains(VirtualKey.LeftWindows) || frameKeys.Contains(VirtualKey.RightWindows);
@@ -408,6 +461,27 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             _wasAltTabActive = false;
             _wasShowDesktopActive = false;
             _currentlyHeldSpecial.Clear();
+
+            _leftTrackpadProcessor.Reset();
+            _rightTrackpadProcessor.Reset();
+        }
+
+        private void DispatchHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
+        {
+            try
+            {
+                if (_hapticsProvider != null)
+                {
+                    _hapticsProvider.TriggerHaptic(isRightPad, intensity);
+                }
+                else
+                {
+                    SteamDeckManager.TriggerHaptic(isRightPad, intensity);
+                }
+            }
+            catch { }
+
+            HapticPulseRequested?.Invoke(isRightPad, intensity);
         }
     }
 }

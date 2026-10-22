@@ -5,7 +5,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 {
     /// <summary>
     /// Representa uma página ou camada de mapeamento dentro de um perfil.
-    /// Contém sensibilidade própria de mouse, configurações dos dois analógicos e mapeamento dos botões.
+    /// Contém sensibilidade própria de mouse, configurações dos dois analógicos, dois trackpads e mapeamento dos botões.
     /// </summary>
     public sealed class ProfilePage
     {
@@ -20,6 +20,12 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 
         /// <summary>Configuração do analógico direito.</summary>
         public StickConfig RightStick { get; set; } = new StickConfig { Mode = StickMode.MouseMove };
+
+        /// <summary>Configuração do Trackpad esquerdo (Steam Deck / Handheld).</summary>
+        public TrackpadConfig LeftTrackpad { get; set; } = new TrackpadConfig();
+
+        /// <summary>Configuração do Trackpad direito (Steam Deck / Handheld).</summary>
+        public TrackpadConfig RightTrackpad { get; set; } = new TrackpadConfig { Mode = TrackpadMode.MouseTrackball };
 
         /// <summary>Mapeamento de botões físicos do controle para lista de ações.</summary>
         public Dictionary<ControllerButton, List<InputAction>> ButtonMappings { get; set; } =
@@ -61,6 +67,8 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
                 MouseSensitivity = this.MouseSensitivity,
                 LeftStick = this.LeftStick?.Clone() ?? new StickConfig(),
                 RightStick = this.RightStick?.Clone() ?? new StickConfig { Mode = StickMode.MouseMove },
+                LeftTrackpad = this.LeftTrackpad?.Clone() ?? new TrackpadConfig(),
+                RightTrackpad = this.RightTrackpad?.Clone() ?? new TrackpadConfig(),
                 ButtonMappings = new Dictionary<ControllerButton, List<InputAction>>()
             };
 

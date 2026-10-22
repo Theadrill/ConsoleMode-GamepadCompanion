@@ -82,6 +82,19 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         }
 
         /// <summary>
+        /// Emite um pulso háptico no trackpad especificado caso o serviço do Steam Deck esteja ativo.
+        /// </summary>
+        public static bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
+        {
+            var s = _service;
+            if (s != null && s.IsRunning)
+            {
+                return s.TriggerHaptic(isRightPad, intensity);
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Encerra o serviço, desconecta o controle virtual e restaura o Lizard Mode (teclado/mouse) no Steam Deck.
         /// </summary>
         public static void Stop()
