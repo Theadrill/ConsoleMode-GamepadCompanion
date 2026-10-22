@@ -103,7 +103,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private static readonly Color TextSecondary = Color.FromArgb(160, 170, 185);
 
         private const float LogicalWidth = 716f;
-        private const float LogicalHeight = 540f;
+        private const float LogicalHeight = 520f;
 
         private GameEntry _game;
         private GameProfile _workingProfile = GameProfilePresets.CreateWowClassic();
@@ -1088,6 +1088,12 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             scale = Math.Min(w / LogicalWidth, h / LogicalHeight);
             offsetX = (w - LogicalWidth * scale) / 2f;
             offsetY = (h - LogicalHeight * scale) / 2f;
+            // Se a janela tiver altura suficiente para o layout lógico, ancore no topo
+            // para que o footer fique exatamente fixo no rodapé real da janela sem criar faixa vazia.
+            if (h >= LogicalHeight * scale)
+            {
+                offsetY = 0f;
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -1131,11 +1137,16 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawHeader(Graphics g)
         {
+            GetTransformParams(out float scale, out float offsetX, out _);
+            float safeScale = Math.Max(0.001f, scale);
+            float leftX = -offsetX / safeScale;
+            float totalW = ClientSize.Width / safeScale;
+
             using (var bg = new SolidBrush(HeaderBg))
             using (var linePen = new Pen(BorderSubtle, 1f))
             {
-                g.FillRectangle(bg, 0, 0, LogicalWidth, 38);
-                g.DrawLine(linePen, 0, 38, LogicalWidth, 38);
+                g.FillRectangle(bg, leftX, 0, totalW, 38);
+                g.DrawLine(linePen, leftX, 38, leftX + totalW, 38);
             }
 
             string gameName = _game?.Name ?? Strings.DefaultGameName;
@@ -1934,17 +1945,25 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
         }
 
-        private static void DrawFooterLegend(Graphics g)
+        private void DrawFooterLegend(Graphics g)
         {
+            GetTransformParams(out float scale, out float offsetX, out float offsetY);
+            float safeScale = Math.Max(0.001f, scale);
+            float leftX = -offsetX / safeScale;
+            float totalW = ClientSize.Width / safeScale;
+            float footerY = 496f;
+            float bottomY = Math.Max(footerY + 24f, (ClientSize.Height - offsetY) / safeScale);
+            float footerH = bottomY - footerY;
+
             using (var bg = new SolidBrush(HeaderBg))
             using (var linePen = new Pen(BorderSubtle, 1f))
-            using (var font = new Font("Segoe UI", 8.2f, FontStyle.Bold))
+            using (var font = new Font("Segoe UI", 7.6f, FontStyle.Bold))
             using (var brush = new SolidBrush(TextSecondary))
             using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
             {
-                g.FillRectangle(bg, 0, 502, LogicalWidth, 38);
-                g.DrawLine(linePen, 0, 502, LogicalWidth, 502);
-                g.DrawString(Strings.ProfileFooterLegend, font, brush, new RectangleF(0, 502, LogicalWidth, 38), sf);
+                g.FillRectangle(bg, leftX, footerY, totalW, footerH);
+                g.DrawLine(linePen, leftX, footerY, leftX + totalW, footerY);
+                g.DrawString(Strings.ProfileFooterLegend, font, brush, new RectangleF(0, footerY, LogicalWidth, 24f), sf);
             }
         }
 
