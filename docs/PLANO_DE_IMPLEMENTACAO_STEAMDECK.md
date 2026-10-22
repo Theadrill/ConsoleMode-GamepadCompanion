@@ -70,7 +70,7 @@ Para transformá-lo em um controle de console transparente e de alta performance
   6. **Persistência via `ConfigRepository`:**
      - Salva e carrega configurações de remapeamento de hardware em `Config.ini` sob a seção `[SteamDeck]`.
   7. **Testes Unitários:**
-     - Adicionada suíte `SteamDeckVisualAndHardwareRemapTests` cobrindo o resolvedor dinâmico, remapeamento físico de hardware, visibilidade e manipulação dos slots traseiros no editor e persistência de configuração. Total de testes da solução elevado para 188 (100% aprovados).
+     - Adicionada suíte `SteamDeckVisualAndHardwareRemapTests` cobrindo o resolvedor dinâmico, remapeamento físico de hardware, visibilidade e manipulação dos slots traseiros no editor, isolamento do botão Quick Access (...) e persistência de configuração. Total de testes da solução elevado para 189 (100% aprovados).
 
 ---
 
