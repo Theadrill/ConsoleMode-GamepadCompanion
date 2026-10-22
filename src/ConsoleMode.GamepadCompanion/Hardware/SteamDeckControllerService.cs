@@ -133,14 +133,6 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     if (data != null && data.Length >= 64)
                     {
                         _packetCounter++;
-
-                        // Keepalive periódico (a cada ~1 segundo): garante que o firmware Neptune
-                        // nunca reverta silenciosamente para o Lizard Mode por watchdog interno
-                        if (_packetCounter % 250 == 0)
-                        {
-                            DisableLizardMode();
-                        }
-
                         var raw = SteamDeckRawState.Parse(data);
 
                         // Aplica o remapeamento de hardware configurado
@@ -315,7 +307,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             catch { }
         }
 
-        [StructLayout(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct SDCHapticPacket2
         {
             public byte packet_type; // 0xea
@@ -335,33 +327,47 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
         /// <summary>
         /// Emite um pulso háptico tátil para o trackpad com a intensidade informada.
-        /// Utiliza o protocolo nativo 0xEA da Valve para acionamento direto dos LRAs do Steam Deck,
-        /// parametrizado pelos valores de calibração fina de TrackpadTuning.
+        /// Utiliza o protocolo universal de atuadores LRA da Valve (0x8F PT_FEEDBACK) para resposta física imediata,
+        /// complementado pelo relatório Neptune V2 (0xEA).
         /// </summary>
         public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
         {
             if (intensity == TrackpadHapticIntensity.Off) return false;
 
+            ushort amp = 3000;
+            ushort period = 320;
             byte style = TrackpadTuning.HapticStyleHigh;
             sbyte intensityVal = TrackpadTuning.HapticIntensityHigh;
 
             switch (intensity)
             {
                 case TrackpadHapticIntensity.Low:
+                    amp = 2000;
+                    period = 300;
                     style = TrackpadTuning.HapticStyleLow;
                     intensityVal = TrackpadTuning.HapticIntensityLow;
                     break;
                 case TrackpadHapticIntensity.Medium:
+                    amp = 3500;
+                    period = 320;
                     style = TrackpadTuning.HapticStyleMedium;
                     intensityVal = TrackpadTuning.HapticIntensityMedium;
                     break;
                 case TrackpadHapticIntensity.High:
+                    amp = 5000;
+                    period = 340;
                     style = TrackpadTuning.HapticStyleHigh;
                     intensityVal = TrackpadTuning.HapticIntensityHigh;
                     break;
             }
 
-            return TriggerHapticNative(isRightPad, style, intensityVal);
+            // 1. Envio prioritário via 0x8F (PT_FEEDBACK universal Valve Neptune nos atuadores LRA)
+            bool ok = TriggerHapticRaw(isRightPad, amp, period, 1);
+
+            // 2. Disparo concorrente do pacote 0xEA Neptune V2
+            TriggerHapticNative(isRightPad, style, intensityVal);
+
+            return ok;
         }
 
         /// <summary>
