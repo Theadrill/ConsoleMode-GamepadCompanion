@@ -315,15 +315,15 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             switch (intensity)
             {
                 case TrackpadHapticIntensity.Low:
-                    amp = 400;
+                    amp = 600;
                     period = 300;
                     break;
                 case TrackpadHapticIntensity.Medium:
-                    amp = 900;
+                    amp = 1200;
                     period = 350;
                     break;
                 case TrackpadHapticIntensity.High:
-                    amp = 1600;
+                    amp = 2000;
                     period = 400;
                     break;
             }

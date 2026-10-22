@@ -61,7 +61,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(TrackpadMode.Disabled, config.Mode);
             Assert.Equal(50, config.Sensitivity);
             Assert.Equal(50, config.Friction);
-            Assert.Equal(TrackpadHapticIntensity.Low, config.HapticIntensity);
+            Assert.Equal(TrackpadHapticIntensity.Medium, config.HapticIntensity);
             Assert.True(config.InvertScroll);
             Assert.Equal(15, config.DeadzonePercent);
             Assert.Equal(11000, config.ClickPressureThreshold);
@@ -124,7 +124,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(TrackpadMode.MouseTrackball, page.RightTrackpad.Mode);
             Assert.Equal(50, page.RightTrackpad.Sensitivity);
             Assert.Equal(50, page.RightTrackpad.Friction);
-            Assert.Equal(TrackpadHapticIntensity.Low, page.RightTrackpad.HapticIntensity);
+            Assert.Equal(TrackpadHapticIntensity.Medium, page.RightTrackpad.HapticIntensity);
             Assert.Single(page.RightTrackpad.PressActions);
             Assert.Equal(MouseButton.Left, page.RightTrackpad.PressActions[0].MouseButton);
 
@@ -132,7 +132,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Equal(TrackpadMode.Scrollwheel, page.LeftTrackpad.Mode);
             Assert.Equal(50, page.LeftTrackpad.Sensitivity);
             Assert.True(page.LeftTrackpad.InvertScroll);
-            Assert.Equal(TrackpadHapticIntensity.Low, page.LeftTrackpad.HapticIntensity);
+            Assert.Equal(TrackpadHapticIntensity.Medium, page.LeftTrackpad.HapticIntensity);
         }
 
         [Fact]
@@ -140,7 +140,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
         {
             var wow = GameProfilePresets.CreateWowClassic();
             Assert.Equal(TrackpadMode.MouseTrackball, wow.ActivePage.RightTrackpad.Mode);
-            Assert.Equal(TrackpadHapticIntensity.Low, wow.ActivePage.RightTrackpad.HapticIntensity);
+            Assert.Equal(TrackpadHapticIntensity.Medium, wow.ActivePage.RightTrackpad.HapticIntensity);
 
             var pc = GameProfilePresets.CreateStandardPc();
             Assert.Equal(TrackpadMode.MouseTrackball, pc.ActivePage.RightTrackpad.Mode);
@@ -564,7 +564,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // Verifica emissão de pulso háptico
             Assert.NotEmpty(haptics.Pulses);
             Assert.False(haptics.Pulses[0].isRightPad, "Haptic deve ser disparado no trackpad esquerdo");
-            Assert.Equal(TrackpadHapticIntensity.Low, haptics.Pulses[0].intensity);
+            Assert.Equal(TrackpadHapticIntensity.Medium, haptics.Pulses[0].intensity);
 
             DesktopProfile.ForegroundCheckOverride = null;
         }
@@ -623,6 +623,49 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // Verifica que o pulso háptico tátil de clique foi despachado
             Assert.NotEmpty(haptics.Pulses);
             Assert.True(haptics.Pulses[0].isRightPad, "Pulso háptico de clique deve ser no trackpad direito");
+
+            DesktopProfile.ForegroundCheckOverride = null;
+        }
+
+        [Fact]
+        public void DesktopProfile_WhenCompanionInForeground_OperatesTrackpadNavigationAndMutesGamepadButtons()
+        {
+            var sim = new TestInputSimulator();
+            var haptics = new TestHapticsProvider();
+            var settings = new AppSettings { MappingEnabled = true, DesktopModeEnabled = true };
+            DesktopProfile.ForegroundCheckOverride = () => true; // Companion em foreground
+
+            var desktopProfile = new DesktopProfile(sim, settings, GameProfilePresets.CreateDesktopDefault(), haptics);
+
+            // Controle com Botão A pressionado E movimento no trackpad direito (+2000 X, +2000 Y)
+            var gamepadState = new GamepadState(true, 1, GamepadButtons.A, 0, 0, 0, 0, 0, 0);
+
+            // Frame 1: toque
+            desktopProfile.Update(gamepadState, new SteamDeckRawState
+            {
+                Buttons1 = SDCButton1.BTN_RPAD_TOUCH,
+                RPadX = 0,
+                RPadY = 0
+            }, 0.008f);
+
+            // Frame 2: movimento no trackpad
+            desktopProfile.Update(gamepadState, new SteamDeckRawState
+            {
+                Buttons1 = SDCButton1.BTN_RPAD_TOUCH,
+                RPadX = 2000,
+                RPadY = 2000
+            }, 0.008f);
+
+            // 1. Assegura que o Botão A do gamepad NÃO gerou tecla de teclado (Enter), pois os botões
+            // pertencem à navegação nativa por controle da UI (GamepadNavigationManager)
+            var keyEvents = sim.Events.FindAll(e => e.Type == TestInputSimulator.EventType.KeyDown && e.Key == VirtualKey.Enter);
+            Assert.Empty(keyEvents);
+
+            // 2. Assegura que o Trackpad continuou operando livremente o cursor do mouse na UI do Companion!
+            var mouseMoves = sim.Events.FindAll(e => e.Type == TestInputSimulator.EventType.MouseMove);
+            Assert.NotEmpty(mouseMoves);
+            Assert.True(mouseMoves[0].Dx > 0);
+            Assert.True(mouseMoves[0].Dy < 0);
 
             DesktopProfile.ForegroundCheckOverride = null;
         }

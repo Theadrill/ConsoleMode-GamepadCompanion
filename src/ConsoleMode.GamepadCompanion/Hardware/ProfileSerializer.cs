@@ -123,7 +123,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     Mode = TrackpadMode.Scrollwheel,
                     Sensitivity = 50,
                     InvertScroll = true,
-                    HapticIntensity = TrackpadHapticIntensity.Low
+                    HapticIntensity = TrackpadHapticIntensity.Medium
                 };
             }
 
@@ -139,7 +139,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     Mode = TrackpadMode.MouseTrackball,
                     Sensitivity = 50,
                     Friction = 50,
-                    HapticIntensity = TrackpadHapticIntensity.Low,
+                    HapticIntensity = TrackpadHapticIntensity.Medium,
                     PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) }
                 };
             }
@@ -151,7 +151,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     Mode = TrackpadMode.MouseTrackball,
                     Sensitivity = 50,
                     Friction = 50,
-                    HapticIntensity = TrackpadHapticIntensity.Low
+                    HapticIntensity = TrackpadHapticIntensity.Medium
                 };
             }
 

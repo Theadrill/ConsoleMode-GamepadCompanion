@@ -19,6 +19,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         public static Func<bool> ForegroundCheckOverride { get; set; }
 
         private readonly GamingProfile _innerProfile;
+        private readonly GamingProfile _foregroundAppNavProfile;
         private readonly AppSettings _settings;
 
         public event Action CenterCursorRequested;
@@ -33,6 +34,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             _settings = settings ?? new AppSettings();
             var sim = input ?? new MockInputSimulator();
             _innerProfile = new GamingProfile(sim, _settings, initialProfile ?? GameProfilePresets.CreateDesktopDefault(), haptics);
+            _foregroundAppNavProfile = new GamingProfile(sim, _settings, GameProfilePresets.CreateDesktopDefault(), haptics);
 
             _innerProfile.CenterCursorRequested += () => CenterCursorRequested?.Invoke();
             _innerProfile.ToggleClipCursorRequested += () => ToggleClipCursorRequested?.Invoke();
@@ -40,6 +42,8 @@ namespace ConsoleMode.GamepadCompanion.Profiles
             _innerProfile.AltTabRequested += () => AltTabRequested?.Invoke();
             _innerProfile.ShowDesktopRequested += () => ShowDesktopRequested?.Invoke();
             _innerProfile.HapticPulseRequested += (right, intensity) => HapticPulseRequested?.Invoke(right, intensity);
+
+            _foregroundAppNavProfile.HapticPulseRequested += (right, intensity) => HapticPulseRequested?.Invoke(right, intensity);
         }
 
         public string Name => "Desktop";
@@ -70,12 +74,27 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
         public void Update(GamepadState state, SteamDeckRawState deckRaw, float deltaSeconds)
         {
-            if (!_settings.DesktopModeEnabled || IsSuspended || IsCompanionInForeground())
+            if (!_settings.DesktopModeEnabled || IsSuspended)
             {
                 _innerProfile.Reset();
+                _foregroundAppNavProfile.Reset();
                 return;
             }
 
+            if (IsCompanionInForeground())
+            {
+                // Quando o Companion está em primeiro plano, botões do controle e analógicos
+                // são preservados para a navegação interna da UI via GamepadNavigationManager,
+                // mas os trackpads continuam operando normalmente como Mouse + Scroll para permitir
+                // apontar, clicar e rolar livremente pelo app com os trackpads.
+                _innerProfile.Reset();
+
+                var emptyGamepadState = new GamepadState(true, state.PacketNumber, GamepadButtons.None, 0, 0, 0, 0, 0, 0);
+                _foregroundAppNavProfile.Update(emptyGamepadState, deckRaw, deltaSeconds);
+                return;
+            }
+
+            _foregroundAppNavProfile.Reset();
             _innerProfile.Update(state, deckRaw, deltaSeconds);
         }
 
@@ -109,6 +128,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         public void Reset()
         {
             _innerProfile.Reset();
+            _foregroundAppNavProfile.Reset();
         }
 
         private sealed class MockInputSimulator : IInputSimulator
