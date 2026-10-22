@@ -342,120 +342,98 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             catch { }
         }
 
+        private static readonly Random _hapticRandom = new Random();
+
         /// <summary>
         /// Emite um pulso háptico tátil nos atuadores LRA do Steam Deck (Neptune)
-        /// utilizando o protocolo nativo de haptics da Valve (0xEA ID_TRIGGER_HAPTIC_CMD)
-        /// com fallback de segurança via relatório 0x8F (ID_TRIGGER_HAPTIC_PULSE).
+        /// utilizando a estrutura nativa SDCHapticPacket2 do Steam Deck (0xEA).
+        /// Referência técnica local: C:\PROJETOS\steam-deck-tools\SteamController\Devices\SteamControllerHaptic.cs
         /// </summary>
         public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity, bool isClick = false)
         {
             if (intensity == TrackpadHapticIntensity.Off) return false;
             if (_device == null || !_isRunning) return false;
 
-            byte side = (byte)(isRightPad ? 0x02 : 0x01); // 0x01 = Left Pad, 0x02 = Right Pad
+            // No protocolo oficial do Steam Deck (SDCHapticPacket2 / Neptune):
+            // position = 0x00 para Trackpad Esquerdo (HapticPad.Left)
+            // position = 0x01 para Trackpad Direito (HapticPad.Right)
+            byte position = (byte)(isRightPad ? 0x01 : 0x00);
 
-            byte uiIntensity;
-            sbyte dBGain;
-            ushort freq = 240;
-            ushort durMs;
-            ushort amp8f;
+            byte style; // 1 = Weak (Ticks de rotação/scroll), 2 = Strong (Clique mecânico de press down/up)
+            sbyte intensityVal; // -7..5 correspondente a -2dB..10dB
 
             if (isClick)
             {
-                // Pulso de CLIQUE mecânico nítido e definido (para botões físicos e notches de scroll)
+                style = 2; // Strong
                 switch (intensity)
                 {
                     case TrackpadHapticIntensity.Low:
-                        uiIntensity = 2;
-                        dBGain = 2;
-                        durMs = 20;
-                        amp8f = 1600;
+                        intensityVal = -3; // 2dB
                         break;
                     case TrackpadHapticIntensity.Medium:
-                        uiIntensity = 3;
-                        dBGain = 5;
-                        durMs = 24;
-                        amp8f = 2400;
+                        intensityVal = 0;  // 5dB
                         break;
                     case TrackpadHapticIntensity.High:
                     default:
-                        uiIntensity = 3;
-                        dBGain = 8;
-                        durMs = 28;
-                        amp8f = 3500;
+                        intensityVal = 3;  // 8dB
                         break;
                 }
             }
             else
             {
-                // Pulso de TICK / TEXTURA tátil suave para rolagem contínua e trackball
-                // Evita efeito "britadeira" ou vibração descontrolada durante o movimento
+                style = 1; // Weak
                 switch (intensity)
                 {
                     case TrackpadHapticIntensity.Low:
-                        uiIntensity = 1;
-                        dBGain = -4;
-                        durMs = 10;
-                        amp8f = 450;
+                        intensityVal = -7; // -2dB (textura super suave e sedosa)
                         break;
                     case TrackpadHapticIntensity.Medium:
-                        uiIntensity = 1;
-                        dBGain = 0;
-                        durMs = 12;
-                        amp8f = 750;
+                        intensityVal = -5; // 0dB
                         break;
                     case TrackpadHapticIntensity.High:
                     default:
-                        uiIntensity = 2;
-                        dBGain = 3;
-                        durMs = 14;
-                        amp8f = 1100;
+                        intensityVal = -2; // 3dB
                         break;
                 }
             }
 
-            // 1. Protocolo nativo Neptune 0xEA (Deck-specific MsgTriggerHaptic)
-            // Este é o protocolo oficial do Steam Deck (0x01 = Esquerdo, 0x02 = Direito).
-            byte[] packetEA = new byte[65];
-            packetEA[0] = 0x00; // Report ID
-            packetEA[1] = 0xEA; // ID_TRIGGER_HAPTIC_CMD
-            packetEA[2] = 19;   // Length = sizeof(MsgTriggerHaptic)
-            packetEA[3] = side; // 0x01 = Left, 0x02 = Right
-            packetEA[4] = (byte)(isClick ? 0x02 : 0x01); // 1 = tick, 2 = click
-            packetEA[5] = uiIntensity;
-            packetEA[6] = (byte)dBGain;
-            packetEA[7] = (byte)(freq & 0xFF);
-            packetEA[8] = (byte)((freq >> 8) & 0xFF);
-            packetEA[9] = (byte)(durMs & 0xFF);
-            packetEA[10] = (byte)((durMs >> 8) & 0xFF);
-
-            int resEA = SteamDeckHidNative.SendFeatureReport(_device, packetEA);
-            if (resEA > 0)
+            int ts;
+            lock (_hapticRandom)
             {
-                // Sucesso com o protocolo primário nativo do Steam Deck.
-                // Não envia o pacote 0x8F para evitar disparo duplo / acúmulo assimétrico de energia no atuador.
-                return true;
+                ts = _hapticRandom.Next();
             }
 
-            // 2. Fallback de contingência: protocolo legado 0x8F (ID_TRIGGER_HAPTIC_PULSE universal Valve)
-            // Apenas executado se 0xEA falhar. No driver oficial Valve hid-steam, 0x00 = Right e 0x01 = Left.
-            byte pad8F = (byte)(isRightPad ? 0x00 : 0x01);
-            byte[] packet8F = new byte[65];
-            packet8F[0] = 0x00;
-            packet8F[1] = 0x8F;
-            packet8F[2] = 0x08; // 8 bytes
-            packet8F[3] = pad8F;
-            packet8F[4] = (byte)(amp8f & 0xFF);
-            packet8F[5] = (byte)((amp8f >> 8) & 0xFF);
-            packet8F[6] = 0x40; // 320µs período
-            packet8F[7] = 0x01;
-            packet8F[8] = 0x01; // count = 1
-            packet8F[9] = 0x00;
-            packet8F[10] = 0x00;
+            // Protocolo nativo Neptune SDCHapticPacket2 (tamanho exato 13 bytes / 0x0D):
+            // byte 0: 0x00 (Report ID para HIDAPI Windows)
+            // byte 1: 0xEA (packet_type = 0xEA)
+            // byte 2: 0x0D (len = 13 bytes)
+            // byte 3: position (0x00 = Left, 0x01 = Right)
+            // byte 4: style (1 = Weak, 2 = Strong)
+            // byte 5: unsure2 = 0x00
+            // byte 6: intensity (-7..5)
+            // byte 7: unsure3 = 0x04
+            // byte 8..11: tsA (timestamp aleatório para o hardware diferenciar disparos consecutivos)
+            // byte 12..15: tsB (mesmo timestamp aleatório)
+            byte[] packetEA = new byte[65];
+            packetEA[0] = 0x00;
+            packetEA[1] = 0xEA;
+            packetEA[2] = 0x0D;
+            packetEA[3] = position;
+            packetEA[4] = style;
+            packetEA[5] = 0x00;
+            packetEA[6] = (byte)intensityVal;
+            packetEA[7] = 0x04;
+            packetEA[8] = (byte)(ts & 0xFF);
+            packetEA[9] = (byte)((ts >> 8) & 0xFF);
+            packetEA[10] = (byte)((ts >> 16) & 0xFF);
+            packetEA[11] = (byte)((ts >> 24) & 0xFF);
+            packetEA[12] = (byte)(ts & 0xFF);
+            packetEA[13] = (byte)((ts >> 8) & 0xFF);
+            packetEA[14] = (byte)((ts >> 16) & 0xFF);
+            packetEA[15] = (byte)((ts >> 24) & 0xFF);
 
-            int res8F = SteamDeckHidNative.SendFeatureReport(_device, packet8F);
-
-            return res8F > 0;
+            int resEA = SteamDeckHidNative.SendFeatureReport(_device, packetEA);
+            return resEA > 0;
         }
 
         public bool TriggerHapticNative(bool isRightPad, byte style, sbyte intensity)
@@ -476,7 +454,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             packet8F[0] = 0x00;
             packet8F[1] = 0x8F;
             packet8F[2] = 0x07;
-            packet8F[3] = (byte)(isRightPad ? 0x00 : 0x01); // Inversão correta legacy Valve (0x00 = Right, 0x01 = Left)
+            packet8F[3] = (byte)(isRightPad ? 0x01 : 0x00); // Conforme SDCHapticPacket oficial: 0x00 = Left, 0x01 = Right
             packet8F[4] = (byte)(amplitude & 0xFF);
             packet8F[5] = (byte)((amplitude >> 8) & 0xFF);
             packet8F[6] = (byte)(period & 0xFF);

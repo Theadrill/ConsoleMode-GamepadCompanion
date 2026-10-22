@@ -1,5 +1,15 @@
 # Plano de Implementação — Configuração dos Trackpads do Steam Deck
 
+> [!CAUTION]
+> ## 🚨 REGRA MANDATÓRIA DE CONSULTA LOCAL (PROIBIDO WEBSEARCH DESNECESSÁRIO)
+> **O repositório completo do `steam-deck-tools` está clonado localmente no root da pasta de projetos do usuário:**
+> `C:\PROJETOS\steam-deck-tools\` (ou `..\steam-deck-tools\` relativo a este projeto).
+> 
+> **Antes de qualquer pesquisa web externa sobre protocolos HID do Steam Deck, Neptune, Lizard Mode, registradores, haptics ou relatórios de feature, o agente DEVE OBRIGATORIAMENTE:**
+> 1. Verificar a existência da pasta `C:\PROJETOS\steam-deck-tools\`.
+> 2. Consultar diretamente os arquivos de código-fonte locais em `C:\PROJETOS\steam-deck-tools\SteamController\`, `SteamDeck\`, `Common\`, etc., via ferramentas de leitura e busca local de arquivos.
+> 3. **PROIBIDO fazer buscas na web (websearch)** para informações de engenharia reversa do Steam Deck que já estejam presentes localmente nessa pasta.
+
 > **Documento de Arquitetura Técnica e Roteiro de Fases Testáveis**  
 > Especificação do motor de emulação, processamento analógico de toque/clique mecânico, feedback háptico e interface de customização dos Trackpads Esquerdo e Direito do Steam Deck.  
 > 

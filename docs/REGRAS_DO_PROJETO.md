@@ -81,3 +81,8 @@ Este documento estabelece as **regras obrigatórias e inegociáveis** de governa
 
 ### Regra 11: Independência de Localização
 * Todas as strings de interface e mensagens de usuário devem ficar centralizadas em constantes/dicionários de localização, desacopladas da lógica de negócio.
+
+### Regra 12: Consulta Obrigatória ao Repositório Local `steam-deck-tools` (Sem WebSearch)
+* **O repositório completo do `steam-deck-tools` está presente no disco local na pasta:**
+  `C:\PROJETOS\steam-deck-tools\` (ou `..\steam-deck-tools\` relativo a este projeto).
+* **PROIBIDO fazer buscas na web (websearch)** para consultas sobre engenharia reversa do Steam Deck, Neptune, Lizard Mode, relatórios HID, haptics, registradores ou watchdogs. O agente deve OBRIGATORIAMENTE ler e consultar os arquivos fonte locais em `C:\PROJETOS\steam-deck-tools\`.
