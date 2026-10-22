@@ -6,6 +6,21 @@ Desenvolvido em C# (.NET Framework 4.8) para Windows, leve, 100% portátil e com
 ## ✨ Funcionalidades Principais
 - **Mapeamento Couch Gaming de Baixa Latência:** Poll de entrada a ~60 FPS compatível com XInput e controllers Xbox/PlayStation.
 - **Smart Mouse Look:** Integração automática de controle de câmera via analógico direito com alternância F9.
+- **Sistema de Perfis de Controle por Jogo & Editor Estilo Steam Input:**
+  - Perfis individuais persistidos no `games.ini` para cada jogo da biblioteca.
+  - Presets prontos em 1 clique: *WoW Classic (Octowow)*, *RPG / MMO (Câmera Botão Direito)* e *Padrão PC (WASD + Mouse)*, além de clonagem de perfis entre jogos cadastrados.
+  - Editor visual completo em GDI+ ocupando 100% da tela, com diagrama do controle cercado por cards interativos.
+  - Calibração de Sensibilidade do Mouse, Zonas Mortas (Global ou Custom) e Limiar de Gatilhos LT/RT (Global ou Custom).
+  - Alternância de modos dos analógicos (`4 Direções`, `Movimento do Mouse`, `Desativado`), com comandos adicionais e sincronização de cliques L3/R3.
+  - Toggle de Input do Companion por Jogo no `GameConfigPanel` para jogos com suporte nativo a controle.
+- **Captura Física de Input & Combos:**
+  - Modo de escuta física com gancho de teclado de baixo nível (`WH_KEYBOARD_LL`) para sequestrar atalhos do Windows (`Win+R`, `Win+D`, `Alt+Tab`, `Win+Shift+S`, etc.) durante o mapeamento.
+  - Acumulação simultânea de teclas, botões de mouse e scroll em tempo real.
+- **Seletor Visual de Input em 3 Abas:**
+  - **1. Teclado:** Layout ANSI completo com navegação espacial ergonômica (funções F1-F12, numérico, letras, modificadores e setas).
+  - **2. Mouse:** Ilustração vetorial dinâmica do mouse com cards para cliques esquerdo, direito, meio e scroll up/down.
+  - **3. Sistema & Especial:** Painel em 3 colunas para controles de áudio/mídia, atalhos de janelas/captura e funções do Companion (`Centralizar Cursor`, `Toggle Confinar Cursor`).
+  - Navegação 100% por controle: seleção direta de tecla/botão com `(A)`, confirmação e salvamento com `[RT]`, montagem de combos com `(X)`, limpeza com `(Y)`, cancelamento com `(B)` e troca de abas com `[LB]` / `[RB]`.
 - **Biblioteca de Jogos Integrada:**
   - Navegação 100% nativa por controle (D-Pad, analógicos, atalhos A/B/X/Y e gatilhos).
   - Pesquisa rápida de títulos em tempo real.
@@ -21,13 +36,14 @@ Desenvolvido em C# (.NET Framework 4.8) para Windows, leve, 100% portátil e com
 - [x] Persistência local em arquivos `.ini` e ciclo de vida em segundo plano na bandeja (System Tray)
 - [x] Biblioteca de Games (Launcher com navegação 100% por gamepad, configuração de executáveis, SteamGridDB, hero backgrounds e teclado virtual)
 - [x] Fase 1 dos Perfis: Motor de Perfis por Jogo, Limpeza da Barra Lateral e Toggle de Input do Companion por Jogo
-- [ ] Fase 2 dos Perfis: Tela do Editor Visual de Perfil (`GameProfileEditorControl`) com diagrama do controle e slots
-- [ ] Fase 3 dos Perfis: Tela de Escolha de Edição & Captura Física de Combos
-- [ ] Fase 4 dos Perfis: Seletor Visual em 3 Abas (`Teclado` | `Mouse` | `Sistema & Especial`)
+- [x] Fase 2 dos Perfis: Tela do Editor Visual de Perfil (`GameProfileEditorControl`) com diagrama do controle e slots
+- [x] Fase 3 dos Perfis: Tela de Escolha de Edição & Captura Física de Combos
+- [x] Fase 4 dos Perfis: Seletor Visual em 3 Abas (`Teclado` | `Mouse` | `Sistema & Especial`)
 - [ ] **Toggle de Múltiplas Instâncias por Jogo (`Permitir Múltiplas Instâncias`):**
   - Adicionar no `GameConfigPanel` um botão toggle idêntico ao do Input (`[ (●) PERMITIR MÚLTIPLAS INSTÂNCIAS / (○) INSTÂNCIA ÚNICA (Padrão) ]`).
   - Se estiver em **Instância Única (Desativado - Padrão)**: ao acionar `[A] INICIAR`, caso o executável principal já esteja em execução, em vez de abrir outro processo, o app traz a janela do jogo já existente para primeiro plano e oculta a interface do Companion.
   - Se estiver ativado: permite abrir múltiplas instâncias em paralelo.
+- [ ] Sistema de Páginas / Camadas por Modificador (alternar entre páginas de mapeamento dentro do jogo, como Navegação vs. Interação/Menus, cada uma com sua própria sensibilidade de mouse e botões)
+- [ ] Avaliar expansão de comandos especiais do sistema na Aba 3
 - [ ] Overlay estilo Steam acionado pelo botão central do controle (Guide/Home)
 - [ ] Perfil Desktop para usar o gamepad no Windows normalmente
-- [ ] Sistema de Páginas / Camadas por Modificador (alternância de páginas de mapeamento dentro do jogo com sensibilidade própria de mouse)

@@ -130,6 +130,50 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string BindingListeningReleaseHint = "Solte as teclas para confirmar e gravar automaticamente!";
         public const string BindingFooterListening = "(B) Cancelar Escuta";
 
+        // Seletor Visual de Input em 3 Abas (Fase 4)
+        public const string VisualSelectorTabKeyboard = "1. TECLADO";
+        public const string VisualSelectorTabMouse = "2. MOUSE";
+        public const string VisualSelectorTabSystem = "3. SISTEMA & ESPECIAL";
+        public const string VisualSelectorHeaderFormat = "Editando: {0}   |   Jogo: {1}";
+        public const string VisualSelectorComboLabel = "Combo Montado: [ {0} ]";
+        public const string VisualSelectorComboEmpty = "Vazio";
+        public const string VisualSelectorFooterLegend = "(A) Selecionar Tecla    (X) Adicionar ao Combo    (Y) Limpar    (RT) Salvar e Voltar    (B) Cancelar";
+        public const string VisualSelectorBtnSelect = "[A] Selecionar";
+        public const string VisualSelectorBtnToggle = "[X] Add Combo";
+        public const string VisualSelectorBtnClear = "[Y] Limpar";
+        public const string VisualSelectorBtnConfirm = "[RT] Salvar";
+        public const string VisualSelectorBtnCancel = "[B] Cancelar";
+
+        // Aba 2: Mouse
+        public const string VisualSelectorMouseLeft = "Clique Esquerdo (Mouse L)";
+        public const string VisualSelectorMouseRight = "Clique Direito (Mouse R)";
+        public const string VisualSelectorMouseMiddle = "Clique do Meio (Mouse M)";
+        public const string VisualSelectorMouseWheelUp = "Roda para Cima (Scroll ▲)";
+        public const string VisualSelectorMouseWheelDown = "Roda para Baixo (Scroll ▼)";
+        public const string VisualSelectorMouseClear = "Limpar / Desativado";
+
+        // Aba 3: Sistema & Especial
+        public const string VisualSelectorSectionAudio = "ÁUDIO & MÍDIA";
+        public const string VisualSelectorSectionWindows = "JANELAS & CAPTURA";
+        public const string VisualSelectorSectionCompanion = "FUNÇÕES DO COMPANION";
+
+        public const string VisualSelectorAudioVolUp = "🔊 Volume +";
+        public const string VisualSelectorAudioVolDown = "🔉 Volume -";
+        public const string VisualSelectorAudioMute = "🔇 Mutar Áudio";
+        public const string VisualSelectorAudioPlayPause = "⏯️ Play / Pause Mídia";
+        public const string VisualSelectorAudioNext = "⏭️ Próxima Faixa";
+        public const string VisualSelectorAudioPrev = "⏮️ Faixa Anterior";
+
+        public const string VisualSelectorWinPrintScreen = "📸 Captura PrintScreen";
+        public const string VisualSelectorWinAltEnter = "🖥️ Tela Cheia (Alt+Enter)";
+        public const string VisualSelectorWinAltTab = "🔄 Trocar Janela (Alt+Tab)";
+        public const string VisualSelectorWinShowDesktop = "🪟 Mostrar Desktop (Win+D)";
+        public const string VisualSelectorWinAltF4 = "❌ Fechar Jogo (Alt+F4)";
+        public const string VisualSelectorWinKey = "🪟 Tecla Windows (Win)";
+
+        public const string VisualSelectorCompCenterCursor = "🎯 Centralizar Cursor";
+        public const string VisualSelectorCompToggleClip = "🔒 Toggle Confinar Cursor";
+
         // Diálogos modais Couch Gaming
         public const string DialogOk = "OK";
         public const string DialogConfirm = "Confirmar";
