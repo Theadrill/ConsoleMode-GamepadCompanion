@@ -18,6 +18,70 @@ namespace ConsoleMode.GamepadCompanion.Engine
     }
 
     /// <summary>
+    /// Central de parâmetros e calibração fina (Fine-Tuning) para a física dos trackpads.
+    /// Reúne todas as variáveis globais de ajuste ergonômico no início do arquivo para rápida iteração.
+    /// </summary>
+    public static class TrackpadTuning
+    {
+        // ==========================================
+        // 1. ZONA MORTA & SENSIBILIDADE BASE
+        // ==========================================
+        /// <summary>Limiar de zona morta para filtrar micro-ruído capacitivo com o dedo parado.</summary>
+        public static float DeadzoneThreshold = 10f;
+
+        /// <summary>Fator de escala de sensibilidade para conversão de deltas do hardware em pixels de tela.</summary>
+        public static float BaseSensitivityFactor = 0.0058f;
+
+        // ==========================================
+        // 2. FILTRO PASSA-BAIXA DINÂMICO (EMA)
+        // ==========================================
+        /// <summary>Coeficiente alfa em baixíssima velocidade (mira fina em abas, botões e caixas de texto).</summary>
+        public static float LowSpeedAlpha = 0.40f;
+
+        /// <summary>Coeficiente alfa máximo em movimentos rápidos/flicks (alta responsividade sem lag perceptível).</summary>
+        public static float HighSpeedAlphaMax = 0.85f;
+
+        /// <summary>Velocidade até a qual o alfa de baixa velocidade é interpolado linearmente.</summary>
+        public static float LowSpeedThreshold = 15000f;
+
+        // ==========================================
+        // 3. CURVA DE ACELERAÇÃO
+        // ==========================================
+        /// <summary>Velocidade a partir da qual a aceleração começa a aumentar progressivamente.</summary>
+        public static float AccelStartSpeed = 25000f;
+
+        /// <summary>Ganho máximo multiplicador da curva de aceleração.</summary>
+        public static float MaxAccelGain = 1.65f;
+
+        // ==========================================
+        // 4. ESTABILIZAÇÃO DE CLIQUE (ANTI-SQUASH / MAC-OS & STEAM-OS)
+        // ==========================================
+        /// <summary>Limiar de pressão analógica preparatória onde o amortecimento de mira começa a atuar.</summary>
+        public static short ClickPressurePrepThreshold = 8500;
+
+        /// <summary>Fator de atenuação do movimento durante o clique (0.15f amortiza 85% do tremor da polpa do polegar).</summary>
+        public static float ClickStabilizationDamping = 0.15f;
+
+        // ==========================================
+        // 5. INÉRCIA DA TRACKBALL (GESTOS DE VARREDURA)
+        // ==========================================
+        /// <summary>Distância cumulativa mínima de trajeto no pad necessária para armar a inércia.</summary>
+        public static float MinStrokeDistanceForInertia = 700f;
+
+        /// <summary>Velocidade mínima de decolagem do dedo (px/s) para a trackball continuar girando.</summary>
+        public static float MinFlickSpeed = 180f;
+
+        // ==========================================
+        // 6. ROLAGEM & HÁPTICOS
+        // ==========================================
+        /// <summary>Deslocamento necessário no pad esquerdo para emitir 1 notch de rolagem de roda do mouse.</summary>
+        public static float ScrollStep = 1600f;
+
+        /// <summary>Distância percorrida pelo mouse para emitir 1 micro-pulso tátil de rotação da trackball.</summary>
+        public static float TrackballHapticStep = 16f;
+    }
+
+    /// <summary>
     /// Motor matemático puro para processamento dos trackpads do Steam Deck.
     /// Totalmente desacoplado de hardware físico, chamadas Win32 e UI: opera exclusivamente
     /// sobre coordenadas numéricas, estados lógicos e deltas de tempo (dt).
@@ -33,11 +97,6 @@ namespace ConsoleMode.GamepadCompanion.Engine
             Right
         }
 
-        private const float DeadzoneThreshold = 10f;
-        private const float MinFlickSpeed = 40f;
-        private const float TrackballHapticStep = 16f;
-        private const float ScrollStep = 1600f;
-
         public bool IsRightPad { get; }
 
         private bool _wasTouched;
@@ -49,6 +108,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         private float _smoothDx;
         private float _smoothDy;
 
+        private float _strokeDistanceAccumulator;
         private float _velocityX;
         private float _velocityY;
         private float _hapticDistanceAccumulator;
@@ -145,7 +205,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
             switch (config.Mode)
             {
                 case TrackpadMode.MouseTrackball:
-                    ProcessMouseTrackball(isTouch, rawX, rawY, config, dt, ref output);
+                    ProcessMouseTrackball(isTouch, isEffectivePress, rawPressure, rawX, rawY, config, dt, ref output);
                     break;
 
                 case TrackpadMode.Scrollwheel:
@@ -181,6 +241,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
         private void ProcessMouseTrackball(
             bool isTouch,
+            bool isEffectivePress,
+            short rawPressure,
             short rawX,
             short rawY,
             TrackpadConfig config,
@@ -199,6 +261,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     _lastRawY = rawY;
                     _smoothDx = 0f;
                     _smoothDy = 0f;
+                    _strokeDistanceAccumulator = 0f;
                     _isFirstTouch = false;
                     return;
                 }
@@ -212,7 +275,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
                 // 1. Filtro Anti-Jitter com Zona Morta Suave (Soft-knee Deadband):
                 // Elimina ruídos elétricos/capacitivos em repouso sem degrau de descontinuidade ("jump/pulando").
-                if (deltaDist <= DeadzoneThreshold)
+                if (deltaDist <= TrackpadTuning.DeadzoneThreshold)
                 {
                     _smoothDx *= 0.50f;
                     _smoothDy *= 0.50f;
@@ -221,38 +284,54 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     return;
                 }
 
-                float scale = (deltaDist - DeadzoneThreshold) / deltaDist;
+                _strokeDistanceAccumulator += deltaDist;
+
+                float scale = (deltaDist - TrackpadTuning.DeadzoneThreshold) / deltaDist;
                 float cleanDx = rawDeltaX * scale;
                 float cleanDy = rawDeltaY * scale;
 
-                // 2. Fator de sensibilidade calibrado para ergonomia natural no Steam Deck
-                float sens = Math.Max(1, config.Sensitivity);
-                float sensFactor = (sens / 50f) * 0.0058f;
+                // 2. Estabilização de Mira Anti-Squash (Padrão SteamOS / macOS):
+                // Durante a aplicação de força para o clique analógico ou acionamento mecânico,
+                // a polpa do polegar deforma contra o sensor capacitivo gerando um salto espúrio de baricentro.
+                // Atenuamos severamente o movimento para que o cursor trave com precisão sobre o botão/aba que o jogador quer clicar.
+                bool isClickingOrPrepping = isEffectivePress || (rawPressure >= TrackpadTuning.ClickPressurePrepThreshold);
+                if (isClickingOrPrepping)
+                {
+                    cleanDx *= TrackpadTuning.ClickStabilizationDamping;
+                    cleanDy *= TrackpadTuning.ClickStabilizationDamping;
+                    _strokeDistanceAccumulator = 0f; // Evita armar inércia ao soltar após o clique
+                    _velocityX = 0f;
+                    _velocityY = 0f;
+                }
 
-                // 3. Curva de aceleração natural: linear (1.0x) em baixa/média velocidade para precisão cirúrgica;
-                // curva suave limitada a no máximo 1.65x durante varreduras rápidas.
+                // 3. Fator de sensibilidade calibrado para ergonomia natural no Steam Deck
+                float sens = Math.Max(1, config.Sensitivity);
+                float sensFactor = (sens / 50f) * TrackpadTuning.BaseSensitivityFactor;
+
+                // 4. Curva de aceleração natural: linear (1.0x) em baixa/média velocidade para precisão cirúrgica;
+                // curva suave limitada a no máximo MaxAccelGain durante varreduras rápidas.
                 float speed = deltaDist / dt;
                 float accel = 1f;
-                if (speed > 25000f)
+                if (speed > TrackpadTuning.AccelStartSpeed)
                 {
-                    float excess = (speed - 25000f) / 100000f;
-                    accel = 1f + Math.Min(0.65f, excess * 0.65f);
+                    float excess = (speed - TrackpadTuning.AccelStartSpeed) / 100000f;
+                    accel = 1f + Math.Min(TrackpadTuning.MaxAccelGain - 1f, excess * (TrackpadTuning.MaxAccelGain - 1f));
                 }
 
                 float targetDx = cleanDx * sensFactor * accel;
                 float targetDy = -cleanDy * sensFactor * accel; // Deck Y positivo é para cima; tela Windows Y positivo é para baixo.
 
-                // 4. Filtro Passa-Baixa Dinâmico (EMA - Exponential Moving Average):
+                // 5. Filtro Passa-Baixa Dinâmico (EMA - Exponential Moving Average):
                 // Calibração de baixa velocidade a 0.40 para controle suave e preciso sobre abas e botões pequenos,
                 // escalando progressivamente até 0.85 em varreduras e flicks rápidos.
                 float alpha;
-                if (speed < 15000f)
+                if (speed < TrackpadTuning.LowSpeedThreshold)
                 {
-                    alpha = 0.40f + (speed / 15000f) * 0.20f;
+                    alpha = TrackpadTuning.LowSpeedAlpha + (speed / TrackpadTuning.LowSpeedThreshold) * 0.20f;
                 }
                 else
                 {
-                    alpha = Math.Min(0.85f, 0.60f + ((speed - 15000f) / 30000f) * 0.25f);
+                    alpha = Math.Min(TrackpadTuning.HighSpeedAlphaMax, 0.60f + ((speed - TrackpadTuning.LowSpeedThreshold) / 30000f) * 0.25f);
                 }
 
                 _smoothDx = (_smoothDx * (1f - alpha)) + (targetDx * alpha);
@@ -261,19 +340,27 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 output.MouseDx = _smoothDx;
                 output.MouseDy = _smoothDy;
 
-                // Atualiza velocidade instantânea filtrada para a física da trackball
-                float instVx = output.MouseDx / dt;
-                float instVy = output.MouseDy / dt;
-                _velocityX = (_velocityX * 0.35f) + (instVx * 0.65f);
-                _velocityY = (_velocityY * 0.35f) + (instVy * 0.65f);
+                // Atualiza velocidade instantânea filtrada para a física da trackball (apenas se não estiver clicando)
+                if (!isClickingOrPrepping)
+                {
+                    float instVx = output.MouseDx / dt;
+                    float instVy = output.MouseDy / dt;
+                    _velocityX = (_velocityX * 0.35f) + (instVx * 0.65f);
+                    _velocityY = (_velocityY * 0.35f) + (instVy * 0.65f);
+                }
+                else
+                {
+                    _velocityX = 0f;
+                    _velocityY = 0f;
+                }
 
                 // Feedback háptico proporcional à distância percorrida
                 if (config.HapticIntensity != TrackpadHapticIntensity.Off)
                 {
                     _hapticDistanceAccumulator += (float)Math.Sqrt(output.MouseDx * output.MouseDx + output.MouseDy * output.MouseDy);
-                    if (_hapticDistanceAccumulator >= TrackballHapticStep)
+                    if (_hapticDistanceAccumulator >= TrackpadTuning.TrackballHapticStep)
                     {
-                        _hapticDistanceAccumulator -= TrackballHapticStep;
+                        _hapticDistanceAccumulator -= TrackpadTuning.TrackballHapticStep;
                         output.TriggerHaptic = true;
                     }
                 }
@@ -284,16 +371,17 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 _smoothDx = 0f;
                 _smoothDy = 0f;
 
-                // Usuário soltou o dedo: verifica se havia velocidade de flick
+                // Usuário soltou o dedo: verifica se havia velocidade de flick E trajeto de gesto suficiente
                 if (_wasTouched)
                 {
                     float liftSpeed = (float)Math.Sqrt(_velocityX * _velocityX + _velocityY * _velocityY);
-                    if (liftSpeed < MinFlickSpeed)
+                    if (liftSpeed < TrackpadTuning.MinFlickSpeed || _strokeDistanceAccumulator < TrackpadTuning.MinStrokeDistanceForInertia)
                     {
                         _velocityX = 0f;
                         _velocityY = 0f;
                     }
                 }
+                _strokeDistanceAccumulator = 0f;
 
                 // Inércia física da trackball desacelerando com atrito natural
                 if (_velocityX != 0f || _velocityY != 0f)
@@ -316,9 +404,9 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     if (config.HapticIntensity != TrackpadHapticIntensity.Off)
                     {
                         _hapticDistanceAccumulator += (float)Math.Sqrt(output.MouseDx * output.MouseDx + output.MouseDy * output.MouseDy);
-                        if (_hapticDistanceAccumulator >= (TrackballHapticStep * 1.25f))
+                        if (_hapticDistanceAccumulator >= (TrackpadTuning.TrackballHapticStep * 1.25f))
                         {
-                            _hapticDistanceAccumulator -= (TrackballHapticStep * 1.25f);
+                            _hapticDistanceAccumulator -= (TrackpadTuning.TrackballHapticStep * 1.25f);
                             output.TriggerHaptic = true;
                         }
                     }
@@ -352,19 +440,19 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     float sens = Math.Max(1, config.Sensitivity);
                     _scrollAccumulator += diffY * (sens / 50f);
 
-                    if (_scrollAccumulator >= ScrollStep)
+                    if (_scrollAccumulator >= TrackpadTuning.ScrollStep)
                     {
-                        int notches = (int)(_scrollAccumulator / ScrollStep);
-                        _scrollAccumulator -= notches * ScrollStep;
+                        int notches = (int)(_scrollAccumulator / TrackpadTuning.ScrollStep);
+                        _scrollAccumulator -= notches * TrackpadTuning.ScrollStep;
 
                         // Rolagem natural invertida padrão: deslizar para cima (diffY > 0) rola para baixo (wheelDelta < 0).
                         output.WheelDelta = (config.InvertScroll ? -1 : 1) * notches * 120;
                         output.TriggerHaptic = config.HapticIntensity != TrackpadHapticIntensity.Off;
                     }
-                    else if (_scrollAccumulator <= -ScrollStep)
+                    else if (_scrollAccumulator <= -TrackpadTuning.ScrollStep)
                     {
-                        int notches = (int)(-_scrollAccumulator / ScrollStep);
-                        _scrollAccumulator += notches * ScrollStep;
+                        int notches = (int)(-_scrollAccumulator / TrackpadTuning.ScrollStep);
+                        _scrollAccumulator += notches * TrackpadTuning.ScrollStep;
 
                         output.WheelDelta = (config.InvertScroll ? 1 : -1) * notches * 120;
                         output.TriggerHaptic = config.HapticIntensity != TrackpadHapticIntensity.Off;

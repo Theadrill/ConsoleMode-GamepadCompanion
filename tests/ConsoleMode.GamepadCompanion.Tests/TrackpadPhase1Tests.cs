@@ -459,6 +459,53 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.Empty(releasePress.Actions);
         }
 
+        [Fact]
+        public void TrackpadProcessor_ClickStabilization_DampensMovementDuringPressureClick()
+        {
+            var normalProc = new TrackpadProcessor(isRightPad: true);
+            var clickingProc = new TrackpadProcessor(isRightPad: true);
+            var config = new TrackpadConfig { Mode = TrackpadMode.MouseTrackball, Sensitivity = 50, ClickPressureThreshold = 11000 };
+
+            // Frame 1: toque de âncora
+            normalProc.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 3000, config: config, dt: 0.008f);
+            clickingProc.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 3000, config: config, dt: 0.008f);
+
+            // Frame 2: deslocamento de 80 unidades no polegar (deformação capacitiva de aperto).
+            // Normal: toque leve sem aperto (pressão 3000)
+            var normalOut = normalProc.Process(isTouch: true, isPress: false, rawX: 1080, rawY: 1000, rawPressure: 3000, config: config, dt: 0.008f);
+
+            // Clicando: aperto firme (pressão 12000 >= limiar 11000)
+            var clickingOut = clickingProc.Process(isTouch: true, isPress: false, rawX: 1080, rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
+
+            Assert.True(clickingOut.MouseDx > 0f);
+            // Deve amortecer o movimento em ~85% (MouseDx do clique deve ser ~15% do normal)
+            Assert.True(clickingOut.MouseDx <= normalOut.MouseDx * 0.25f, "Estabilização anti-squash deve amortecer o deslocamento no clique");
+
+            // Ao soltar o polegar após o clique, NÃO deve haver inércia residual ("estilingada")
+            var releaseCoast = clickingProc.Process(isTouch: false, isPress: false, rawX: 1080, rawY: 1000, rawPressure: 0, config: config, dt: 0.016f);
+            Assert.Equal(0f, releaseCoast.MouseDx);
+            Assert.Equal(0f, releaseCoast.MouseDy);
+        }
+
+        [Fact]
+        public void TrackpadProcessor_TrackballInertia_RequiresMinimumStrokeDistance()
+        {
+            var processor = new TrackpadProcessor(isRightPad: true);
+            var config = new TrackpadConfig { Mode = TrackpadMode.MouseTrackball, Sensitivity = 50, Friction = 50 };
+
+            // Toque inicial
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
+
+            // Movimento rápido em distância curta (stroke de 200 unidades < 700f MinStrokeDistanceForInertia)
+            processor.Process(isTouch: true, isPress: false, rawX: 200, rawY: 0, config: config, dt: 0.004f);
+
+            // Solta o dedo: mesmo tendo alta velocidade instantânea (200 / 0.004 = 50.000 u/s),
+            // a inércia NÃO deve ser armada porque não houve trajeto de varredura (stroke) contínuo!
+            var coast = processor.Process(isTouch: false, isPress: false, rawX: 200, rawY: 0, config: config, dt: 0.016f);
+            Assert.Equal(0f, coast.MouseDx);
+            Assert.Equal(0f, coast.MouseDy);
+        }
+
         #endregion
 
         #region 4. Integração com GamingProfile e DesktopProfile
