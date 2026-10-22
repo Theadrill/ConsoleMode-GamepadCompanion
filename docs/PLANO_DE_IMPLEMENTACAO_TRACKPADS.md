@@ -139,3 +139,15 @@ flowchart LR
 - **Incompatibilidade do Wrapper HidApi:** O método gerenciado `HidDevice.RequestFeatureReport` chamava `hid_get_feature_report` logo após enviar os dados. Como o firmware do Steam Deck não responde a requisições de GET para comandos de saída/rumble, ele lançava uma exceção silenciosa e bloqueava a execução.
 - **Erro de Indexação de Atuador:** O protocolo nativo de haptics da Valve (`0xEA` - `MsgTriggerHaptic`) define os atuadores por bits/máscara (`0x01` para o trackpad esquerdo e `0x02` para o direito). O código anterior utilizava índice zero para a esquerda (`0`), o qual era ignorado pelo firmware.
 - **Solução:** Implementação de `SteamDeckHidNative` com delegate nativo direto para `hid_send_feature_report`. Envio simultâneo dos relatórios oficiais de 65 bytes: `0xEA` (Deck-specific com parâmetros de clique nítido, ganho em dB e duração) e `0x8F` (`ID_TRIGGER_HAPTIC_PULSE` universal), garantindo acionamento físico imediato dos motores LRA tanto em cliques quanto em rotação/scroll.
+
+### 3. Calibração Háptica: Diferenciação entre Rotação da Trackball e Clique Mecânico
+- **Problema:** A rotação contínua da trackball disparava pulsos muito fortes parecendo britadeira (`TrackballHapticStep = 16f` com ganho +8dB e amplitude 5000), e o scroll do trackpad esquerdo ficava sem resposta tátil entre as quebras de linha.
+- **Solução:**
+  - Introdução do parâmetro `isClick`:
+    - Rotação/Scroll (`isClick = false`): textura sutil e sedosa com amplitude suave (450 a 750), ganho reduzido (-4dB a 0dB) e duração rápida de 10-12ms, espaçada a cada `36f` de deslocamento.
+    - Clique Mecânico (`isClick = true`): pulso firme e definido apenas ao afundar o trackpad.
+  - No Scrollwheel, adição de acumulador de textura mecânica (`_scrollHapticAccumulator`) que emite micro-ticks suaves a cada ~1.500 unidades de deslocamento enquanto o polegar corre pelo pad.
+
+### 4. Resolução do Click & Drag no Trackpad Direito
+- **Problema:** Ao pressionar o trackpad direito para selecionar texto ou arrastar janelas, o cursor ficava congelado e quase não se movia devido à âncora de clique e ao amortecimento contínuo de 90% (`ClickStabilizationDamping = 0.10f`) atuando durante todo o tempo de pressão.
+- **Solução:** Implementação do estado `_isClickDragActive`. A âncora e o amortecimento atuam apenas na deformação inicial da polpa do polegar para garantir que o clique estático e o duplo clique não errem o alvo. Assim que o movimento intencional ultrapassa o limiar de quebra (`DoubleClickBreakDistance = 120f`), o amortecimento é 100% desativado e o cursor passa a responder com velocidade normal e fluida (1.0x).
