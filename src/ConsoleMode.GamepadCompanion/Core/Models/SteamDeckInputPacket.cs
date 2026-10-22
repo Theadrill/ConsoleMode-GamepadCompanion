@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace ConsoleMode.GamepadCompanion.Core.Models
 {
@@ -91,7 +91,9 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         public bool IsR2 => (Buttons0 & SDCButton0.BTN_R2) != 0;
         public bool IsStart => (Buttons0 & SDCButton0.BTN_OPTIONS) != 0;
         public bool IsBack => (Buttons0 & SDCButton0.BTN_MENU) != 0;
-        public bool IsGuide => ((Buttons0 & SDCButton0.BTN_STEAM) != 0) || ((Buttons5 & SDCButton5.BTN_QUICK_ACCESS) != 0);
+        public bool IsSteam => (Buttons0 & SDCButton0.BTN_STEAM) != 0;
+        public bool IsQuickAccess => (Buttons5 & SDCButton5.BTN_QUICK_ACCESS) != 0;
+        public bool IsGuide => (Buttons0 & SDCButton0.BTN_STEAM) != 0;
 
         public bool IsL3 => (Buttons1 & SDCButton1.BTN_LSTICK_PRESS) != 0;
         public bool IsR3 => (Buttons2 & SDCButton2.BTN_RSTICK_PRESS) != 0;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -146,7 +146,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             DrawDPad(g, 100, 168, 18f);
             DrawTrackpad(g, new RectangleF(72, 212, 56, 56), "L-PAD", _deckRaw.IsLPadTouch, _deckRaw.IsLPadPress, _deckRaw.LPadX, _deckRaw.LPadY);
             DrawPill(g, new RectangleF(150, 72, 26, 18), _state.IsPressed(GamepadButtons.Back) || _deckRaw.IsBack, "◂");
-            DrawPill(g, new RectangleF(146, 226, 32, 18), _state.IsPressed(GamepadButtons.Guide) || _deckRaw.IsGuide, "STEAM");
+            DrawPill(g, new RectangleF(146, 226, 32, 18), _deckRaw.IsSteam || _state.IsPressed(GamepadButtons.Guide), "STEAM");
 
             // 5. Lado Direito (ABXY, Stick, Trackpad, Botões)
             DrawFaceButtons(g, 520, 92);

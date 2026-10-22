@@ -116,6 +116,26 @@ namespace ConsoleMode.GamepadCompanion.Tests
         }
 
         [Fact]
+        public void SteamDeckRawState_SteamAndQuickAccess_ShouldBeIndependent()
+        {
+            var rawSteam = new SteamDeckRawState
+            {
+                Buttons0 = SDCButton0.BTN_STEAM
+            };
+            Assert.True(rawSteam.IsSteam);
+            Assert.True(rawSteam.IsGuide);
+            Assert.False(rawSteam.IsQuickAccess);
+
+            var rawQuickAccess = new SteamDeckRawState
+            {
+                Buttons5 = SDCButton5.BTN_QUICK_ACCESS
+            };
+            Assert.False(rawQuickAccess.IsSteam);
+            Assert.False(rawQuickAccess.IsGuide);
+            Assert.True(rawQuickAccess.IsQuickAccess);
+        }
+
+        [Fact]
         public void GameProfileEditor_RearButtonSlots_VisibilityAndMapping()
         {
             var editor = new GameProfileEditorControl();
