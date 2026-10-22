@@ -57,11 +57,23 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         RightStickAdditional,
         RightStickClick,
 
-        // BotÃµes Traseiros (Handheld / Steam Deck)
+        // Botões Traseiros (Handheld / Steam Deck)
         ButtonL4,
         ButtonL5,
         ButtonR5,
         ButtonR4,
+
+        // Trackpads Handheld (Steam Deck)
+        LeftTrackpad,
+        RightTrackpad,
+
+        // Sub-slots para Edição de Ações do Trackpad
+        TrackpadTouch,
+        TrackpadPress,
+        TrackpadDpadUp,
+        TrackpadDpadDown,
+        TrackpadDpadLeft,
+        TrackpadDpadRight,
 
         // Ações de Rodapé
         FooterSave,
@@ -128,6 +140,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         public event Action<GameEntry, GameProfile> SaveRequested;
         public event Action CancelRequested;
         public event Action<ProfileEditorSlot, string, List<InputAction>> SlotEditRequested;
+        public event Action<bool, TrackpadConfig> TrackpadEditRequested;
 
         private sealed class PresetMenuItem
         {
@@ -453,10 +466,18 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 case ProfileEditorSlot.RightStickRight: return "STICK DIREITO (DIREITA)";
                 case ProfileEditorSlot.RightStickAdditional: return "STICK DIREITO (COMANDO ADICIONAL)";
                 case ProfileEditorSlot.RightStickClick: return "CLIQUE DO STICK DIREITO (R3)";
-                case ProfileEditorSlot.ButtonL4: return "BOTÃƒO TRASEIRO (L4)";
-                case ProfileEditorSlot.ButtonL5: return "BOTÃƒO TRASEIRO (L5)";
-                case ProfileEditorSlot.ButtonR5: return "BOTÃƒO TRASEIRO (R5)";
-                case ProfileEditorSlot.ButtonR4: return "BOTÃƒO TRASEIRO (R4)";
+                case ProfileEditorSlot.ButtonL4: return "BOTÃO TRASEIRO (L4)";
+                case ProfileEditorSlot.ButtonL5: return "BOTÃO TRASEIRO (L5)";
+                case ProfileEditorSlot.ButtonR5: return "BOTÃO TRASEIRO (R5)";
+                case ProfileEditorSlot.ButtonR4: return "BOTÃO TRASEIRO (R4)";
+                case ProfileEditorSlot.LeftTrackpad: return Strings.ProfileCardLeftTrackpad;
+                case ProfileEditorSlot.RightTrackpad: return Strings.ProfileCardRightTrackpad;
+                case ProfileEditorSlot.TrackpadTouch: return "TRACKPAD - TOQUE LEVE (TOUCH)";
+                case ProfileEditorSlot.TrackpadPress: return "TRACKPAD - CLIQUE MECÂNICO (PRESS)";
+                case ProfileEditorSlot.TrackpadDpadUp: return "TRACKPAD D-PAD (CIMA)";
+                case ProfileEditorSlot.TrackpadDpadDown: return "TRACKPAD D-PAD (BAIXO)";
+                case ProfileEditorSlot.TrackpadDpadLeft: return "TRACKPAD D-PAD (ESQUERDA)";
+                case ProfileEditorSlot.TrackpadDpadRight: return "TRACKPAD D-PAD (DIREITA)";
                 default: return slot.ToString();
             }
         }
@@ -495,6 +516,12 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 case ProfileEditorSlot.ButtonL5:
                 case ProfileEditorSlot.ButtonR5:
                 case ProfileEditorSlot.ButtonR4:
+                case ProfileEditorSlot.TrackpadTouch:
+                case ProfileEditorSlot.TrackpadPress:
+                case ProfileEditorSlot.TrackpadDpadUp:
+                case ProfileEditorSlot.TrackpadDpadDown:
+                case ProfileEditorSlot.TrackpadDpadLeft:
+                case ProfileEditorSlot.TrackpadDpadRight:
                     return true;
                 default:
                     return false;
@@ -523,7 +550,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             if (slot == ProfileEditorSlot.ButtonL4 ||
                 slot == ProfileEditorSlot.ButtonL5 ||
                 slot == ProfileEditorSlot.ButtonR5 ||
-                slot == ProfileEditorSlot.ButtonR4)
+                slot == ProfileEditorSlot.ButtonR4 ||
+                slot == ProfileEditorSlot.LeftTrackpad ||
+                slot == ProfileEditorSlot.RightTrackpad)
             {
                 return _visualMode == ControllerVisualMode.HandheldSteamDeck;
             }
@@ -756,6 +785,14 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     CycleStickMode(_workingProfile.ActivePage.RightStick);
                     break;
 
+                case ProfileEditorSlot.LeftTrackpad:
+                    TrackpadEditRequested?.Invoke(false, _workingProfile.ActivePage.LeftTrackpad);
+                    break;
+
+                case ProfileEditorSlot.RightTrackpad:
+                    TrackpadEditRequested?.Invoke(true, _workingProfile.ActivePage.RightTrackpad);
+                    break;
+
                 case ProfileEditorSlot.FooterSave:
                     ConfirmAndSave();
                     break;
@@ -985,6 +1022,10 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 _slotBounds[ProfileEditorSlot.ButtonL5] = new RectangleF(252, 380, 52, 36);
                 _slotBounds[ProfileEditorSlot.ButtonR5] = new RectangleF(316, 380, 52, 36);
                 _slotBounds[ProfileEditorSlot.ButtonR4] = new RectangleF(372, 380, 52, 36);
+
+                // Cards Interativos dos Trackpads (Fase 6 / Etapa 2)
+                _slotBounds[ProfileEditorSlot.LeftTrackpad] = new RectangleF(12, 428, 178, 64);
+                _slotBounds[ProfileEditorSlot.RightTrackpad] = new RectangleF(430, 428, 178, 64);
 
                 // Botões de Rodapé Centralizados (Salvar e Voltar)
                 _slotBounds[ProfileEditorSlot.FooterSave] = new RectangleF(204, 436, 112, 32);
@@ -1912,34 +1953,109 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawTrackpadPlaceholderCards(Graphics g)
         {
+            var page = _workingProfile.ActivePage;
             var leftRect = new RectangleF(12, 428, 178, 64);
             var rightRect = new RectangleF(430, 428, 178, 64);
 
-            DrawTrackpadCard(g, leftRect, Strings.ProfileCardLeftTrackpad);
-            DrawTrackpadCard(g, rightRect, Strings.ProfileCardRightTrackpad);
+            DrawTrackpadInteractiveCard(g, leftRect, Strings.ProfileCardLeftTrackpad, page.LeftTrackpad, _focusedSlot == ProfileEditorSlot.LeftTrackpad);
+            DrawTrackpadInteractiveCard(g, rightRect, Strings.ProfileCardRightTrackpad, page.RightTrackpad, _focusedSlot == ProfileEditorSlot.RightTrackpad);
         }
 
-        private static void DrawTrackpadCard(Graphics g, RectangleF rect, string title)
+        private static void DrawTrackpadInteractiveCard(Graphics g, RectangleF rect, string title, TrackpadConfig config, bool isFocused)
         {
-            DrawCardFrame(g, rect, title);
+            Color fill = isFocused ? FocusBg : CardBg;
+            Color border = isFocused ? BorderFocused : BorderSubtle;
+            float penWidth = isFocused ? 2f : 1f;
 
-            var innerRect = new RectangleF(rect.X + 8, rect.Y + 20, rect.Width - 16, rect.Height - 26);
-            using (var innerBg = new SolidBrush(Color.FromArgb(20, 24, 32)))
-            using (var innerPen = new Pen(BorderIdle, 1f) { DashStyle = DashStyle.Dash })
-            using (var mainFont = new Font("Segoe UI", 7.6f, FontStyle.Bold))
-            using (var subFont = new Font("Segoe UI", 7.0f))
-            using (var iconBrush = new SolidBrush(AlertAmber))
-            using (var subBrush = new SolidBrush(TextSecondary))
+            using (var bg = new SolidBrush(fill))
+            using (var pen = new Pen(border, penWidth))
+            using (var headerFont = new Font("Segoe UI", 7.8f, FontStyle.Bold))
+            using (var headerBrush = new SolidBrush(isFocused ? TextPrimary : BorderFocused))
+            {
+                g.FillRectangle(bg, rect);
+                g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+                g.DrawString(title, headerFont, headerBrush, rect.X + 8, rect.Y + 4);
+            }
+
+            TrackpadMode mode = config?.Mode ?? TrackpadMode.Disabled;
+            string modeName = GetTrackpadModeName(mode);
+            Color modeColor = GetTrackpadModeColor(mode);
+
+            // Badge do Modo no topo direito do card
+            var badgeRect = new RectangleF(rect.Right - 90, rect.Y + 4, 82, 14);
+            using (var path = CreateRoundedRectanglePath(badgeRect, 3f))
+            using (var badgeBg = new SolidBrush(Color.FromArgb(40, modeColor)))
+            using (var badgePen = new Pen(modeColor, 1f))
+            using (var badgeFont = new Font("Segoe UI", 6.8f, FontStyle.Bold))
+            using (var badgeBrush = new SolidBrush(modeColor))
             using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
             {
-                g.FillRectangle(innerBg, innerRect);
-                g.DrawRectangle(innerPen, innerRect.X, innerRect.Y, innerRect.Width, innerRect.Height);
+                g.FillPath(badgeBg, path);
+                g.DrawPath(badgePen, path);
+                g.DrawString(modeName, badgeFont, badgeBrush, badgeRect, sf);
+            }
 
-                var topTextRect = new RectangleF(innerRect.X, innerRect.Y + 4, innerRect.Width, 16);
-                var botTextRect = new RectangleF(innerRect.X, innerRect.Y + 18, innerRect.Width, 14);
+            // Resumo dinâmico dos parâmetros
+            string summary = GetTrackpadSummary(config);
+            using (var sumFont = new Font("Segoe UI", 7.2f))
+            using (var sumBrush = new SolidBrush(TextSecondary))
+            {
+                g.DrawString(summary, sumFont, sumBrush, rect.X + 8, rect.Y + 22);
+            }
 
-                g.DrawString(Strings.ProfileTrackpadExpandedTitle, mainFont, iconBrush, topTextRect, sf);
-                g.DrawString(Strings.ProfileTrackpadExpandedSubtitle, subFont, subBrush, botTextRect, sf);
+            // Dica de Ação no rodapé do card
+            using (var hintFont = new Font("Segoe UI", 7.0f, FontStyle.Bold))
+            using (var hintBrush = new SolidBrush(isFocused ? ActiveGreen : TextSecondary))
+            {
+                g.DrawString(Strings.ProfileTrackpadConfigureHint, hintFont, hintBrush, rect.X + 8, rect.Y + 44);
+            }
+        }
+
+        private static string GetTrackpadModeName(TrackpadMode mode)
+        {
+            switch (mode)
+            {
+                case TrackpadMode.MouseTrackball: return "Mouse / Ball";
+                case TrackpadMode.Scrollwheel: return "Scrollwheel";
+                case TrackpadMode.DPad: return "D-Pad";
+                case TrackpadMode.SingleButton: return "Botão Único";
+                case TrackpadMode.Disabled: return "Desativado";
+                default: return mode.ToString();
+            }
+        }
+
+        private static Color GetTrackpadModeColor(TrackpadMode mode)
+        {
+            switch (mode)
+            {
+                case TrackpadMode.MouseTrackball: return Color.FromArgb(80, 200, 255);
+                case TrackpadMode.Scrollwheel: return AlertAmber;
+                case TrackpadMode.DPad: return ActiveGreen;
+                case TrackpadMode.SingleButton: return Color.FromArgb(180, 130, 255);
+                case TrackpadMode.Disabled: return Color.FromArgb(140, 140, 140);
+                default: return TextPrimary;
+            }
+        }
+
+        private static string GetTrackpadSummary(TrackpadConfig config)
+        {
+            if (config == null || config.Mode == TrackpadMode.Disabled)
+                return "Desativado neste perfil";
+
+            switch (config.Mode)
+            {
+                case TrackpadMode.MouseTrackball:
+                    return $"Sens: {config.Sensitivity}% • Inércia: {config.Friction}%";
+                case TrackpadMode.Scrollwheel:
+                    string roll = config.InvertScroll ? "Rolagem Natural" : "Padrão";
+                    return $"Sens: {config.Sensitivity}% • {roll}";
+                case TrackpadMode.DPad:
+                    return $"Zona Morta: {config.DeadzonePercent}%";
+                case TrackpadMode.SingleButton:
+                    string act = config.PressActions.Count > 0 ? "Ação Mapeada" : "Sem Ação";
+                    return $"Botão • {act}";
+                default:
+                    return "Ativo";
             }
         }
 

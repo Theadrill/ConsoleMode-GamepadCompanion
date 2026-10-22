@@ -101,21 +101,24 @@ flowchart LR
 
 ---
 
-### ETAPA 2: Interface Visual de Customização no Editor (`TrackpadConfigControl`)
+### ETAPA 2: Interface Visual de Customização no Editor (`TrackpadConfigControl`) [CONCLUÍDA]
 * **Objetivo:** Permitir ao usuário personalizar modos, sensibilidade, deadzones, haptics e botões dos trackpads diretamente pela TV ou tela do Steam Deck via controle.
-* **Tarefas:**
+* **Tarefas Concluídas:**
   1. **Ocultação Contextual de Hardware:**
-     - No [`GameProfileEditorControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/GameProfileEditorControl.cs), os cards `TRACKPAD ESQUERDO` e `TRACKPAD DIREITO` só são visíveis se `SteamDeckDetector.Current.IsSteamDeck == true`.
-  2. **Sub-painel Dedicado `TrackpadConfigControl`:**
+     - No [`GameProfileEditorControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/GameProfileEditorControl.cs), os cards `TRACKPAD ESQUERDO` e `TRACKPAD DIREITO` só são visíveis quando o layout do controle for `HandheldSteamDeck`. Em PCs de mesa e controles comuns de Xbox/PlayStation, a interface permanece limpa.
+  2. **Cards Dinâmicos e Interativos no Editor:**
+     - Cards dos trackpads desenham badge com cor temática do modo ativo, resumo de métricas (sensibilidade, inércia, rolagem natural, deadzone) e dica de foco `[A] Configurar Trackpad`.
+     - Suporte a seleção por D-Pad com spatial navigation e clique direto por Touch/Mouse.
+  3. **Sub-painel Dedicado `TrackpadConfigControl`:**
      - Layout Couch Gaming 100% Dark Mode OLED.
-     - Navegação por D-Pad e confirmação com `[A]`.
-     - Seletor de Modo (`Mouse`, `Scroll`, `D-Pad`, `Botão Único`, `Desativado`).
-     - Sliders contextuais: Sensibilidade, Inércia, Intensidade Háptica (`Desligado`, `Suave`, `Médio`, `Forte`), Deadzone Central e Inversão de Scroll.
-     - Mapeamento de ações de Toque e Clique mecânico reutilizando 100% DRY o [`InputBindingCaptureControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/InputBindingCaptureControl.cs).
-     - Tecla `[B]` para fechar e retornar ao diagrama geral.
+     - Navegação completa por D-Pad e confirmação com `[A]`.
+     - Seletor de Modo cíclico (`Mouse / Trackball`, `Roda de Rolagem (Scroll)`, `D-Pad Direcional`, `Botão Único`, `Desativado`).
+     - Sliders dinâmicos contextuais para cada modo: Sensibilidade (1..100%), Inércia da Trackball (1..100%), Deadzone Central (5%..40%), Limiar de Pressão Analógica (0..25000) e Seletor Háptico (`Desligado`, `Suave`, `Médio`, `Forte`).
+     - Mapeamento de ações de Toque Leve (Touch), Clique Mecânico (Press) e direções do D-Pad reutilizando 100% DRY o [`InputBindingCaptureControl`](file:///C:/PROJETOS/ConsoleMode-GamepadCompanion/src/ConsoleMode.GamepadCompanion/UI/Controls/InputBindingCaptureControl.cs).
+     - Tecla `[X]` para limpar entrada do slot, tecla `[B]` para cancelar/voltar e tecla `[RT]` para salvar perfil imediatamente.
 * **Critério de Aceite da Etapa 2:**
-  - O usuário consegue abrir a configuração de qualquer trackpad, mudar o modo (ex: transformar o trackpad esquerdo em D-Pad de atalhos), salvar com `[RT]` e testar a mudança imediatamente.
-  - Testes automatizados de UI e 0 avisos de build.
+  - O usuário consegue abrir a configuração de qualquer trackpad, mudar o modo, salvar com `[RT]` e testar a mudança imediatamente.
+  - Suíte de testes unitários automatizados cobrindo a interface (`TrackpadPhase2Tests`) com 100% de aprovação (243 testes totais) e 0 avisos no build.
 
 ---
 

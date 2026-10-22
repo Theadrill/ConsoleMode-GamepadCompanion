@@ -105,6 +105,36 @@ namespace ConsoleMode.GamepadCompanion.UI
         public const string ProfileCardRightTrackpad = "TRACKPAD DIREITO";
         public const string ProfileTrackpadExpandedTitle = "Configuração Expandida";
         public const string ProfileTrackpadExpandedSubtitle = "(Planejada - Fase 6)";
+        public const string ProfileTrackpadConfigureHint = "[A] Configurar Trackpad";
+        public const string ProfileTrackpadModeMouse = "Mouse / Trackball";
+        public const string ProfileTrackpadModeScroll = "Roda de Rolagem (Scroll)";
+        public const string ProfileTrackpadModeDPad = "D-Pad Direcional";
+        public const string ProfileTrackpadModeSingleButton = "Botão Único";
+        public const string ProfileTrackpadModeDisabled = "Desativado";
+
+        // Tela de Configuração Expandida do Trackpad (Fase 6 / Etapa 2)
+        public const string TrackpadHeaderTitleFormat = "CONFIGURAÇÃO: {0} — Jogo: {1}";
+        public const string TrackpadModeLabel = "Modo Funcional:";
+        public const string TrackpadSensitivityLabel = "Sensibilidade do Cursor / Rolagem:";
+        public const string TrackpadFrictionLabel = "Inércia / Atrito da Trackball:";
+        public const string TrackpadHapticIntensityLabel = "Intensidade Háptica:";
+        public const string TrackpadInvertScrollLabel = "Rolagem Natural (Estilo Touch):";
+        public const string TrackpadDeadzonePercentLabel = "Zona Morta Central (D-Pad):";
+        public const string TrackpadClickPressureLabel = "Gatilho de Clique por Pressão:";
+        public const string TrackpadPressActionLabel = "Clique Mecânico (Press):";
+        public const string TrackpadTouchActionLabel = "Toque Leve na Superfície (Touch):";
+        public const string TrackpadDpadUpLabel = "D-Pad Cima:";
+        public const string TrackpadDpadDownLabel = "D-Pad Baixo:";
+        public const string TrackpadDpadLeftLabel = "D-Pad Esquerda:";
+        public const string TrackpadDpadRightLabel = "D-Pad Direita:";
+        public const string TrackpadHapticOff = "Desligado";
+        public const string TrackpadHapticLow = "Suave (Low)";
+        public const string TrackpadHapticMedium = "Médio (Medium)";
+        public const string TrackpadHapticHigh = "Forte (High)";
+        public const string TrackpadYes = "Sim";
+        public const string TrackpadNo = "Não";
+        public const string TrackpadPressureMechanicalOnly = "0 (Apenas Clique Mecânico)";
+        public const string TrackpadFooterLegend = "(▲/▼) Navegar   (◄/►) Ajustar   (A) Editar Ação / Alternar   (X) Limpar   (RT) Salvar Perfil   (B) Voltar";
         public const string ProfileRearButtonsTitle = "BOTÕES TRASEIROS (GRIP)";
         public const string ProfileCardFaceButtons = "BOTÕES FACIAIS";
         public const string ProfileStickModeLabel = "Modo:";

@@ -28,7 +28,8 @@ namespace ConsoleMode.GamepadCompanion.UI
             InputBindingCapture,
             InputVisualSelector,
             SteamGridDb,
-            SteamDeckSetup
+            SteamDeckSetup,
+            TrackpadConfig
         }
 
         private readonly IGamepadService _gamepad;
@@ -57,6 +58,8 @@ namespace ConsoleMode.GamepadCompanion.UI
         private readonly InputVisualSelectorControl _visualSelector = new InputVisualSelectorControl();
         private readonly SteamGridDbBrowserControl _steamGridBrowser = new SteamGridDbBrowserControl();
         private readonly SteamDeckSetupControl _steamDeckSetup = new SteamDeckSetupControl();
+        private readonly TrackpadConfigControl _trackpadConfig = new TrackpadConfigControl();
+        private ProfileEditorSlot _lastEditingSlot;
         private readonly Engine.Services.SteamGridDbService _steamGridService = new Engine.Services.SteamGridDbService();
         private readonly Engine.Services.HeroBackgroundService _heroBackgroundService = new Engine.Services.HeroBackgroundService();
         private readonly FocusOverlayPanel _focusOverlay = new FocusOverlayPanel();
@@ -355,6 +358,13 @@ namespace ConsoleMode.GamepadCompanion.UI
             _profileEditor.SaveRequested += OnSaveProfileEditor;
             _profileEditor.CancelRequested += ShowGameConfigFromProfileEditor;
             _profileEditor.SlotEditRequested += OnProfileSlotEditRequested;
+            _profileEditor.TrackpadEditRequested += OnProfileTrackpadEditRequested;
+
+            _trackpadConfig.Dock = DockStyle.Fill;
+            _trackpadConfig.Visible = false;
+            _trackpadConfig.ConfigConfirmed += OnTrackpadConfigConfirmed;
+            _trackpadConfig.CancelRequested += ShowProfileEditorFromTrackpadConfig;
+            _trackpadConfig.SlotEditRequested += OnProfileSlotEditRequested;
 
             _bindingCapture.BindingConfirmed += OnBindingConfirmed;
             _bindingCapture.CancelRequested += ShowProfileEditorFromBindingCapture;
@@ -373,6 +383,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             Controls.Add(_visualSelector);
             Controls.Add(_bindingCapture);
             Controls.Add(_profileEditor);
+            Controls.Add(_trackpadConfig);
             Controls.Add(_steamGridBrowser);
             Controls.Add(_configPanel);
             Controls.Add(_gamesGrid);
@@ -422,6 +433,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _bindingCapture.Visible = false;
             _visualSelector.Visible = false;
             _steamGridBrowser.Visible = false;
+            _trackpadConfig.Visible = false;
             _steamDeckSetup.Visible = true;
             _steamDeckSetup.RefreshState();
             _steamDeckSetup.BringToFront();
@@ -435,6 +447,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _isEditingDesktopProfile = false;
             _sidePanel.Enabled = true;
             _viewMode = ContentViewMode.Debugger;
+            _trackpadConfig.Visible = false;
             _debugger.Visible = true;
             _gamesGrid.Visible = false;
             _configPanel.Visible = false;
@@ -455,6 +468,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _isEditingDesktopProfile = false;
             _sidePanel.Enabled = true;
             _viewMode = ContentViewMode.GamesGrid;
+            _trackpadConfig.Visible = false;
             RefreshGamesList();
             _gamesGrid.ResetInputState();
             _debugger.Visible = false;
@@ -475,6 +489,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _isEditingDesktopProfile = false;
             _sidePanel.Enabled = false;
             _viewMode = ContentViewMode.GameConfig;
+            _trackpadConfig.Visible = false;
             _configPanel.ResetInputState();
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
@@ -564,6 +579,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowSteamGridBrowser(string query)
         {
             _viewMode = ContentViewMode.SteamGridDb;
+            _trackpadConfig.Visible = false;
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
             _configPanel.Visible = false;
@@ -812,6 +828,10 @@ namespace ConsoleMode.GamepadCompanion.UI
                 {
                     _steamDeckSetup.ProcessGamepadInput(state);
                 }
+                else if (_viewMode == ContentViewMode.TrackpadConfig)
+                {
+                    _trackpadConfig.ProcessGamepad(state, _stopwatch.ElapsedMilliseconds);
+                }
                 else
                 {
                     // Modo Debugger: Atalho Y alterna para a Biblioteca de Jogos
@@ -965,6 +985,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _isEditingDesktopProfile = true;
             _sidePanel.Enabled = false;
             _viewMode = ContentViewMode.GameProfileEditor;
+            _trackpadConfig.Visible = false;
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
             _configPanel.Visible = false;
@@ -996,6 +1017,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _isEditingDesktopProfile = false;
             _sidePanel.Enabled = false;
             _viewMode = ContentViewMode.GameProfileEditor;
+            _trackpadConfig.Visible = false;
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
             _configPanel.Visible = false;
@@ -1068,8 +1090,10 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void OnProfileSlotEditRequested(ProfileEditorSlot slot, string slotTitle, System.Collections.Generic.List<InputAction> currentActions)
         {
+            _lastEditingSlot = slot;
             _viewMode = ContentViewMode.InputBindingCapture;
             _profileEditor.Visible = false;
+            _trackpadConfig.Visible = false;
             _visualSelector.Visible = false;
             _bindingCapture.Visible = true;
             string gameName = _profileEditor.CurrentGame?.Name ?? Strings.DefaultGameName;
@@ -1080,15 +1104,30 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void OnBindingConfirmed(ProfileEditorSlot slot, System.Collections.Generic.List<InputAction> newActions)
         {
-            _profileEditor.SetSlotActions(slot, newActions);
-            ShowProfileEditorFromBindingCapture();
+            if (IsTrackpadSlot(slot))
+            {
+                _trackpadConfig.SetSlotActions(slot, newActions);
+                ShowTrackpadConfigFromBindingCapture();
+            }
+            else
+            {
+                _profileEditor.SetSlotActions(slot, newActions);
+                ShowProfileEditorFromBindingCapture();
+            }
         }
 
         private void ShowProfileEditorFromBindingCapture()
         {
+            if (IsTrackpadSlot(_lastEditingSlot))
+            {
+                ShowTrackpadConfigFromBindingCapture();
+                return;
+            }
+
             _viewMode = ContentViewMode.GameProfileEditor;
             _bindingCapture.StopListening();
             _bindingCapture.Visible = false;
+            _trackpadConfig.Visible = false;
             _visualSelector.Visible = false;
             _steamDeckSetup.Visible = false;
             _profileEditor.Visible = true;
@@ -1111,19 +1150,101 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void OnVisualSelectorBindingConfirmed(ProfileEditorSlot slot, System.Collections.Generic.List<InputAction> newActions)
         {
-            _profileEditor.SetSlotActions(slot, newActions);
-            ShowProfileEditorFromVisualSelector();
+            if (IsTrackpadSlot(slot))
+            {
+                _trackpadConfig.SetSlotActions(slot, newActions);
+                ShowTrackpadConfigFromBindingCapture();
+            }
+            else
+            {
+                _profileEditor.SetSlotActions(slot, newActions);
+                ShowProfileEditorFromVisualSelector();
+            }
         }
 
         private void ShowProfileEditorFromVisualSelector()
         {
+            if (IsTrackpadSlot(_lastEditingSlot))
+            {
+                ShowTrackpadConfigFromBindingCapture();
+                return;
+            }
+
             _viewMode = ContentViewMode.GameProfileEditor;
             _visualSelector.Visible = false;
+            _trackpadConfig.Visible = false;
             _steamDeckSetup.Visible = false;
             _profileEditor.Visible = true;
             _profileEditor.BringToFront();
             _focusOverlay.BringToFront();
             _profileEditor.ResetInputState();
+        }
+
+        private void OnProfileTrackpadEditRequested(bool isRightPad, TrackpadConfig config)
+        {
+            _viewMode = ContentViewMode.TrackpadConfig;
+            _profileEditor.Visible = false;
+            _bindingCapture.Visible = false;
+            _visualSelector.Visible = false;
+            _steamDeckSetup.Visible = false;
+            _trackpadConfig.Visible = true;
+            _trackpadConfig.Open(_profileEditor.CurrentGame, isRightPad, config);
+            _trackpadConfig.BringToFront();
+            _focusOverlay.BringToFront();
+            _trackpadConfig.ResetInputState();
+        }
+
+        private void OnTrackpadConfigConfirmed(bool isRightPad, TrackpadConfig updatedConfig)
+        {
+            var page = _profileEditor.WorkingProfile?.ActivePage;
+            if (page != null)
+            {
+                if (isRightPad)
+                {
+                    page.RightTrackpad = updatedConfig.Clone();
+                }
+                else
+                {
+                    page.LeftTrackpad = updatedConfig.Clone();
+                }
+            }
+
+            ShowProfileEditorFromTrackpadConfig();
+        }
+
+        private void ShowProfileEditorFromTrackpadConfig()
+        {
+            _viewMode = ContentViewMode.GameProfileEditor;
+            _trackpadConfig.Visible = false;
+            _profileEditor.Visible = true;
+            _profileEditor.BringToFront();
+            _focusOverlay.BringToFront();
+            _profileEditor.ResetInputState();
+            _profileEditor.Invalidate();
+        }
+
+        private void ShowTrackpadConfigFromBindingCapture()
+        {
+            _viewMode = ContentViewMode.TrackpadConfig;
+            _bindingCapture.StopListening();
+            _bindingCapture.Visible = false;
+            _visualSelector.Visible = false;
+            _steamDeckSetup.Visible = false;
+            _profileEditor.Visible = false;
+            _trackpadConfig.Visible = true;
+            _trackpadConfig.BringToFront();
+            _focusOverlay.BringToFront();
+            _trackpadConfig.ResetInputState();
+        }
+
+        private static bool IsTrackpadSlot(ProfileEditorSlot slot)
+        {
+            return slot == ProfileEditorSlot.TrackpadTouch ||
+                   slot == ProfileEditorSlot.TrackpadPress ||
+                   slot == ProfileEditorSlot.TrackpadDpadUp ||
+                   slot == ProfileEditorSlot.TrackpadDpadDown ||
+                   slot == ProfileEditorSlot.TrackpadDpadLeft ||
+                   slot == ProfileEditorSlot.TrackpadDpadRight;
         }
 
         private void ShowBindingCaptureFromVisualSelector()
