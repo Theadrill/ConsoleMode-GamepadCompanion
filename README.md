@@ -30,6 +30,26 @@ Desenvolvido em C# (.NET Framework 4.8) para Windows, leve, 100% portátil e com
   - Persistência portátil de configurações e jogos via `config.ini` e `games.ini`.
 - **Visual Debugger:** Visualização gráfica em tempo real dos botões, analógicos com zonas mortas calibráveis e sensibilidade de gatilhos.
 
+---
+
+## 🎮 Suporte Nativo ao Steam Deck (Windows 10/11)
+
+No Windows, os controles embutidos do Steam Deck (*Valve Neptune Controller*) iniciam por padrão em **Lizard Mode** (emulando apenas mouse e teclado básicos no desktop). Sem um driver específico, os jogos de PC com suporte nativo a gamepad não identificam o aparelho como um controle de jogo.
+
+O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Steam Deck:
+
+- **Detecção Automática de Hardware:** Identifica automaticamente os modelos **LCD (Jupiter / Aerith)** e **OLED (Galileo)** via BIOS e barramento de sistema.
+- **Driver Virtual de Gamepad (ViGEmBus):** Para que o Windows e os jogos reconheçam o Steam Deck como um gamepad Xbox 360 padrão, é necessário ter o driver de kernel **ViGEmBus** ativo no sistema. Caso o driver ainda não esteja presente, o Companion detecta no início e exibe uma tela amigável de boas-vindas integrada na área de conteúdo com **instalação silenciosa em segundo plano em 1 clique**.
+- **Comunicação Direta USB HID & Fim do Lizard Mode:** O aplicativo conecta-se diretamente à interface HID (`0x28DE:0x1205`) da Valve, desativa o Lizard Mode enquanto o Companion estiver ativo e o restaura com segurança ao encerrar o app, garantindo que o usuário não perca a navegação do Windows.
+- **Interface Visual de Handheld Modular:**
+  - O **Visual Debugger** (demonstração ao vivo) e o **Editor de Perfis** se adaptam dinamicamente para a silhueta de um Handheld com tela central, exibindo os dois **Trackpads** (com feedback tátil de toque analógico e clique) e uma linha horizontal inferior unificada de **Botões Traseiros** (`[ L4 ] [ L5 ]   [ R5 ] [ R4 ]`).
+  - Caso o usuário selecione um slot de controle externo (ex: Gamepad 2 ou PC Desktop), a interface comuta automaticamente de volta para a visualização clássica de Gamepad convencional.
+- **Remapeamento de Hardware em Nível de Driver (ViGEm):**
+  - Permite redirecionar os botões traseiros diretamente para comandos do gamepad virtual (por exemplo, **mapear `L4` para emitir `L1 / LB`** para contornar um botão físico defeituoso no hardware), funcionando nativamente em qualquer jogo.
+  - Suporta também a atribuição de comandos de teclado, mouse ou macros personalizadas por perfil de jogo.
+
+---
+
 ## 🗺️ Roadmap & Próximos Passos (TODO)
 - [x] Mapeamento Gaming 100% idêntico ao layout `Octowow` do Steam Input (com Smart Mouse Look F9 e cliques L3/R3)
 - [x] Visual Gamepad Debugger em tempo real com sliders de Deadzone e Gatilho
@@ -39,6 +59,12 @@ Desenvolvido em C# (.NET Framework 4.8) para Windows, leve, 100% portátil e com
 - [x] Fase 2 dos Perfis: Tela do Editor Visual de Perfil (`GameProfileEditorControl`) com diagrama do controle e slots
 - [x] Fase 3 dos Perfis: Tela de Escolha de Edição & Captura Física de Combos
 - [x] Fase 4 dos Perfis: Seletor Visual em 3 Abas (`Teclado` | `Mouse` | `Sistema & Especial`)
+- [x] **Suporte Nativo a Steam Deck no Windows (Fases 1 a 4):**
+  - [x] Identificação de hardware Valve (Jupiter / Galileo).
+  - [x] Onboarding amigável na área de conteúdo e instalação silenciosa do driver virtual ViGEmBus.
+  - [x] Captura direta USB HID, desativação/reativação do Lizard Mode e emulação de Xbox 360 virtual.
+  - [x] Representação visual modular de Handheld (Visual Debugger & Editor de Perfis com trackpads e linha de botões traseiros L4/L5/R4/R5).
+  - [x] Remapeamento de hardware em nível de driver para substituição de botões físicos defeituosos.
 - [ ] **Toggle de Múltiplas Instâncias por Jogo (`Permitir Múltiplas Instâncias`):**
   - Adicionar no `GameConfigPanel` um botão toggle idêntico ao do Input (`[ (●) PERMITIR MÚLTIPLAS INSTÂNCIAS / (○) INSTÂNCIA ÚNICA (Padrão) ]`).
   - Se estiver em **Instância Única (Desativado - Padrão)**: ao acionar `[A] INICIAR`, caso o executável principal já esteja em execução, em vez de abrir outro processo, o app traz a janela do jogo já existente para primeiro plano e oculta a interface do Companion.
@@ -47,12 +73,9 @@ Desenvolvido em C# (.NET Framework 4.8) para Windows, leve, 100% portátil e com
 - [ ] Avaliar expansão de comandos especiais do sistema na Aba 3
 - [ ] Overlay estilo Steam acionado pelo botão central do controle (Guide/Home)
 - [ ] Perfil Desktop para usar o gamepad no Windows normalmente
-- [ ] **Suporte Nativo a Steam Deck no Windows:**
-  - Identificação de hardware Valve (Jupiter / Galileo).
-  - Modal na área de conteúdo para instalação e checagem do driver virtual ViGEmBus.
-  - Driver de hardware HID para captura nativa, desativação de Lizard Mode e suporte aos botões traseiros (L4, L5, R4, R5) e trackpads.
+
+---
 
 ## 🙏 Créditos & Agradecimentos
 - **[ayufan / Steam Deck Tools](https://github.com/ayufan/steam-deck-tools):** Pelo trabalho pioneiro e referência técnica de engenharia reversa do protocolo USB HID do controle Neptune da Valve e controle do Lizard Mode.
 - **[Nefarius Software Solutions](https://github.com/nefarius) (Benjamin Höglinger-Stelzer):** Pelo desenvolvimento do driver de kernel **ViGEmBus** e do client .NET, possibilitando a emulação de gamepads virtuais no Windows.
-
