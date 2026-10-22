@@ -112,6 +112,36 @@ namespace ConsoleMode.GamepadCompanion.Tests
         }
 
         [Fact]
+        public void DesktopProfile_WhenCompanionInForeground_AutomaticallySilencesInput()
+        {
+            var mockSim = new RecordingInputSimulator();
+            var settings = new AppSettings { DesktopModeEnabled = true, MappingEnabled = true };
+            var desktop = new DesktopProfile(mockSim, settings);
+
+            try
+            {
+                // Simula detecção de que o Companion está em primeiro plano
+                DesktopProfile.ForegroundCheckOverride = () => true;
+
+                var state = new GamepadState(true, 1, GamepadButtons.DPadDown, 0, 0, 0, 0, 0, 0);
+                desktop.Update(state, 0.016f);
+
+                Assert.Empty(mockSim.HeldKeys);
+                Assert.Empty(mockSim.HeldMouseButtons);
+
+                // Quando Companion sai do primeiro plano
+                DesktopProfile.ForegroundCheckOverride = () => false;
+                desktop.Update(state, 0.016f);
+
+                Assert.Contains(VirtualKey.Down, mockSim.HeldKeys);
+            }
+            finally
+            {
+                DesktopProfile.ForegroundCheckOverride = null;
+            }
+        }
+
+        [Fact]
         public void ProfileManager_FocusTransitions_SuspendDesktopProfileWhenCompanionFocused()
         {
             var tracker = new FakeWindowTracker();

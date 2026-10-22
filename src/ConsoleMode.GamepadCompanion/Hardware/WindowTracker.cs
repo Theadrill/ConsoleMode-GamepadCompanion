@@ -354,12 +354,11 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         {
             _lastProcessName = procName;
             bool focusStateChanged = _isGameActive != focused;
-            IntPtr targetHwnd = focused ? hwnd : IntPtr.Zero;
-            bool hwndChanged = _activeHwnd != targetHwnd;
+            bool hwndChanged = _activeHwnd != hwnd;
             bool gameChanged = !ReferenceEquals(_activeGame, matchedGame) || (_activeGame?.Id != matchedGame?.Id);
 
             _isGameActive = focused;
-            _activeHwnd = targetHwnd;
+            _activeHwnd = hwnd;
             _activeGame = matchedGame;
 
             if (focusStateChanged)

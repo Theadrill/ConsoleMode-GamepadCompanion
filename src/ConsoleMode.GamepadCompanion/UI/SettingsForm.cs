@@ -167,6 +167,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             currentY = slotTitle.Bottom + 6;
 
             _slotCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            _slotCombo.TabStop = false;
             _slotCombo.SetBounds(16, currentY, 228, 28);
             _slotCombo.SelectedIndexChanged += (s, e) => OnSlotChanged();
             currentY = _slotCombo.Bottom + 14;
@@ -410,6 +411,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowSteamDeckSetup()
         {
             _isEditingDesktopProfile = false;
+            _sidePanel.Enabled = false;
             _viewMode = ContentViewMode.SteamDeckSetup;
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
@@ -429,6 +431,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowDebugger()
         {
             _isEditingDesktopProfile = false;
+            _sidePanel.Enabled = true;
             _viewMode = ContentViewMode.Debugger;
             _debugger.Visible = true;
             _gamesGrid.Visible = false;
@@ -448,6 +451,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowGamesLibrary()
         {
             _isEditingDesktopProfile = false;
+            _sidePanel.Enabled = true;
             _viewMode = ContentViewMode.GamesGrid;
             RefreshGamesList();
             _gamesGrid.ResetInputState();
@@ -467,6 +471,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowGameConfig(GameEntry game)
         {
             _isEditingDesktopProfile = false;
+            _sidePanel.Enabled = false;
             _viewMode = ContentViewMode.GameConfig;
             _configPanel.ResetInputState();
             _debugger.Visible = false;
@@ -748,6 +753,11 @@ namespace ConsoleMode.GamepadCompanion.UI
             bool isGameFocused = _profileManager != null && _profileManager.IsGameFocused;
             bool isAppActive = IsAppForeground() && !isGameFocused;
 
+            if (_profileManager?.DesktopProfile != null)
+            {
+                _profileManager.DesktopProfile.IsSuspended = isAppActive;
+            }
+
             if (isAppActive)
             {
                 if (!_wasAppForegroundAndGameInactive)
@@ -951,6 +961,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void ShowDesktopProfileEditor()
         {
             _isEditingDesktopProfile = true;
+            _sidePanel.Enabled = false;
             _viewMode = ContentViewMode.GameProfileEditor;
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
@@ -974,12 +985,14 @@ namespace ConsoleMode.GamepadCompanion.UI
             _profileEditor.LoadGameProfile(desktopGameEntry, _settings, _gameRepo.GetAll());
             _profileEditor.BringToFront();
             _focusOverlay.BringToFront();
+            _profileEditor.Focus();
         }
 
         private void OnConfigureControls(GameEntry game)
         {
             if (game == null) return;
             _isEditingDesktopProfile = false;
+            _sidePanel.Enabled = false;
             _viewMode = ContentViewMode.GameProfileEditor;
             _debugger.Visible = false;
             _gamesGrid.Visible = false;
@@ -993,6 +1006,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             _profileEditor.LoadGameProfile(game, _settings, _gameRepo.GetAll());
             _profileEditor.BringToFront();
             _focusOverlay.BringToFront();
+            _profileEditor.Focus();
         }
 
         private void OnSaveProfileEditor(GameEntry game, GameProfile updatedProfile)

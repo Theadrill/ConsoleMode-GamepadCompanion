@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using ConsoleMode.GamepadCompanion.Core.Interfaces;
 using ConsoleMode.GamepadCompanion.Core.Models;
+using ConsoleMode.GamepadCompanion.Hardware;
 
 namespace ConsoleMode.GamepadCompanion.Profiles
 {
@@ -8,9 +10,14 @@ namespace ConsoleMode.GamepadCompanion.Profiles
     /// Perfil Desktop: Mapeamento para navegação no Windows via Gamepad.
     /// Ativo quando nenhuma janela de jogo monitorada estiver em primeiro plano.
     /// Suporta emulação completa via GamingProfile interno respeitando o toggle DesktopModeEnabled.
+    /// Suspende automaticamente a emulação quando o próprio Companion estiver em primeiro plano.
     /// </summary>
     public sealed class DesktopProfile : IProfile
     {
+        private static readonly uint CurrentPid = GetCurrentProcessId();
+
+        public static Func<bool> ForegroundCheckOverride { get; set; }
+
         private readonly GamingProfile _innerProfile;
         private readonly AppSettings _settings;
 
@@ -51,13 +58,40 @@ namespace ConsoleMode.GamepadCompanion.Profiles
 
         public void Update(GamepadState state, float deltaSeconds)
         {
-            if (!_settings.DesktopModeEnabled || IsSuspended)
+            if (!_settings.DesktopModeEnabled || IsSuspended || IsCompanionInForeground())
             {
                 _innerProfile.Reset();
                 return;
             }
 
             _innerProfile.Update(state, deltaSeconds);
+        }
+
+        private static uint GetCurrentProcessId()
+        {
+            try { return (uint)Process.GetCurrentProcess().Id; }
+            catch { return 0; }
+        }
+
+        private static bool IsCompanionInForeground()
+        {
+            if (ForegroundCheckOverride != null)
+            {
+                return ForegroundCheckOverride();
+            }
+
+            if (CurrentPid == 0) return false;
+            try
+            {
+                IntPtr fg = WindowNative.GetForegroundWindow();
+                if (fg == IntPtr.Zero) return false;
+                WindowNative.GetWindowThreadProcessId(fg, out uint fgPid);
+                return fgPid == CurrentPid;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public void Reset()
