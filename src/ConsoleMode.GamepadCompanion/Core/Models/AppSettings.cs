@@ -12,6 +12,9 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         /// <summary>Mapeamento ativo (false = pausado).</summary>
         public bool MappingEnabled { get; set; } = true;
 
+        /// <summary>Modo Desktop ativo no Windows quando nenhum jogo cadastrado estiver em foco.</summary>
+        public bool DesktopModeEnabled { get; set; } = true;
+
         /// <summary>Deadzone dos analógicos em % do curso (5-50).</summary>
         public int StickDeadzonePercent { get; set; } = 24;
 

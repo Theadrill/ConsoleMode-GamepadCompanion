@@ -93,6 +93,11 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         NumLock = 0x90,
         ScrollLock = 0x91,
 
+        // Navegação de Navegador
+        BrowserBack = 0xA6,
+        BrowserForward = 0xA7,
+        BrowserRefresh = 0xA8,
+
         // Modificadores específicos
         LeftShift = 0xA0,
         RightShift = 0xA1,

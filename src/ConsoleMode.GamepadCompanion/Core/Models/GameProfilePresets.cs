@@ -14,12 +14,14 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         public const string PresetWowClassic = "WoW Classic (Octowow)";
         public const string PresetRpgRightClickCamera = "RPG / MMO (Câmera Botão Direito)";
         public const string PresetStandardPc = "Padrão PC (WASD + Mouse)";
+        public const string PresetDesktopDefault = "Modo Desktop (Navegação Windows)";
 
         public static IEnumerable<string> PresetNames => new[]
         {
             PresetWowClassic,
             PresetRpgRightClickCamera,
-            PresetStandardPc
+            PresetStandardPc,
+            PresetDesktopDefault
         };
 
         public static GameProfile CreatePreset(string presetName)
@@ -31,6 +33,10 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             if (string.Equals(presetName, PresetStandardPc, StringComparison.OrdinalIgnoreCase))
             {
                 return CreateStandardPc();
+            }
+            if (string.Equals(presetName, PresetDesktopDefault, StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateDesktopDefault();
             }
             return CreateWowClassic();
         }
@@ -213,6 +219,79 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
 
             page.SetActions(ControllerButton.LeftStickClick, new[] { InputAction.FromKey(VirtualKey.LeftShift) });
             page.SetActions(ControllerButton.RightStickClick, new[] { InputAction.FromKey(VirtualKey.C) });
+
+            return profile;
+        }
+
+        /// <summary>
+        /// Mapeamento padrão ergonômico para navegação no Windows (Modo Desktop):
+        /// - Analógico Esquerdo: Movimento suave do cursor do mouse (MouseMove)
+        /// - RT / LT: Clique Primário (Esquerdo) / Secundário (Direito) do Mouse
+        /// - A: Enter (Confirmação)
+        /// - B: Escape (Cancelar / Fechar)
+        /// - X: Espaço
+        /// - Y: Backspace
+        /// - D-Pad: Setas direcionais (Up, Down, Left, Right)
+        /// - Bumpers (LB / RB): Navegador Voltar / Avançar (BrowserBack / BrowserForward)
+        /// - Menus: Select = Alt+Tab (Switcher de Janelas), Start = Tecla Windows (Menu Iniciar)
+        /// - Cliques: L3 = Clique do Meio do Mouse, R3 = Mostrar Área de Trabalho (Win+D)
+        /// - Traseiros Steam Deck: L4 = Volume -, R4 = Volume +, L5 = Play/Pause, R5 = Recorte de Tela
+        /// </summary>
+        public static GameProfile CreateDesktopDefault()
+        {
+            var profile = new GameProfile
+            {
+                Name = PresetDesktopDefault,
+                UseGlobalDeadzone = true,
+                CustomDeadzonePercent = 20,
+                UseGlobalTriggerThreshold = true,
+                CustomTriggerThresholdPercent = 20
+            };
+
+            var page = profile.ActivePage;
+            page.MouseSensitivity = 50;
+
+            // Analógico Esquerdo: MouseMove com clique do meio no L3
+            page.LeftStick.Mode = StickMode.MouseMove;
+            page.LeftStick.AdditionalActions = new List<InputAction>();
+            page.LeftStick.ClickActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Middle) };
+
+            // Analógico Direito: Desativado por padrão (ou scroll customizável) com Mostrar Desktop no R3
+            page.RightStick.Mode = StickMode.Disabled;
+            page.RightStick.AdditionalActions = new List<InputAction>();
+            page.RightStick.ClickActions = new List<InputAction> { InputAction.FromSpecial(CompanionActionType.ShowDesktop) };
+
+            // Botões Faciais: Enter, Esc, Space, Backspace
+            page.SetActions(ControllerButton.A, new[] { InputAction.FromKey(VirtualKey.Enter) });
+            page.SetActions(ControllerButton.B, new[] { InputAction.FromKey(VirtualKey.Escape) });
+            page.SetActions(ControllerButton.X, new[] { InputAction.FromKey(VirtualKey.Space) });
+            page.SetActions(ControllerButton.Y, new[] { InputAction.FromKey(VirtualKey.Backspace) });
+
+            // D-Pad: Setas direcionais
+            page.SetActions(ControllerButton.DPadUp, new[] { InputAction.FromKey(VirtualKey.Up) });
+            page.SetActions(ControllerButton.DPadDown, new[] { InputAction.FromKey(VirtualKey.Down) });
+            page.SetActions(ControllerButton.DPadLeft, new[] { InputAction.FromKey(VirtualKey.Left) });
+            page.SetActions(ControllerButton.DPadRight, new[] { InputAction.FromKey(VirtualKey.Right) });
+
+            // Gatilhos e Bumpers
+            page.SetActions(ControllerButton.RightTrigger, new[] { InputAction.FromMouseButton(MouseButton.Left) });
+            page.SetActions(ControllerButton.LeftTrigger, new[] { InputAction.FromMouseButton(MouseButton.Right) });
+            page.SetActions(ControllerButton.LeftShoulder, new[] { InputAction.FromKey(VirtualKey.BrowserBack) });
+            page.SetActions(ControllerButton.RightShoulder, new[] { InputAction.FromKey(VirtualKey.BrowserForward) });
+
+            // Menus: Alt+Tab e Menu Iniciar (LeftWindows)
+            page.SetActions(ControllerButton.Back, new[] { InputAction.FromSpecial(CompanionActionType.AltTab) });
+            page.SetActions(ControllerButton.Start, new[] { InputAction.FromKey(VirtualKey.LeftWindows) });
+
+            // Cliques L3 / R3
+            page.SetActions(ControllerButton.LeftStickClick, new[] { InputAction.FromMouseButton(MouseButton.Middle) });
+            page.SetActions(ControllerButton.RightStickClick, new[] { InputAction.FromSpecial(CompanionActionType.ShowDesktop) });
+
+            // Botões Traseiros Steam Deck (L4, L5, R5, R4)
+            page.SetActions(ControllerButton.L4, new[] { InputAction.FromKey(VirtualKey.VolumeDown) });
+            page.SetActions(ControllerButton.R4, new[] { InputAction.FromKey(VirtualKey.VolumeUp) });
+            page.SetActions(ControllerButton.L5, new[] { InputAction.FromKey(VirtualKey.MediaPlayPause) });
+            page.SetActions(ControllerButton.R5, new[] { InputAction.FromKey(VirtualKey.PrintScreen) });
 
             return profile;
         }

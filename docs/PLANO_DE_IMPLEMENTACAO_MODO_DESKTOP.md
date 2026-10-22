@@ -33,27 +33,13 @@ Em vez de poluir a lista de jogos na biblioteca com um card fake, o **Modo Deskt
 
 ## 3. Roteiro de Fases de Execução
 
-### FASE 1: Modelo de Domínio, Preset Padrão & Persistência 🚀
+### FASE 1: Modelo de Domínio, Preset Padrão & Persistência ✅ (CONCLUÍDO)
 * **Objetivo:** Criar a estrutura de dados completa do Modo Desktop, persistência em disco e preset ergonômico padrão para Windows.
-* **Tarefas:**
-  1. `GameProfilePresets.CreateDesktopDefault()`:
-     - Stick Esquerdo: Movimento de mouse suave (`StickMode.MouseMove`).
-     - RT: Clique Primário do Mouse (Botão Esquerdo).
-     - LT: Clique Secundário do Mouse (Botão Direito).
-     - RB / LB: Rolagem ou Navegação (Browser Forward / Browser Back).
-     - Botão A: Tecla `Enter` (Confirmação).
-     - Botão B: Tecla `Esc` (Cancelar / Voltar).
-     - Botão X: Tecla `Espaço`.
-     - Botão Y: Tecla `Backspace`.
-     - D-Pad: Setas direcionais (`Up`, `Down`, `Left`, `Right`).
-     - Start: Tecla `Windows` (Menu Iniciar).
-     - Select / Back: `Alt+Tab` (`CompanionActionType.AltTab`).
-     - Cliques L3 / R3: Clique do meio do mouse / Mostrar Desktop (`Win+D`).
-     - Botões Traseiros Steam Deck (L4/L5/R4/R5): Volume, Task View ou ações rápidas.
-  2. `DesktopProfile`: Evolução da classe para suportar `GameProfile` ativo, controle de união de estados por frame e respeito à flag `DesktopModeEnabled`.
-  3. `AppSettings`: Adicionar campo `DesktopModeEnabled` (padrão: `true`) com persistência em `Config.ini`.
-  4. Persistência de arquivo: Carregamento e salvamento em `profiles/desktop.json`.
-  5. Testes unitários cobrindo preset, persistência e ciclo de reset.
+* **Tarefas Concluídas:**
+  1. `GameProfilePresets.CreateDesktopDefault()`: Mapeamento ergonômico completo com MouseMove no Stick Esquerdo, cliques de mouse nos gatilhos RT/LT, Enter/Esc/Space/Backspace no ABXY, setas no D-Pad, LWin no Start, Alt+Tab no Back, e multimídia nos botões traseiros do Steam Deck.
+  2. `DesktopProfile`: Evoluído para envelopar o motor dinâmico com respeito à flag `DesktopModeEnabled` e MockInputSimulator resiliente.
+  3. `AppSettings` e `ConfigRepository`: `DesktopModeEnabled` persistido no `config.ini` e métodos `LoadDesktopProfile()` / `SaveDesktopProfile(profile)` integrados na seção `[DesktopProfile]`.
+  4. Testes unitários: `DesktopProfilePhase1Tests` validando 100% dos fluxos de input, silêncio quando desativado, e persistência em INI. Todos os 196 testes da suíte passando.
 
 ### FASE 2: Interface na Sidebar (`SettingsForm`) & Integração com o Editor Visual
 * **Objetivo:** Permitir ao usuário acessar, visualizar e customizar o perfil do Modo Desktop diretamente pela interface do aplicativo.

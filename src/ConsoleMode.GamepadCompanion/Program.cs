@@ -28,7 +28,7 @@ namespace ConsoleMode.GamepadCompanion
 
                 var input = new InputSimulator();
                 var gamingProfile = new Profiles.GamingProfile(input, settings);
-                var desktopProfile = new Profiles.DesktopProfile();
+                var desktopProfile = new Profiles.DesktopProfile(input, settings, configRepo.LoadDesktopProfile());
 
                 var windowTracker = new WindowTracker();
                 var initialGames = new GameRepository().GetAll();
