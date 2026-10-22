@@ -519,6 +519,8 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // 4. Aliviando a pressão (pressão 7000 < histerese 9500): solta o clique
             var releasePress = processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 7000, config: config, dt: 0.008f);
             Assert.Empty(releasePress.Actions);
+            Assert.True(releasePress.TriggerHaptic, "Borda de descida (soltura/press up) deve disparar pulso háptico de retorno");
+            Assert.True(releasePress.IsHapticClick);
         }
 
         [Fact]

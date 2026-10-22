@@ -338,6 +338,12 @@ namespace ConsoleMode.GamepadCompanion.Engine
             {
                 _isClickDragActive = false;
                 _clickDampingTimer = 0f;
+
+                if (config.HapticIntensity != TrackpadHapticIntensity.Off)
+                {
+                    output.TriggerHaptic = true;
+                    output.IsHapticClick = true; // Feedback háptico de soltura/retorno do clique (Press Up - estilo Lizard Mode)
+                }
             }
             _wasEffectivePress = isEffectivePress;
 
