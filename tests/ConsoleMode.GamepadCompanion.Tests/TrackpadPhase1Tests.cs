@@ -233,8 +233,9 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // Primeiro toque
             processor.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, config: config, dt: 0.008f);
 
-            // Delta de 14 unidades (apenas 4 unidades acima da zona morta de 10)
-            var output = processor.Process(isTouch: true, isPress: false, rawX: 1014, rawY: 1000, config: config, dt: 0.008f);
+            // Delta levemente acima da zona morta configurada em TrackpadTuning
+            short testDelta = (short)(TrackpadTuning.DeadzoneThreshold + 5);
+            var output = processor.Process(isTouch: true, isPress: false, rawX: (short)(1000 + testDelta), rawY: 1000, config: config, dt: 0.008f);
 
             // Deve iniciar suavemente a partir de zero (sub-pixel minúsculo < 0.05px), sem salto abrupto
             Assert.True(output.MouseDx > 0f, "Deve registrar deslocamento suave acima do limiar");
@@ -328,13 +329,23 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
 
-            // Deslizar para cima (rawY aumenta): rolagem natural desce a página (wheelDelta negativo)
-            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 2000, config: config, dt: 0.008f);
+            // Simula passada para cima ao longo de 3 frames físicos realistas (< MaxPhysicalDeltaPerFrame)
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 3000, config: config, dt: 0.008f);
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 6000, config: config, dt: 0.008f);
+            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 9000, config: config, dt: 0.008f);
+
             Assert.True(scrollUp.WheelDelta < 0, "Rolagem natural: deslizar p/ cima deve rolar p/ baixo (WheelDelta < 0)");
             Assert.True(scrollUp.TriggerHaptic, "Deve disparar pulso háptico de catraca ao emitir notch");
 
-            // Deslizar para baixo (rawY diminui): rolagem natural sobe a página (wheelDelta positivo)
-            var scrollDown = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -2000, config: config, dt: 0.008f);
+            // Solta o dedo antes de inverter a direção (gesto humano natural)
+            processor.Process(isTouch: false, isPress: false, rawX: 0, rawY: 9000, config: config, dt: 0.016f);
+
+            // Simula passada para baixo ao longo de frames físicos
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -3000, config: config, dt: 0.008f);
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -6000, config: config, dt: 0.008f);
+            var scrollDown = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: -9000, config: config, dt: 0.008f);
+
             Assert.True(scrollDown.WheelDelta > 0, "Rolagem natural: deslizar p/ baixo deve rolar p/ cima (WheelDelta > 0)");
         }
 
@@ -351,9 +362,62 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
 
-            // Deslizar para cima: não invertido sobe a página (wheelDelta positivo)
-            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 2000, config: config, dt: 0.008f);
+            // Simula passada para cima ao longo de frames (< MaxPhysicalDeltaPerFrame)
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 3000, config: config, dt: 0.008f);
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 6000, config: config, dt: 0.008f);
+            var scrollUp = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 9000, config: config, dt: 0.008f);
             Assert.True(scrollUp.WheelDelta > 0);
+        }
+
+        [Fact]
+        public void TrackpadProcessor_Scrollwheel_MaxOneNotchPerFrameAndRespectsCooldown()
+        {
+            var processor = new TrackpadProcessor(isRightPad: false);
+            var config = new TrackpadConfig
+            {
+                Mode = TrackpadMode.Scrollwheel,
+                Sensitivity = 50,
+                InvertScroll = true
+            };
+
+            // Toque inicial
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
+
+            // Frame 1: passada que ultrapassa ScrollStep (8000f)
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 5000, config: config, dt: 0.008f);
+            var out1 = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 10000, config: config, dt: 0.008f);
+
+            // Deve emitir EXATAMENTE 1 notch (-120), nunca múltiplos notches em rajada
+            Assert.Equal(-120, out1.WheelDelta);
+
+            // Frame imediato seguinte (apenas 8ms após, enquanto cooldown de 80ms ainda está ativo):
+            var outImmediate = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 15000, config: config, dt: 0.008f);
+            Assert.Equal(0, outImmediate.WheelDelta);
+
+            // Após o cooldown expirar (avança 85ms no total e acumula outro deslocamento completo de ScrollStep):
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 19000, config: config, dt: 0.045f);
+            var outAfterCooldown = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 23000, config: config, dt: 0.045f);
+            Assert.Equal(-120, outAfterCooldown.WheelDelta);
+        }
+
+        [Fact]
+        public void TrackpadProcessor_Scrollwheel_CapacitiveLeap_IsDiscarded()
+        {
+            var processor = new TrackpadProcessor(isRightPad: false);
+            var config = new TrackpadConfig
+            {
+                Mode = TrackpadMode.Scrollwheel,
+                Sensitivity = 50
+            };
+
+            // Frame 1: contato inicial
+            processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 0, config: config, dt: 0.008f);
+
+            // Frame 2: salto anômalo impossível de 15.000 unidades em 8ms
+            var leapOut = processor.Process(isTouch: true, isPress: false, rawX: 0, rawY: 15000, config: config, dt: 0.008f);
+
+            // Deve ser rejeitado (0 notches)
+            Assert.Equal(0, leapOut.WheelDelta);
         }
 
         [Fact]
@@ -532,12 +596,14 @@ namespace ConsoleMode.GamepadCompanion.Tests
             // 2. Clique afundado -> arma âncora
             proc.Process(isTouch: true, isPress: false, rawX: 1000, rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
 
-            // 3. Movimento inicial de 60 unidades (< 140 limiar de quebra): travado em zero
-            var locked = proc.Process(isTouch: true, isPress: false, rawX: 1060, rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
+            // 3. Movimento inicial abaixo do limiar de quebra: travado em zero
+            short underBreakDelta = (short)(TrackpadTuning.DoubleClickBreakDistance * 0.4f);
+            var locked = proc.Process(isTouch: true, isPress: false, rawX: (short)(1000 + underBreakDelta), rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
             Assert.Equal(0f, locked.MouseDx);
 
-            // 4. Usuário continua arrastando firme (+120 unidades, total 180 > 140 limiar): quebra a âncora para Click & Drag!
-            var dragging = proc.Process(isTouch: true, isPress: false, rawX: 1180, rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
+            // 4. Usuário continua arrastando firme além do limiar: quebra a âncora para Click & Drag!
+            short overBreakDelta = (short)(TrackpadTuning.DoubleClickBreakDistance + 50f);
+            var dragging = proc.Process(isTouch: true, isPress: false, rawX: (short)(1000 + overBreakDelta), rawY: 1000, rawPressure: 12000, config: config, dt: 0.008f);
             Assert.True(dragging.MouseDx > 0f, "Deve quebrar a âncora e arrastar quando passar do limiar de quebra");
         }
 
@@ -704,14 +770,22 @@ namespace ConsoleMode.GamepadCompanion.Tests
             };
             desktopProfile.Update(gamepadState, deckRaw1, 0.008f);
 
-            // Frame 2: swipe vertical de 2000 unidades no trackpad esquerdo
+            // Frame 2 e 3: swipe vertical contínuo no trackpad esquerdo (< MaxPhysicalDeltaPerFrame)
             var deckRaw2 = new SteamDeckRawState
             {
                 Buttons1 = SDCButton1.BTN_LPAD_TOUCH,
                 LPadX = 0,
-                LPadY = 2000
+                LPadY = 4500
             };
             desktopProfile.Update(gamepadState, deckRaw2, 0.008f);
+
+            var deckRaw3 = new SteamDeckRawState
+            {
+                Buttons1 = SDCButton1.BTN_LPAD_TOUCH,
+                LPadX = 0,
+                LPadY = 9000
+            };
+            desktopProfile.Update(gamepadState, deckRaw3, 0.008f);
 
             // Verifica emissão de MouseWheel
             var wheels = sim.Events.FindAll(e => e.Type == TestInputSimulator.EventType.MouseWheel);

@@ -48,8 +48,10 @@ namespace ConsoleMode.GamepadCompanion.Engine
      * |                               |               | [-] Movimentos curtos já armam a inércia                 |
      * | MinFlickSpeed                 | 180f          | [+] Exige soltar o dedo muito rápido para inércia        |
      * |                               |               | [-] Qualquer soltura moderada continua rolando           |
-     * | ScrollStep                    | 1600f         | [+] Rolagem mais lenta e dentes de catraca espaçados     |
+     * | ScrollStep                    | 8000f         | [+] Rolagem mais lenta e dentes de catraca espaçados     |
      * |                               |               | [-] Rolagem mais rápida, passa mais linhas por passada   |
+     * | ScrollMinIntervalSeconds      | 0.040f        | [+] Mais espaçamento temporal entre cliques de scroll    |
+     * |                               |               | [-] Permite rotação mais rápida sem cooldown             |
      * | TrackballHapticStep           | 16f           | [+] Menos cliques hápticos por rotação da trackball      |
      * |                               |               | [-] Mais vibrações táteis contínuas na mão               |
      * | HapticIntensityHigh           | 4             | [+] Mais força tátil (5 = máximo +10dB, 4 = -20% atual)  |
@@ -90,7 +92,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         // 1. ZONA MORTA & SENSIBILIDADE BASE
         // ==========================================
         /// <summary>Limiar de zona morta para filtrar micro-ruído capacitivo com o dedo parado.</summary>
-        public static float DeadzoneThreshold = 10f;
+        public static float DeadzoneThreshold = 20f;
 
         /// <summary>Fator de escala de sensibilidade para conversão de deltas do hardware em pixels de tela.</summary>
         public static float BaseSensitivityFactor = 0.0058f;
@@ -123,7 +125,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         public static short ClickPressurePrepThreshold = 8500;
 
         /// <summary>Fator de atenuação do movimento durante o clique (0.15f amortiza 85% do tremor da polpa do polegar).</summary>
-        public static float ClickStabilizationDamping = 0.15f;
+        public static float ClickStabilizationDamping = 0.10f;
 
         // ==========================================
         // 5. ÂNCORA DE DUPLO CLIQUE (VALVE / STEAMOS CLICK ANCHOR)
@@ -132,13 +134,13 @@ namespace ConsoleMode.GamepadCompanion.Engine
         /// Janela de tempo (em segundos) após um clique durante a qual o cursor é magneticamente travado (0 px)
         /// para garantir que o segundo clique caia no mesmo pixel e o Windows registre duplo clique com 100% de sucesso.
         /// </summary>
-        public static float DoubleClickLockDuration = 0.35f;
+        public static float DoubleClickLockDuration = 0.50f;
 
         /// <summary>
         /// Distância bruta acumulada no pad necessária para quebrar a âncora de clique caso o usuário
         /// queira intencionalmente arrastar uma janela ou selecionar texto (Click & Drag).
         /// </summary>
-        public static float DoubleClickBreakDistance = 140f;
+        public static float DoubleClickBreakDistance = 200f;
 
         // ==========================================
         // 6. INÉRCIA DA TRACKBALL (GESTOS DE VARREDURA)
@@ -166,7 +168,10 @@ namespace ConsoleMode.GamepadCompanion.Engine
         // 7. ROLAGEM & HÁPTICOS
         // ==========================================
         /// <summary>Deslocamento necessário no pad esquerdo para emitir 1 notch de rolagem de roda do mouse.</summary>
-        public static float ScrollStep = 1600f;
+        public static float ScrollStep = 8000f;
+
+        /// <summary>Intervalo mínimo (em segundos) entre emissões consecutivas de notches de scroll (cooldown mecânico anti-rajada de ~12 notches/s máx).</summary>
+        public static float ScrollMinIntervalSeconds = 0.080f;
 
         /// <summary>Distância percorrida pelo mouse para emitir 1 micro-pulso tátil de rotação da trackball.</summary>
         public static float TrackballHapticStep = 16f;
@@ -231,6 +236,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
         private float _velocityY;
         private float _hapticDistanceAccumulator;
         private float _scrollAccumulator;
+        private float _scrollCooldownTimer;
         private DPadQuadrant _prevQuadrant = DPadQuadrant.None;
 
         public TrackpadProcessor(bool isRightPad)
@@ -331,7 +337,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     break;
 
                 case TrackpadMode.Scrollwheel:
-                    ProcessScrollwheel(isTouch, rawX, rawY, config, ref output);
+                    ProcessScrollwheel(isTouch, rawX, rawY, config, dt, ref output);
                     break;
 
                 case TrackpadMode.DPad:
@@ -590,43 +596,66 @@ namespace ConsoleMode.GamepadCompanion.Engine
             short rawX,
             short rawY,
             TrackpadConfig config,
+            float dt,
             ref TrackpadOutput output)
         {
             if (isTouch)
             {
+                if (_scrollCooldownTimer > 0f)
+                {
+                    _scrollCooldownTimer -= dt;
+                }
+
                 if (!_wasTouched || _isFirstTouch)
                 {
                     _lastRawY = rawY;
                     _isFirstTouch = false;
                     _scrollAccumulator = 0f;
+                    _scrollCooldownTimer = 0f;
                     return;
                 }
 
                 float diffY = rawY - _lastRawY;
                 _lastRawY = rawY;
 
-                // Filtro de ruído mínimo para scroll
-                if (Math.Abs(diffY) > 8f)
+                // Rejeição de teletransporte / salto capacitivo no scroll:
+                if (Math.Abs(diffY) > TrackpadTuning.MaxPhysicalDeltaPerFrame)
                 {
-                    float sens = Math.Max(1, config.Sensitivity);
-                    _scrollAccumulator += diffY * (sens / 50f);
+                    return;
+                }
 
+                // Inversão imediata de direção: se estava acumulando para um lado e começou a puxar para o outro,
+                // zera o acumulador para que a resposta na direção oposta seja 100% instantânea sem atraso.
+                if ((diffY > 0 && _scrollAccumulator < 0) || (diffY < 0 && _scrollAccumulator > 0))
+                {
+                    _scrollAccumulator = 0f;
+                }
+
+                // Acumula todo movimento contínuo do polegar proporcionalmente (sem deadband artificial cortando movimentos lentos)
+                float sens = Math.Max(1, config.Sensitivity);
+                _scrollAccumulator += diffY * (sens / 50f);
+
+                // Só emite notch se atingiu o limiar físico configurado E o cooldown mecânico expirou
+                if (_scrollCooldownTimer <= 0f)
+                {
                     if (_scrollAccumulator >= TrackpadTuning.ScrollStep)
                     {
-                        int notches = (int)(_scrollAccumulator / TrackpadTuning.ScrollStep);
-                        _scrollAccumulator -= notches * TrackpadTuning.ScrollStep;
-
-                        // Rolagem natural invertida padrão: deslizar para cima (diffY > 0) rola para baixo (wheelDelta < 0).
-                        output.WheelDelta = (config.InvertScroll ? -1 : 1) * notches * 120;
+                        // Emite exatamente 1 notch (1 dente da catraca)
+                        output.WheelDelta = (config.InvertScroll ? -1 : 1) * 120;
                         output.TriggerHaptic = config.HapticIntensity != TrackpadHapticIntensity.Off;
+
+                        // Consome integralmente o acúmulo: NUNCA estoca notches futuros!
+                        // Para emitir outro notch, o polegar é obrigado a percorrer outro trajeto completo de ScrollStep.
+                        _scrollAccumulator = 0f;
+                        _scrollCooldownTimer = TrackpadTuning.ScrollMinIntervalSeconds;
                     }
                     else if (_scrollAccumulator <= -TrackpadTuning.ScrollStep)
                     {
-                        int notches = (int)(-_scrollAccumulator / TrackpadTuning.ScrollStep);
-                        _scrollAccumulator += notches * TrackpadTuning.ScrollStep;
-
-                        output.WheelDelta = (config.InvertScroll ? 1 : -1) * notches * 120;
+                        output.WheelDelta = (config.InvertScroll ? 1 : -1) * 120;
                         output.TriggerHaptic = config.HapticIntensity != TrackpadHapticIntensity.Off;
+
+                        _scrollAccumulator = 0f;
+                        _scrollCooldownTimer = TrackpadTuning.ScrollMinIntervalSeconds;
                     }
                 }
             }
@@ -634,6 +663,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
             {
                 _isFirstTouch = true;
                 _scrollAccumulator = 0f;
+                _scrollCooldownTimer = 0f;
             }
         }
 
@@ -731,6 +761,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
             _velocityY = 0f;
             _hapticDistanceAccumulator = 0f;
             _scrollAccumulator = 0f;
+            _scrollCooldownTimer = 0f;
             _prevQuadrant = DPadQuadrant.None;
         }
     }

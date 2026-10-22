@@ -133,6 +133,14 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     if (data != null && data.Length >= 64)
                     {
                         _packetCounter++;
+
+                        // Keepalive periódico (a cada ~1 segundo): garante que o firmware Neptune
+                        // nunca reverta silenciosamente para o Lizard Mode por watchdog interno
+                        if (_packetCounter % 250 == 0)
+                        {
+                            DisableLizardMode();
+                        }
+
                         var raw = SteamDeckRawState.Parse(data);
 
                         // Aplica o remapeamento de hardware configurado
@@ -275,9 +283,19 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
             try
             {
-                // Desativa emulação de mouse: { 0x87, 0x03, 0x08, 0x07 }
-                _device.RequestFeatureReport(new byte[] { 0x87, 0x03, 0x08, 0x07 });
-                // Desativa emulação de teclado/botões: { 0x81, 0x00 }
+                // Protocolo oficial Valve Neptune / Linux hid-steam:
+                // ID_SET_SETTINGS_VALUES (0x87), payload de 9 bytes (3 configurações de 3 bytes cada: reg, valLo, valHi):
+                // 1. SETTING_LEFT_TRACKPAD_MODE (0x07) = TRACKPAD_NONE (0x0007) -> Desativa mouse/scroll de hardware no trackpad esquerdo
+                // 2. SETTING_RIGHT_TRACKPAD_MODE (0x08) = TRACKPAD_NONE (0x0007) -> Desativa mouse de hardware no trackpad direito
+                // 3. SETTING_STEAM_WATCHDOG_ENABLE (0x46) = 0x0000 -> Desativa o watchdog interno do firmware que força volta ao Lizard Mode
+                _device.RequestFeatureReport(new byte[] {
+                    0x87, 0x09,
+                    0x07, 0x07, 0x00,
+                    0x08, 0x07, 0x00,
+                    0x46, 0x00, 0x00
+                });
+
+                // ID_CLEAR_DIGITAL_MAPPINGS (0x81): Desativa emulação de teclado/botões do firmware
                 _device.RequestFeatureReport(new byte[] { 0x81, 0x00 });
             }
             catch { }
