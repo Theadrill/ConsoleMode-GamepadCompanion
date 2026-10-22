@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using ConsoleMode.GamepadCompanion.Core.Models;
+using ConsoleMode.GamepadCompanion.Engine;
 using hidapi;
 
 namespace ConsoleMode.GamepadCompanion.Hardware
@@ -326,28 +327,29 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
         /// <summary>
         /// Emite um pulso háptico tátil para o trackpad com a intensidade informada.
-        /// Utiliza o protocolo nativo 0xEA da Valve para acionamento direto dos LRAs do Steam Deck.
+        /// Utiliza o protocolo nativo 0xEA da Valve para acionamento direto dos LRAs do Steam Deck,
+        /// parametrizado pelos valores de calibração fina de TrackpadTuning.
         /// </summary>
         public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
         {
             if (intensity == TrackpadHapticIntensity.Off) return false;
 
-            byte style = 2; // Strong
-            sbyte intensityVal = 5; // +10dB (Máximo absoluto do hardware)
+            byte style = TrackpadTuning.HapticStyleHigh;
+            sbyte intensityVal = TrackpadTuning.HapticIntensityHigh;
 
             switch (intensity)
             {
                 case TrackpadHapticIntensity.Low:
-                    style = 1; // Weak
-                    intensityVal = 0; // +5dB
+                    style = TrackpadTuning.HapticStyleLow;
+                    intensityVal = TrackpadTuning.HapticIntensityLow;
                     break;
                 case TrackpadHapticIntensity.Medium:
-                    style = 2; // Strong
-                    intensityVal = 3; // +8dB
+                    style = TrackpadTuning.HapticStyleMedium;
+                    intensityVal = TrackpadTuning.HapticIntensityMedium;
                     break;
                 case TrackpadHapticIntensity.High:
-                    style = 2; // Strong
-                    intensityVal = 5; // +10dB (Máximo permitido pelo firmware Neptune)
+                    style = TrackpadTuning.HapticStyleHigh;
+                    intensityVal = TrackpadTuning.HapticIntensityHigh;
                     break;
             }
 

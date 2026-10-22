@@ -52,6 +52,10 @@ namespace ConsoleMode.GamepadCompanion.Engine
      * |                               |               | [-] Rolagem mais rápida, passa mais linhas por passada   |
      * | TrackballHapticStep           | 16f           | [+] Menos cliques hápticos por rotação da trackball      |
      * |                               |               | [-] Mais vibrações táteis contínuas na mão               |
+     * | HapticIntensityHigh           | 4             | [+] Mais força tátil (5 = máximo +10dB, 4 = -20% atual)  |
+     * |                               |               | [-] Mais suave (3 = moderado +8dB, 2 = leve +7dB)        |
+     * | HapticStyleHigh               | 2             | [2] Pulso firme/clique (Strong)                          |
+     * |                               |               | [1] Pulso suave/macio (Weak)                             |
      * +-------------------------------+---------------+----------------------------------------------------------+
      *
      * EXEMPLOS DE CENÁRIOS COMUNS:
@@ -65,6 +69,8 @@ namespace ConsoleMode.GamepadCompanion.Engine
      *     Aumente MinStrokeDistanceForInertia (ex: de 700f para 900f).
      * - "Sinto que o cursor demora a começar a mover na mira fina":
      *     Diminua DeadzoneThreshold (ex: de 10f para 8f).
+     * - "O feedback háptico ainda está muito forte ou muito fraco":
+     *     Ajuste HapticIntensityHigh (5 = máx +10dB, 4 = ~20% menor, 3 = moderado +8dB, 2 = suave +7dB).
      * ========================================================================================================
      */
 
@@ -130,6 +136,30 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
         /// <summary>Distância percorrida pelo mouse para emitir 1 micro-pulso tátil de rotação da trackball.</summary>
         public static float TrackballHapticStep = 16f;
+
+        // ==========================================
+        // 7. FEEDBACK HÁPTICO (INTENSIDADE DO HARDWARE NEPTUNE)
+        // ==========================================
+        /// <summary>
+        /// Ganho de força do pulso háptico de nível Alto (-7 a 5, onde 5 = +10dB máx, 4 = +9dB, 3 = +8dB).
+        /// Valor 4 reduz a intensidade em aproximadamente 20% em relação ao pico máximo de 5.
+        /// </summary>
+        public static sbyte HapticIntensityHigh = 4;
+
+        /// <summary>Estilo do pulso háptico de nível Alto (1 = Pulso Curto/Weak, 2 = Pulso Firme/Strong).</summary>
+        public static byte HapticStyleHigh = 2;
+
+        /// <summary>Ganho de força do pulso háptico de nível Médio (-7 a 5).</summary>
+        public static sbyte HapticIntensityMedium = 2;
+
+        /// <summary>Estilo do pulso háptico de nível Médio (1 = Weak, 2 = Strong).</summary>
+        public static byte HapticStyleMedium = 2;
+
+        /// <summary>Ganho de força do pulso háptico de nível Baixo (-7 a 5).</summary>
+        public static sbyte HapticIntensityLow = 0;
+
+        /// <summary>Estilo do pulso háptico de nível Baixo (1 = Weak, 2 = Strong).</summary>
+        public static byte HapticStyleLow = 1;
     }
 
     /// <summary>
