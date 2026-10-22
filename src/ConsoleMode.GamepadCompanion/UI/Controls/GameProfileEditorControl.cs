@@ -1875,7 +1875,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             DrawDiagramCircle(g, fcx, fcy + 28, "A", _focusedSlot == ProfileEditorSlot.ButtonA, Color.FromArgb(90, 200, 90));
             DrawDiagramCircle(g, fcx + 28, fcy, "B", _focusedSlot == ProfileEditorSlot.ButtonB, Color.FromArgb(230, 80, 70));
             DrawDiagramCircle(g, fcx - 28, fcy, "X", _focusedSlot == ProfileEditorSlot.ButtonX, Color.FromArgb(70, 140, 240));
-            DrawDiagramCircle(g, fcx - 28, fcy - 28, "Y", _focusedSlot == ProfileEditorSlot.ButtonY, Color.FromArgb(240, 200, 60));
+            DrawDiagramCircle(g, fcx, fcy - 28, "Y", _focusedSlot == ProfileEditorSlot.ButtonY, Color.FromArgb(240, 200, 60));
 
             // Trackpads
             DrawDiagramTrackpad(g, new RectangleF(72, 212, 56, 56), "L-PAD");
