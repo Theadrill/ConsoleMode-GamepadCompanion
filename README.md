@@ -70,7 +70,9 @@ O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Stea
   - Chaveamento automático de foco: executa o perfil do jogo quando o jogo está ativo e chaveia para o Modo Desktop em qualquer outra janela do Windows.
   - Suspensão instantânea de emulação quando o Companion está em primeiro plano para garantir navegação fluida da UI sem interferência.
   - Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md`](./docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md).
-- [ ] **Fase 6 (Steam Deck):** Configuração dos Trackpads (Mouse/Trackball de alta precisão, Scrollwheel vertical contínuo, D-Pad e Botão Único com Feedback Háptico). Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md`](./docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md).
+- [x] **Fase 6 (Steam Deck):** Configuração dos Trackpads (Mouse/Trackball de alta precisão, Scrollwheel vertical contínuo, D-Pad e Botão Único com Feedback Háptico). Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md`](./docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md).
+- [ ] **Fallback Automático para Gamepad Conectado:**
+  - Quando o slot de controle configurado ou persistido anteriormente estiver desconectado na inicialização ou durante o uso (ex: desconectar um controle 8BitDo/Bluetooth após testes), o sistema chaveia automaticamente para um controle conectado ativo, evitando iniciar ou permanecer com um slot desconectado.
 - [ ] **Menu Radial para Trackpads (Couch Gaming Overlay):**
   - Overlay circular translúcido exibido em tela enquanto o polegar estiver em contato com o trackpad (`Touch`).
   - Suporte a 4, 8 ou 12 fatias para atalhos de magias, poções, macros e comandos rápidos de sistema sem poluir a tela.

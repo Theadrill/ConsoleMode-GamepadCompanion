@@ -94,11 +94,13 @@ Baseado nas configurações de controle validadas:
 ## 5. Roadmap & Próximos Passos (TODO)
 
 - [x] **Motor de Perfis por Jogo & Toggle de Input (Fase 1 Concluída):** Suporte a perfis dinâmicos individuais por jogo, presets, união de estados por frame e toggle de input no jogo.
-- [ ] **Editor Visual de Perfis de Controle (Fases 2, 3 e 4):** Diagrama do controle, captura de combos físicos e seletor em 3 abas (Teclado / Mouse / Sistema).
+- [x] **Editor Visual de Perfis de Controle (Fases 2, 3 e 4 Concluídas):** Diagrama do controle, captura de combos físicos e seletor em 3 abas (Teclado / Mouse / Sistema).
+- [x] **Perfil Desktop (Uso no Windows):** Mapeamento dedicado para navegar e usar o computador normalmente pelo controle quando o WoW/jogos não estiverem em foco (movimentação de mouse livre no stick esquerdo/direito, cliques esquerdo/direito nos gatilhos/botões frontais, scroll e atalhos multimídia).
+- [x] **Suporte ao Steam Deck & Trackpads (Fases 1 a 6 Concluídas):** Integração nativa Neptune USB HID, bypass de Lizard Mode, emulação de mouse/trackball, scrollwheel natural e feedback háptico LRA.
+- [ ] **Fallback Automático para Gamepad Conectado:** Detecção inteligente na inicialização e em tempo de execução: se o gamepad ativo configurado estiver desconectado (ex: controle 8BitDo/Bluetooth desconectado após testes), chaveia automaticamente para um controle conectado ativo.
 - [ ] **Toggle de Múltiplas Instâncias por Jogo:** Opção no `GameConfigPanel` com toggle idêntico ao do input (`Permitir Múltiplas Instâncias`). Por padrão desativado: ao clicar em Iniciar com o jogo já rodando, traz a janela existente para primeiro plano e esconde a tela de configurações.
 - [ ] **Overlay Estilo Steam:** Interface de overlay transparente/imersiva acionada pelo botão Guide/Home do controle, permitindo ajustar configurações rápidas por cima do jogo sem perder o contexto visual.
 - [ ] **Explorer Customizado Interno do Aplicativo:** Navegador e seletor de arquivos e diretórios embutido nativamente, 100% navegável por gamepad (couch gaming), eliminando o diálogo do Windows Explorer ao escolher executáveis (`.exe`), imagens e caminhos de jogos.
-- [ ] **Perfil Desktop (Uso no Windows):** Mapeamento dedicado para navegar e usar o computador normalmente pelo controle quando o WoW não estiver em foco (movimentação de mouse livre no stick esquerdo/direito, cliques esquerdo/direito nos gatilhos/botões frontais, scroll e atalhos multimídia).
 - [ ] **Sistema de Páginas / Camadas por Modificador:** Alternância dinâmica de páginas de mapeamento dentro do perfil de jogo (ex: Combate vs Menus) com sensibilidade própria de mouse.
 
 ---
