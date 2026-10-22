@@ -2378,7 +2378,17 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             using (var lblFont = new Font("Segoe UI", 7.8f, FontStyle.Bold))
             using (var lblBrush = new SolidBrush(TextSecondary))
             {
-                g.DrawString(label, lblFont, lblBrush, rect.X + 6, rect.Y + 4);
+                using (var sfLbl = new StringFormat
+                {
+                    Alignment = StringAlignment.Near,
+                    LineAlignment = StringAlignment.Center,
+                    FormatFlags = StringFormatFlags.NoWrap
+                })
+                {
+                    float labelWidth = g.MeasureString(label, lblFont).Width;
+                    var lblRect = new RectangleF(rect.X + 6, rect.Y, labelWidth + 2, rect.Height);
+                    g.DrawString(label, lblFont, lblBrush, lblRect, sfLbl);
+                }
             }
 
             bool isNone = string.Equals(valueText, Strings.ProfileActionNone, StringComparison.OrdinalIgnoreCase);
@@ -2386,7 +2396,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 ? Color.FromArgb(110, 118, 132)
                 : (isModeBadge ? BorderFocused : (highlightNonEmpty ? ActiveGreen : TextPrimary));
 
-            var valRect = new RectangleF(rect.X + 58, rect.Y + 2, rect.Width - 62, rect.Height - 4);
+            var valRect = new RectangleF(rect.X + 58, rect.Y, rect.Width - 64, rect.Height);
             using (var valFont = new Font("Segoe UI", 8f, FontStyle.Bold))
             using (var valBrush = new SolidBrush(valColor))
             using (var sf = new StringFormat
@@ -2413,11 +2423,21 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             using (var lblFont = new Font("Segoe UI", 7.2f, FontStyle.Bold))
             using (var lblBrush = new SolidBrush(TextSecondary))
             {
-                g.DrawString(label, lblFont, lblBrush, rect.X + 4, rect.Y + 4);
+                using (var sfLbl = new StringFormat
+                {
+                    Alignment = StringAlignment.Near,
+                    LineAlignment = StringAlignment.Center,
+                    FormatFlags = StringFormatFlags.NoWrap
+                })
+                {
+                    float labelWidth = g.MeasureString(label, lblFont).Width;
+                    var lblRect = new RectangleF(rect.X + 4, rect.Y, labelWidth + 2, rect.Height);
+                    g.DrawString(label, lblFont, lblBrush, lblRect, sfLbl);
+                }
             }
 
             bool isNone = string.Equals(valueText, Strings.ProfileActionNone, StringComparison.OrdinalIgnoreCase);
-            var valRect = new RectangleF(rect.X + 34, rect.Y + 2, rect.Width - 38, rect.Height - 4);
+            var valRect = new RectangleF(rect.X + 34, rect.Y, rect.Width - 38, rect.Height);
             using (var valFont = new Font("Segoe UI", 7.8f, FontStyle.Bold))
             using (var valBrush = new SolidBrush(isNone ? Color.FromArgb(110, 118, 132) : TextPrimary))
             using (var sf = new StringFormat
