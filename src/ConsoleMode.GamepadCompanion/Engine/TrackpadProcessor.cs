@@ -35,7 +35,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
         private const float DeadzoneThreshold = 28f;
         private const float MinFlickSpeed = 40f;
-        private const float TrackballHapticStep = 36f;
+        private const float TrackballHapticStep = 16f;
         private const float ScrollStep = 650f;
 
         public bool IsRightPad { get; }

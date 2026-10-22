@@ -18,8 +18,8 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
         /// <summary>Atrito/Inércia da simulação de trackball (1 a 100, padrão: 50). Valores maiores param o giro mais rápido.</summary>
         public int Friction { get; set; } = 50;
 
-        /// <summary>Intensidade do feedback háptico (Off, Low, Medium, High. Padrão: Medium).</summary>
-        public TrackpadHapticIntensity HapticIntensity { get; set; } = TrackpadHapticIntensity.Medium;
+        /// <summary>Intensidade do feedback háptico (Off, Low, Medium, High. Padrão: High para teste máximo).</summary>
+        public TrackpadHapticIntensity HapticIntensity { get; set; } = TrackpadHapticIntensity.High;
 
         /// <summary>
         /// Se true, ativa rolagem natural estilo touch (deslizar p/ cima desce a página). Padrão de fábrica: true.

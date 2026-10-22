@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using ConsoleMode.GamepadCompanion.Core.Models;
 using hidapi;
 
@@ -304,34 +306,109 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             catch { }
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SDCHapticPacket2
+        {
+            public byte packet_type; // 0xea
+            public byte len;         // 0xd
+            public byte position;    // 0 = Left, 1 = Right
+            public byte style;       // 1 = Weak, 2 = Strong
+            public byte unsure2;     // 0x0
+            public sbyte intensity;  // -7..5 => -2dB..10dB (5 = Max, +10dB)
+            public byte unsure3;     // 0x4
+            public int tsA;
+            public int tsB;
+        }
+
+        private static int _hapticTsSeed = 1000;
+        private Task _lastLeftHapticTask;
+        private Task _lastRightHapticTask;
+
         /// <summary>
         /// Emite um pulso háptico tátil para o trackpad com a intensidade informada.
+        /// Utiliza o protocolo nativo 0xEA da Valve para acionamento direto dos LRAs do Steam Deck.
         /// </summary>
         public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity)
         {
             if (intensity == TrackpadHapticIntensity.Off) return false;
-            ushort amp = 400;
-            ushort period = 300;
+
+            byte style = 2; // Strong
+            sbyte intensityVal = 5; // +10dB (Máximo absoluto do hardware)
+
             switch (intensity)
             {
                 case TrackpadHapticIntensity.Low:
-                    amp = 600;
-                    period = 300;
+                    style = 1; // Weak
+                    intensityVal = 0; // +5dB
                     break;
                 case TrackpadHapticIntensity.Medium:
-                    amp = 1200;
-                    period = 350;
+                    style = 2; // Strong
+                    intensityVal = 3; // +8dB
                     break;
                 case TrackpadHapticIntensity.High:
-                    amp = 2000;
-                    period = 400;
+                    style = 2; // Strong
+                    intensityVal = 5; // +10dB (Máximo permitido pelo firmware Neptune)
                     break;
             }
-            return TriggerHapticRaw(isRightPad, amp, period, 1);
+
+            return TriggerHapticNative(isRightPad, style, intensityVal);
         }
 
         /// <summary>
-        /// Envia pacote de feature report nativo da Valve (0x8f PT_FEEDBACK) para o hardware do Steam Deck.
+        /// Envia o relatório de feature nativo do Steam Deck (0xEA) para os atuadores LRA lineares dos trackpads.
+        /// </summary>
+        public bool TriggerHapticNative(bool isRightPad, byte style, sbyte intensity)
+        {
+            lock (_syncRoot)
+            {
+                if (_device == null || !_isRunning) return false;
+
+                try
+                {
+                    ref Task lastTask = ref (isRightPad ? ref _lastRightHapticTask : ref _lastLeftHapticTask);
+                    if (lastTask != null && !lastTask.IsCompleted)
+                    {
+                        // Evita congelamento se a requisição USB anterior para este pad ainda estiver em trânsito
+                        return false;
+                    }
+
+                    int ts = Interlocked.Increment(ref _hapticTsSeed);
+                    var haptic = new SDCHapticPacket2
+                    {
+                        packet_type = 0xea,
+                        len = 0x0d,
+                        position = (byte)(isRightPad ? 1 : 0),
+                        style = style,
+                        unsure2 = 0x00,
+                        intensity = intensity,
+                        unsure3 = 0x04,
+                        tsA = ts,
+                        tsB = ts
+                    };
+
+                    byte[] bytes = new byte[Marshal.SizeOf<SDCHapticPacket2>()];
+                    var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+                    try
+                    {
+                        Marshal.StructureToPtr(haptic, handle.AddrOfPinnedObject(), false);
+                        lastTask = _device.RequestFeatureReportAsync(bytes);
+                    }
+                    finally
+                    {
+                        handle.Free();
+                    }
+
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Envia pacote de feature report legado da Valve (0x8f PT_FEEDBACK) como compatibilidade de rumble.
         /// </summary>
         public bool TriggerHapticRaw(bool isRightPad, ushort amplitude, ushort period = 300, ushort count = 1)
         {

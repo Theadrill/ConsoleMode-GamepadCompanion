@@ -110,7 +110,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             page.RightTrackpad.Mode = TrackpadMode.MouseTrackball;
             page.RightTrackpad.Sensitivity = 50;
             page.RightTrackpad.Friction = 50;
-            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.Medium;
+            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.High;
 
             return profile;
         }
@@ -172,7 +172,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             page.RightTrackpad.Mode = TrackpadMode.MouseTrackball;
             page.RightTrackpad.Sensitivity = 50;
             page.RightTrackpad.Friction = 50;
-            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.Medium;
+            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.High;
 
             return profile;
         }
@@ -236,7 +236,7 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             page.RightTrackpad.Mode = TrackpadMode.MouseTrackball;
             page.RightTrackpad.Sensitivity = 50;
             page.RightTrackpad.Friction = 50;
-            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.Medium;
+            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.High;
 
             return profile;
         }
@@ -316,14 +316,14 @@ namespace ConsoleMode.GamepadCompanion.Core.Models
             page.RightTrackpad.Mode = TrackpadMode.MouseTrackball;
             page.RightTrackpad.Sensitivity = 50;
             page.RightTrackpad.Friction = 50;
-            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.Medium;
+            page.RightTrackpad.HapticIntensity = TrackpadHapticIntensity.High;
             page.RightTrackpad.PressActions = new List<InputAction> { InputAction.FromMouseButton(MouseButton.Left) };
 
             // - Trackpad Esquerdo: Scrollwheel vertical contínuo com rolagem natural (InvertScroll = true) e haptics
             page.LeftTrackpad.Mode = TrackpadMode.Scrollwheel;
             page.LeftTrackpad.Sensitivity = 50;
             page.LeftTrackpad.InvertScroll = true;
-            page.LeftTrackpad.HapticIntensity = TrackpadHapticIntensity.Medium;
+            page.LeftTrackpad.HapticIntensity = TrackpadHapticIntensity.High;
 
             return profile;
         }
