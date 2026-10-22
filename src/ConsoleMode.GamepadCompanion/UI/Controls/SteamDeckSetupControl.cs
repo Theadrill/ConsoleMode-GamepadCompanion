@@ -214,6 +214,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 _progressLabel.Text = "Driver pronto para uso imediato. Carregando Companion...";
                 _progressLabel.ForeColor = TextGreen;
 
+                SteamDeckManager.TryStart();
                 await System.Threading.Tasks.Task.Delay(1200);
                 SetupCompleted?.Invoke(this, EventArgs.Empty);
             }

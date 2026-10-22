@@ -20,6 +20,13 @@
     <PackageReference Include="Nefarius.ViGEm.Client" Version="1.21.256" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Web.Extensions" />
+    <Reference Include="hidapi.net">
+      <HintPath>lib\hidapi.net.dll</HintPath>
+    </Reference>
+    <Content Include="lib\hidapi.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>hidapi.dll</Link>
+    </Content>
     <Content Include="redist\ViGEmBus_Setup.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

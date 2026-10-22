@@ -34,17 +34,26 @@ namespace ConsoleMode.GamepadCompanion
                 var initialGames = new GameRepository().GetAll();
                 windowTracker.SetGames(initialGames);
 
-                using (IGamepadService gamepad = new GamepadService())
+                try
                 {
-                    gamepad.SelectedSlot = settings.SelectedSlot;
-                    gamepad.Start();
+                    SteamDeckManager.TryStart();
 
-                    using (var profileEngine = new ProfileEngine(gamepad, desktopProfile))
-                    using (var profileManager = new ProfileManager(profileEngine, gamingProfile, desktopProfile, windowTracker, gamepad, settings))
-                    using (var trayContext = new TrayAppContext(gamepad, settings, profileManager, configRepo, windowTracker))
+                    using (IGamepadService gamepad = new GamepadService())
                     {
-                        Application.Run(trayContext);
+                        gamepad.SelectedSlot = settings.SelectedSlot;
+                        gamepad.Start();
+
+                        using (var profileEngine = new ProfileEngine(gamepad, desktopProfile))
+                        using (var profileManager = new ProfileManager(profileEngine, gamingProfile, desktopProfile, windowTracker, gamepad, settings))
+                        using (var trayContext = new TrayAppContext(gamepad, settings, profileManager, configRepo, windowTracker))
+                        {
+                            Application.Run(trayContext);
+                        }
                     }
+                }
+                finally
+                {
+                    SteamDeckManager.Stop();
                 }
             }
         }

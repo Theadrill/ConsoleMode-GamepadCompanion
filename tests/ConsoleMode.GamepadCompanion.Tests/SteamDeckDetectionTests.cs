@@ -1,3 +1,4 @@
+using System;
 using ConsoleMode.GamepadCompanion.Core.Models;
 using ConsoleMode.GamepadCompanion.Hardware;
 using Xunit;
@@ -67,8 +68,6 @@ namespace ConsoleMode.GamepadCompanion.Tests
             Assert.NotNull(service);
 
             var status = service.CheckStatus();
-            // No estado atual da máquina de teste (driver desinstalado), o status deve ser NotInstalled
-            // ou retornar um status conhecido sem disparar exceção não tratada
             Assert.True(status == ViGEmBusStatus.NotInstalled || status == ViGEmBusStatus.Active || status == ViGEmBusStatus.ServiceStopped);
 
             if (status == ViGEmBusStatus.Active)
@@ -102,6 +101,84 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
                 Assert.True(control.Controls.Count > 0);
             }
+        }
+
+        [Fact]
+        public void SteamDeckRawState_Parse_EmptyOrNullBuffer_ShouldReturnDefault()
+        {
+            var nullState = SteamDeckRawState.Parse(null);
+            Assert.False(nullState.IsA);
+            Assert.False(nullState.IsL4);
+
+            var shortState = SteamDeckRawState.Parse(new byte[32]);
+            Assert.False(shortState.IsA);
+            Assert.False(shortState.IsR5);
+        }
+
+        [Fact]
+        public void SteamDeckRawState_Parse_And_ToGamepadState_ShouldMapAccurately()
+        {
+            byte[] buffer = new byte[64];
+
+            // 0x08 Buttons0: A, DPadUp, L1, L5
+            ushort buttons0 = (ushort)(SDCButton0.BTN_A | SDCButton0.BTN_DPAD_UP | SDCButton0.BTN_L1 | SDCButton0.BTN_L5);
+            Array.Copy(BitConverter.GetBytes(buttons0), 0, buffer, 8, 2);
+
+            // 0x0A Buttons1: LStickPress (L3), R5
+            buffer[10] = (byte)(SDCButton1.BTN_LSTICK_PRESS | SDCButton1.BTN_R5);
+
+            // 0x0B Buttons2: RStickPress (R3)
+            buffer[11] = (byte)SDCButton2.BTN_RSTICK_PRESS;
+
+            // 0x0D Buttons4: L4, R4
+            buffer[13] = (byte)(SDCButton4.BTN_L4 | SDCButton4.BTN_R4);
+
+            // Gatilhos: LT = 16384 (50% = ~128), RT = 32767 (100% = ~255)
+            Array.Copy(BitConverter.GetBytes((short)16384), 0, buffer, 0x2C, 2);
+            Array.Copy(BitConverter.GetBytes((short)32767), 0, buffer, 0x2E, 2);
+
+            // Analógicos: LeftX = 12000, LeftY = -15000
+            Array.Copy(BitConverter.GetBytes((short)12000), 0, buffer, 0x30, 2);
+            Array.Copy(BitConverter.GetBytes((short)-15000), 0, buffer, 0x32, 2);
+
+            var raw = SteamDeckRawState.Parse(buffer);
+
+            // Validação dos botões físicos
+            Assert.True(raw.IsA);
+            Assert.True(raw.IsDPadUp);
+            Assert.True(raw.IsL1);
+            Assert.True(raw.IsL3);
+            Assert.True(raw.IsR3);
+            Assert.True(raw.IsL4);
+            Assert.True(raw.IsL5);
+            Assert.True(raw.IsR4);
+            Assert.True(raw.IsR5);
+            Assert.False(raw.IsB);
+            Assert.False(raw.IsX);
+
+            // Conversão para GamepadState padrão
+            var state = raw.ToGamepadState(10);
+            Assert.True(state.IsConnected);
+            Assert.Equal((uint)10, state.PacketNumber);
+            Assert.True(state.IsPressed(GamepadButtons.A));
+            Assert.True(state.IsPressed(GamepadButtons.DPadUp));
+            Assert.True(state.IsPressed(GamepadButtons.LeftShoulder));
+            Assert.True(state.IsPressed(GamepadButtons.LeftStick));
+            Assert.True(state.IsPressed(GamepadButtons.RightStick));
+            Assert.False(state.IsPressed(GamepadButtons.B));
+
+            Assert.InRange(state.LeftTrigger, (byte)125, (byte)130);
+            Assert.Equal((byte)255, state.RightTrigger);
+
+            Assert.Equal((short)12000, state.LeftThumbX);
+            Assert.Equal((short)-15000, state.LeftThumbY);
+        }
+
+        [Fact]
+        public void SteamDeckManager_Stop_ShouldBeSafeWhenNotStarted()
+        {
+            SteamDeckManager.Stop();
+            Assert.False(SteamDeckManager.IsActive);
         }
     }
 }
