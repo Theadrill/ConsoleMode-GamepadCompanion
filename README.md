@@ -50,6 +50,25 @@ O **ConsoleMode - Gamepad Companion** possui suporte nativo completo para o Stea
 
 ---
 
+## KNOWN ISSUES
+
+### Vazamento de haptics entre os trackpads
+
+**Status:** não resolvido 100%.
+
+Ainda pode ocorrer vazamento do feedback háptico de um trackpad para o outro em algumas situações de uso com o Companion ativo, principalmente quando os dois trackpads são usados simultaneamente. O comportamento não é reproduzido de forma consistente em todos os testes e a causa raiz exata ainda está em investigação.
+
+O que já foi feito:
+- O pacote nativo `0xEA` foi corrigido para seguir o layout observado nos pacotes do Steam (seletor por pad, padding e posição do timestamp/ID).
+- Testes de hardware mostraram que o pacote nativo e o layout corrigido não vazaram nos cenários testados, mas a validação dentro do app ainda não é conclusiva.
+- A captura USB confirmou que o Steam usa apenas `0xEA` para haptics de trackpad; `0x8F` não faz parte do fluxo nativo.
+
+**Impacto:** o feedback pode ser sentido no trackpad oposto ao que está sendo usado. O app continua funcional, mas o ajuste fino do comportamento háptico permanece pendente.
+
+**Acompanhamento:** usar `COMPANION_HAPTIC_TRACE=1` para gerar `%TEMP%\ConsoleMode-Haptics.log` e registrar a situação exata (movimento/clique, um ou dois pads, intensidade) ao reportar o problema.
+
+---
+
 ## 🗺️ Roadmap & Próximos Passos (TODO)
 - [x] Mapeamento Gaming 100% idêntico ao layout `Octowow` do Steam Input (com Smart Mouse Look F9 e cliques L3/R3)
 - [x] Visual Gamepad Debugger em tempo real com sliders de Deadzone e Gatilho

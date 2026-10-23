@@ -354,34 +354,41 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         /// </summary>
         internal const byte TriggerHapticPayloadLength = 0x0D;
 
-        private static int _hapticTimestamp = Environment.TickCount;
+        // Valores observados nos pacotes 0xEA nativos do Steam (captura USB):
+        // EA 0D <position> <style> <pad> <intensity> 00 00 D9 39 48 65 FB 7F 00 00
+        // O byte 0x07 é o padding do struct SDCHapticPacket2; os bytes 0x08..0x0F
+        // são um timestamp/ID fixo usado pelo Steam. Não deslocar o timestamp.
+        internal const byte NativeHapticUnsure3 = 0x00;
+        internal const byte NativeHapticPadding = 0x00;
+        internal const uint NativeHapticTimestampA = 0x654839D9;
+        internal const uint NativeHapticTimestampB = 0x00007FFB;
 
         /// <summary>
         /// Monta o feature report nativo <c>ID_TRIGGER_HAPTIC_CMD</c> (0xEA) do Steam Deck.
-        /// O campo <c>position</c> seleciona o atuador: 0x00 = Esquerdo, 0x01 = Direito,
-        /// 0x02 = Ambos, 0x03 = Nenhum. Para uso normal envie somente 0x00 ou 0x01.
+        /// O campo <c>position</c> seleciona o atuador: 0x00 = Esquerdo, 0x01 = Direito.
+        /// O campo <c>unsure2</c> repete o pad no formato nativo do Steam (1 = direito,
+        /// 2 = esquerdo); enviar 0 parece permitir vazamento entre os atuadores.
         /// </summary>
         internal static byte[] BuildTriggerHapticPacket(bool isRightPad, bool isClick, sbyte dBgain)
         {
-            int ts = Interlocked.Increment(ref _hapticTimestamp);
-
             var packet = new byte[65];
             packet[0] = 0x00; // Report ID da interface HIDAPI do Windows
             packet[1] = 0xEA; // ID_TRIGGER_HAPTIC_CMD (exclusivo do Steam Deck / Neptune)
             packet[2] = TriggerHapticPayloadLength;
             packet[3] = (byte)(isRightPad ? 0x01 : 0x00); // position: 0 = Left, 1 = Right
             packet[4] = (byte)(isClick ? 0x02 : 0x01);    // style/cmd: 1 = tick, 2 = click
-            packet[5] = 0x00;                             // unsure2
+            packet[5] = (byte)(isRightPad ? 0x01 : 0x02); // pad selector nativo do Steam
             packet[6] = (byte)dBgain;                     // intensidade em dB (-7..+5)
-            packet[7] = 0x04;                             // unsure3 (fixo, usado pelo firmware)
-            packet[8] = (byte)(ts & 0xFF);
-            packet[9] = (byte)((ts >> 8) & 0xFF);
-            packet[10] = (byte)((ts >> 16) & 0xFF);
-            packet[11] = (byte)((ts >> 24) & 0xFF);
-            packet[12] = (byte)(ts & 0xFF);
-            packet[13] = (byte)((ts >> 8) & 0xFF);
-            packet[14] = (byte)((ts >> 16) & 0xFF);
-            packet[15] = (byte)((ts >> 24) & 0xFF);
+            packet[7] = NativeHapticUnsure3;
+            packet[8] = NativeHapticPadding;
+            packet[9] = (byte)(NativeHapticTimestampA & 0xFF);
+            packet[10] = (byte)((NativeHapticTimestampA >> 8) & 0xFF);
+            packet[11] = (byte)((NativeHapticTimestampA >> 16) & 0xFF);
+            packet[12] = (byte)((NativeHapticTimestampA >> 24) & 0xFF);
+            packet[13] = (byte)(NativeHapticTimestampB & 0xFF);
+            packet[14] = (byte)((NativeHapticTimestampB >> 8) & 0xFF);
+            packet[15] = (byte)((NativeHapticTimestampB >> 16) & 0xFF);
+            packet[16] = (byte)((NativeHapticTimestampB >> 24) & 0xFF);
             return packet;
         }
 
