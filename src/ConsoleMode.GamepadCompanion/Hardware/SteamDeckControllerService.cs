@@ -73,6 +73,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
                 // Desativa o Lizard Mode
                 DisableLizardMode();
+                HapticTrace.Info("SERVICE START");
 
                 // Conecta o Gamepad Virtual de Xbox 360 via ViGEmBus
                 _virtualX360.Connect();
@@ -149,6 +150,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                         ApplyHardwareRemap(ref raw);
 
                         _lastRawState = raw;
+                        HapticTrace.Touch(raw);
 
                         // Despacha para o controle virtual Xbox 360
                         _virtualX360.Submit(ref raw);
@@ -342,30 +344,64 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             catch { }
         }
 
-        private static readonly Random _hapticRandom = new Random();
+        /// <summary>
+        /// Tamanho do payload do pacote <c>0xEA</c> aceito pelo firmware Neptune do Steam Deck.
+        /// Na prática o firmware do Deck lê a estrutura legada <c>SDCHapticPacket2</c> (13 bytes / 0x0D):
+        /// position(1) + style(1) + unsure2(1) + intensity(1) + unsure3(1) + tsA(4) + tsB(4).
+        /// O pacote oficial de 19 bytes (<c>MsgTriggerHaptic</c>) é interpretado pelo firmware
+        /// como essa estrutura de 13 bytes: seus campos <c>side</c> 0x02/0x03 caem em
+        /// position 2/3, que significam "ambos"/"nenhum" e causam crosstalk.
+        /// </summary>
+        internal const byte TriggerHapticPayloadLength = 0x0D;
+
+        private static int _hapticTimestamp = Environment.TickCount;
+
+        /// <summary>
+        /// Monta o feature report nativo <c>ID_TRIGGER_HAPTIC_CMD</c> (0xEA) do Steam Deck.
+        /// O campo <c>position</c> seleciona o atuador: 0x00 = Esquerdo, 0x01 = Direito,
+        /// 0x02 = Ambos, 0x03 = Nenhum. Para uso normal envie somente 0x00 ou 0x01.
+        /// </summary>
+        internal static byte[] BuildTriggerHapticPacket(bool isRightPad, bool isClick, sbyte dBgain)
+        {
+            int ts = Interlocked.Increment(ref _hapticTimestamp);
+
+            var packet = new byte[65];
+            packet[0] = 0x00; // Report ID da interface HIDAPI do Windows
+            packet[1] = 0xEA; // ID_TRIGGER_HAPTIC_CMD (exclusivo do Steam Deck / Neptune)
+            packet[2] = TriggerHapticPayloadLength;
+            packet[3] = (byte)(isRightPad ? 0x01 : 0x00); // position: 0 = Left, 1 = Right
+            packet[4] = (byte)(isClick ? 0x02 : 0x01);    // style/cmd: 1 = tick, 2 = click
+            packet[5] = 0x00;                             // unsure2
+            packet[6] = (byte)dBgain;                     // intensidade em dB (-7..+5)
+            packet[7] = 0x04;                             // unsure3 (fixo, usado pelo firmware)
+            packet[8] = (byte)(ts & 0xFF);
+            packet[9] = (byte)((ts >> 8) & 0xFF);
+            packet[10] = (byte)((ts >> 16) & 0xFF);
+            packet[11] = (byte)((ts >> 24) & 0xFF);
+            packet[12] = (byte)(ts & 0xFF);
+            packet[13] = (byte)((ts >> 8) & 0xFF);
+            packet[14] = (byte)((ts >> 16) & 0xFF);
+            packet[15] = (byte)((ts >> 24) & 0xFF);
+            return packet;
+        }
 
         /// <summary>
         /// Emite um pulso háptico tátil nos atuadores LRA do Steam Deck (Neptune)
-        /// utilizando a estrutura nativa SDCHapticPacket2 do Steam Deck (0xEA).
-        /// Referência técnica local: C:\PROJETOS\steam-deck-tools\SteamController\Devices\SteamControllerHaptic.cs
+        /// utilizando o pacote nativo <c>SDCHapticPacket2</c> (0xEA, 13 bytes) com endereçamento
+        /// explícito por atuador: position 0x00 = Esquerdo, 0x01 = Direito.
+        /// Referência local: <c>C:\PROJETOS\steam-deck-tools\SteamController\Devices\SteamControllerHaptic.cs</c>.
+        /// O mapeamento foi validado empiricamente no hardware: 0x00 = L, 0x01 = R,
+        /// 0x02 = ambos e 0x03 = nenhum.
         /// </summary>
         public bool TriggerHaptic(bool isRightPad, TrackpadHapticIntensity intensity, bool isClick = false)
         {
             if (intensity == TrackpadHapticIntensity.Off) return false;
             if (_device == null || !_isRunning) return false;
 
-            // No protocolo oficial do Steam Deck / Valve (SDCHapticPacket2 / Neptune):
-            // Por razões legadas da Valve (conforme hid-steam.c e steam-deck-tools):
-            // 0x01 aciona o Trackpad Esquerdo (Left)
-            // 0x00 aciona o Trackpad Direito (Right)
-            byte position = (byte)(isRightPad ? 0x00 : 0x01);
-
-            byte style; // 1 = Weak (Ticks de rotação/scroll), 2 = Strong (Clique mecânico de press down/up)
             sbyte intensityVal; // -7..5 correspondente a -2dB..10dB
 
             if (isClick)
             {
-                style = 2; // Strong
                 switch (intensity)
                 {
                     case TrackpadHapticIntensity.Low:
@@ -382,7 +418,6 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             }
             else
             {
-                style = 1; // Weak
                 switch (intensity)
                 {
                     case TrackpadHapticIntensity.Low:
@@ -398,72 +433,18 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 }
             }
 
-            int ts;
-            lock (_hapticRandom)
-            {
-                ts = _hapticRandom.Next();
-            }
-
-            // Protocolo nativo Neptune SDCHapticPacket2 (tamanho exato 13 bytes / 0x0D):
-            // byte 0: 0x00 (Report ID para HIDAPI Windows)
-            // byte 1: 0xEA (packet_type = 0xEA)
-            // byte 2: 0x0D (len = 13 bytes)
-            // byte 3: position (0x01 = Left, 0x00 = Right no hardware Neptune / Valve)
-            // byte 4: style (1 = Weak, 2 = Strong)
-            // byte 5: unsure2 = 0x00
-            // byte 6: intensity (-7..5)
-            // byte 7: unsure3 = 0x04
-            // byte 8..11: tsA (timestamp aleatório para o hardware diferenciar disparos consecutivos)
-            // byte 12..15: tsB (mesmo timestamp aleatório)
-            byte[] packetEA = new byte[65];
-            packetEA[0] = 0x00;
-            packetEA[1] = 0xEA;
-            packetEA[2] = 0x0D;
-            packetEA[3] = position;
-            packetEA[4] = style;
-            packetEA[5] = 0x00;
-            packetEA[6] = (byte)intensityVal;
-            packetEA[7] = 0x04;
-            packetEA[8] = (byte)(ts & 0xFF);
-            packetEA[9] = (byte)((ts >> 8) & 0xFF);
-            packetEA[10] = (byte)((ts >> 16) & 0xFF);
-            packetEA[11] = (byte)((ts >> 24) & 0xFF);
-            packetEA[12] = (byte)(ts & 0xFF);
-            packetEA[13] = (byte)((ts >> 8) & 0xFF);
-            packetEA[14] = (byte)((ts >> 16) & 0xFF);
-            packetEA[15] = (byte)((ts >> 24) & 0xFF);
-
+            byte[] packetEA = BuildTriggerHapticPacket(isRightPad, isClick, intensityVal);
             int resEA = SteamDeckHidNative.SendFeatureReport(_device, packetEA);
+            HapticTrace.Haptic(isRightPad, intensity.ToString(), isClick, packetEA[3], packetEA[4], intensityVal, resEA);
             return resEA > 0;
         }
 
         public bool TriggerHapticNative(bool isRightPad, byte style, sbyte intensity)
         {
-            var hapticIntensity = intensity switch
-            {
-                <= 0 => TrackpadHapticIntensity.Low,
-                <= 2 => TrackpadHapticIntensity.Medium,
-                _ => TrackpadHapticIntensity.High
-            };
-            return TriggerHaptic(isRightPad, hapticIntensity, isClick: true);
-        }
+            if (_device == null || !_isRunning || style == 0) return false;
 
-        public bool TriggerHapticRaw(bool isRightPad, ushort amplitude, ushort period = 300, ushort count = 1)
-        {
-            if (_device == null || !_isRunning) return false;
-            byte[] packet8F = new byte[65];
-            packet8F[0] = 0x00;
-            packet8F[1] = 0x8F;
-            packet8F[2] = 0x07;
-            packet8F[3] = (byte)(isRightPad ? 0x00 : 0x01); // 0x01 = Left Pad, 0x00 = Right Pad (convenção legada da Valve / Neptune)
-            packet8F[4] = (byte)(amplitude & 0xFF);
-            packet8F[5] = (byte)((amplitude >> 8) & 0xFF);
-            packet8F[6] = (byte)(period & 0xFF);
-            packet8F[7] = (byte)((period >> 8) & 0xFF);
-            packet8F[8] = (byte)(count & 0xFF);
-            packet8F[9] = (byte)((count >> 8) & 0xFF);
-            int res = SteamDeckHidNative.SendFeatureReport(_device, packet8F);
-            return res > 0;
+            byte[] packet = BuildTriggerHapticPacket(isRightPad, isClick: style == 0x02, dBgain: intensity);
+            return SteamDeckHidNative.SendFeatureReport(_device, packet) > 0;
         }
 
         public void Dispose()

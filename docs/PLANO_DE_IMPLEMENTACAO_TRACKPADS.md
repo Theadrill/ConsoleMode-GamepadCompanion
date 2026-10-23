@@ -128,7 +128,7 @@ flowchart LR
      - Tecla `[X]` para limpar entrada do slot, tecla `[B]` para cancelar/voltar e tecla `[RT]` para salvar perfil imediatamente.
 * **Critério de Aceite da Etapa 2:**
   - O usuário consegue abrir a configuração de qualquer trackpad, mudar o modo, salvar com `[RT]` e testar a mudança imediatamente.
-  - Suíte de testes unitários automatizados cobrindo a interface (`TrackpadPhase2Tests`) com 100% de aprovação (243 testes totais) e 0 avisos no build.
+  - Suíte de testes unitários automatizados cobrindo a interface (`TrackpadPhase2Tests`) e o protocolo de haptics (`SteamDeckHapticsTests`) com 100% de aprovação (250 testes totais) e 0 avisos no build.
 
 ---
 
@@ -150,8 +150,8 @@ flowchart LR
 
 ### 2. Causa Raiz da Falha dos Haptics (Atuadores LRA Silenciosos)
 - **Incompatibilidade do Wrapper HidApi:** O método gerenciado `HidDevice.RequestFeatureReport` chamava `hid_get_feature_report` logo após enviar os dados. Como o firmware do Steam Deck não responde a requisições de GET para comandos de saída/rumble, ele lançava uma exceção silenciosa e bloqueava a execução.
-- **Erro de Indexação de Atuador:** O protocolo nativo de haptics da Valve (`0xEA` - `MsgTriggerHaptic`) define os atuadores por bits/máscara (`0x01` para o trackpad esquerdo e `0x02` para o direito). O código anterior utilizava índice zero para a esquerda (`0`), o qual era ignorado pelo firmware.
-- **Solução:** Implementação de `SteamDeckHidNative` com delegate nativo direto para `hid_send_feature_report`. Envio simultâneo dos relatórios oficiais de 65 bytes: `0xEA` (Deck-specific com parâmetros de clique nítido, ganho em dB e duração) e `0x8F` (`ID_TRIGGER_HAPTIC_PULSE` universal), garantindo acionamento físico imediato dos motores LRA tanto em cliques quanto em rotação/scroll.
+- **Estrutura Aceita pelo Firmware:** O comando `0xEA` (`ID_TRIGGER_HAPTIC_CMD`) do Steam Deck é processado pelo firmware Neptune usando a estrutura legada **`SDCHapticPacket2` de 13 bytes (`0x0D`)**: `position`, `style`, `unsure2`, `intensity`, `unsure3`, `tsA` e `tsB`. O campo `position` seleciona o atuador: **`0x00 = Esquerdo`, `0x01 = Direito`, `0x02 = Ambos`, `0x03 = Nenhum`**. O payload oficial de 19 bytes (`MsgTriggerHaptic`) é interpretado pelo firmware como essa estrutura de 13 bytes, então valores de `side` como `0x02` acabam caindo em `position = Ambos`.
+- **Solução:** Implementação de `SteamDeckHidNative` com delegate nativo direto para `hid_send_feature_report` e montagem do relatório de 65 bytes com o payload de 13 bytes (`BuildTriggerHapticPacket`). O caminho ativo usa exclusivamente o `0xEA`; o relatório legado `0x8F` foi removido do fluxo para não duplicar energia nos atuadores.
 
 ### 3. Calibração Háptica: Diferenciação entre Rotação da Trackball e Clique Mecânico
 - **Problema:** A rotação contínua da trackball disparava pulsos muito fortes parecendo britadeira (`TrackballHapticStep = 16f` com ganho +8dB e amplitude 5000), e o scroll do trackpad esquerdo ficava sem resposta tátil entre as quebras de linha.
@@ -165,10 +165,37 @@ flowchart LR
 - **Problema:** Ao pressionar o trackpad direito para selecionar texto ou arrastar janelas, o cursor ficava congelado e quase não se movia devido à âncora de clique e ao amortecimento contínuo de 90% (`ClickStabilizationDamping = 0.10f`) atuando durante todo o tempo de pressão.
 - **Solução:** Implementação do estado `_isClickDragActive`. A âncora e o amortecimento atuam apenas na deformação inicial da polpa do polegar para garantir que o clique estático e o duplo clique não errem o alvo. Assim que o movimento intencional ultrapassa o limiar de quebra (`DoubleClickBreakDistance = 120f`), o amortecimento é 100% desativado e o cursor passa a responder com velocidade normal e fluida (1.0x).
 
-### 5. Resolução da Disparidade de Intensidade Háptica entre os Trackpads (Esquerdo Suave vs Direito Dobrado)
-- **Problema:** No nível `LOW` (ou qualquer intensidade), o trackpad direito apresentava uma resposta física de quase o dobro de força em relação ao esquerdo.
-- **Causa Raiz:** O método `TriggerHaptic` realizava envio concorrente de dois pacotes HID para cada evento háptico: o relatório nativo Neptune `0xEA` (`MsgTriggerHaptic`) e o relatório universal Valve `0x8F` (`ID_TRIGGER_HAPTIC_PULSE`). No pacote `0x8F`, o código utilizava `pad8F = (byte)(isRightPad ? 0x01 : 0x00)`. Como o firmware do Steam Deck rejeitava o índice `0x00` como atuador válido mas aceitava `0x01`, o trackpad direito recebia o impacto de ambos os comandos (`0xEA` + `0x8F`), dobrando a energia mecânica entregue ao atuador LRA direito, enquanto o esquerdo recebia apenas o comando nativo `0xEA`.
+### 5. Resolução do Crosstalk e da Disparidade de Intensidade Háptica entre os Trackpads
+- **Problema:** O trackpad direito apresentava haptics muito mais fortes que o esquerdo. Com o app aberto, mover um trackpad também fazia o outro vibrar. No Lizard Mode nativo, cada pad vibrava isoladamente e a diferença de força era apenas a assimetria física normal do hardware.
+- **Diagnóstico Empírico:** Foi criado um probe HID isolado (`tools/HapticProbe`) que envia pacotes diretamente ao firmware com o Companion fechado. Resultados no hardware real:
+  - `0xEA` 13 bytes, `position = 0x00` → **somente esquerdo**
+  - `0xEA` 13 bytes, `position = 0x01` → **somente direito**
+  - `0xEA` 19 bytes, `side = 0x01` → **somente direito**
+  - `0xEA` 19 bytes, `side = 0x02` → **ambos**
+  - `0xEA` 19 bytes, `side = 0x03` → **nenhum**
+  - `0x8F`, `pad = 0x00` → **somente direito**
+  - `0x8F`, `pad = 0x01` → **somente esquerdo**
+- **Causa Raiz:** O firmware lê o comando `0xEA` como `SDCHapticPacket2` (13 bytes) e usa o byte `position` com semântica `0 = L`, `1 = R`, `2 = Ambos`, `3 = Nenhum`. O código anterior enviava o payload de 19 bytes com `side = 0x02` para o pad direito; o firmware interpretou esse byte como `position = 2` (**ambos**), acionando os dois LRAs. O pad esquerdo enviava `side = 0x01`, que o firmware interpretou como `position = 1` (**direito**). Isso explica exatamente a força excessiva do direito e o crosstalk nos dois sentidos.
 - **Solução:**
-  1. Uso prioritário e exclusivo do relatório nativo Neptune `0xEA` (`resEA > 0`), retornando imediatamente após o sucesso sem enviar o pacote `0x8F`.
-  2. O pacote `0x8F` agora é estritamente mantido como fallback de emergência caso o `0xEA` falhe, com o índice de atuadores corrigido conforme o driver Linux oficial da Valve (`hid-steam.c`: `pad8F = (byte)(isRightPad ? 0x00 : 0x01)`).
-  3. Resultado: Simetria física absoluta (1:1) de intensidade entre os trackpads esquerdo e direito em todos os níveis (`Low`, `Medium`, `High`), tanto em rotação quanto em cliques mecânicos de down e up.
+  1. Voltar ao payload de **13 bytes (`0x0D`)** com `position = isRightPad ? 0x01 : 0x00`. Nunca enviar `0x02`/`0x03` no fluxo normal.
+  2. Manter `style/cmd = 1` para ticks e `2` para cliques; intensidade em `dBgain`; `unsure3 = 0x04`; `tsA = tsB`.
+  3. Remover o relatório `0x8F` do caminho ativo (ele funciona, mas é desnecessário e aumenta o risco de disparo duplo).
+  4. Cobertura automatizada em `SteamDeckHapticsTests` verificando header `0xEA`, payload `0x0D`, `position` por pad, `cmd` tick/click, campos fixos e timestamps.
+  5. Resultado esperado: endereçamento 1:1 por atuador, sem crosstalk. A pequena assimetria física entre os LRAs (direito levemente mais forte) permanece equivalente à do Lizard Mode nativo; se necessário, pode ser compensada com um offset de `dBgain` específico por pad.
+
+### 6. O Que Foi Feito Nesta Correção
+- **Protocolo:** `BuildTriggerHapticPacket` voltou a montar o `SDCHapticPacket2` de 13 bytes (`0x0D`), com `position = 0x00` para o pad esquerdo e `0x01` para o direito.
+- **Intensidade:** `style = 1` para ticks de rotação/scroll e `style = 2` para cliques; `dBgain` continua vindo de `TrackpadHapticIntensity`; `unsure3 = 0x04` e `tsA = tsB` foram preservados.
+- **Remoção do caminho duplo:** o relatório `0x8F` foi retirado do fluxo ativo; apenas o `0xEA` é enviado.
+- **Diagnóstico opt-in:** `HapticTrace` grava transições de toque e pacotes em `%TEMP%\ConsoleMode-Haptics.log` quando `COMPANION_HAPTIC_TRACE=1`.
+- **Probe de hardware:** `tools/HapticProbe/HapticProbe.cs` permite testar 13 bytes, 19 bytes e `0x8F` com o Companion fechado, registrando qual pad vibrou em `%TEMP%\HapticProbe-results.txt`.
+- **Testes:** `SteamDeckHapticsTests` cobre header, tamanho, `position` por pad, `cmd` tick/click, campos fixos e timestamps. Suíte total: **250 testes aprovados, 0 falhas, 0 warnings**.
+
+### 7. Finetuning Futuro (Backlog)
+1. **Compensação de assimetria física:** se o LRA direito continuar levemente mais forte que o esquerdo no mesmo `dBgain`, adicionar um offset fixo por pad (ex.: `-1 dB` no direito) configurável no perfil, sem reintroduzir crosstalk.
+2. **Calibração de textura:** ajustar `TrackballHapticStep`, `_scrollHapticAccumulator` e a curva de `dBgain` para aproximar a sensação do Lizard Mode nativo, especialmente em rotação lenta vs. rápida.
+3. **Perfis de haptics por modo:** permitir curvas diferentes para Mouse, Trackball, Scroll e D-Pad, em vez de uma única tabela global de intensidade.
+4. **Diagnóstico pela UI:** expor o `COMPANION_HAPTIC_TRACE` e o probe como opção de "Modo Diagnóstico" nas configurações, evitando depender de variável de ambiente.
+5. **Validação de Lizard Mode:** confirmar se `SETTING_LIZARD_MODE=0` e `SETTING_STEAM_WATCHDOG_ENABLE=0` são necessários para evitar rearme do modo nativo; hoje o keepalive de 1000 ms resolve, mas o watchdog pode voltar após suspend/resume.
+6. **Teste de regressão de hardware:** manter o probe documentado para repetir o mapeamento após atualizações de firmware do SteamOS/Neptune.
+7. **Limpeza opcional:** se o probe não for mantido no repositório de produção, movê-lo para uma pasta de ferramentas de desenvolvimento ou documentar que ele não faz parte do build da solução.
