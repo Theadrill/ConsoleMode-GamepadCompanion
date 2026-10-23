@@ -90,6 +90,9 @@ O que já foi feito:
   - Suspensão instantânea de emulação quando o Companion está em primeiro plano para garantir navegação fluida da UI sem interferência.
   - Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md`](./docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md).
 - [x] **Fase 6 (Steam Deck):** Configuração dos Trackpads (Mouse/Trackball de alta precisão, Scrollwheel vertical contínuo, D-Pad e Botão Único com Feedback Háptico). Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md`](./docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md).
+- [ ] **Aba de Gamepad na Tela de Mapping (Steam Deck):**
+  - Quando o controle ativo atual for reconhecido como **Steam Deck**, exibir uma aba dedicada de Gamepad na tela de Mapping.
+  - Permite mapear os botões do gamepad para os botões nativos do Steam Deck (ex: A/B/X/Y, D-Pad, L1/R1, L2/R2, L4/L5/R4/R5, trackpads e botões de sistema).
 - [ ] **Fallback Automático para Gamepad Conectado:**
   - Quando o slot de controle configurado ou persistido anteriormente estiver desconectado na inicialização ou durante o uso (ex: desconectar um controle 8BitDo/Bluetooth após testes), o sistema chaveia automaticamente para um controle conectado ativo, evitando iniciar ou permanecer com um slot desconectado.
 - [ ] **Compartilhamento/Export de Perfis & Banco de Dados Online da Comunidade:**
