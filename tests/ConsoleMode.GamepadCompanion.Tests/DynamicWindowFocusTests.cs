@@ -113,5 +113,114 @@ namespace ConsoleMode.GamepadCompanion.Tests
                 Assert.Equal("Desktop", profileManager.ActiveProfileName);
             }
         }
+
+        [Fact]
+        public void WindowTracker_EvaluateActiveWindow_MatchesByWorkingDirectory_ForDistinctGamesRunningSameExecutable()
+        {
+            var tracker = new WindowTracker();
+            var sim = new DummyInputSimulator();
+            var settings = new AppSettings { ClipCursorToGameWindow = false };
+            var gamingProfile = new GamingProfile(sim, settings);
+            var desktopProfile = new DesktopProfile();
+            var gamepad = new DummyGamepadService();
+
+            var turtleProfile = GameProfilePresets.CreateStandardPc();
+            turtleProfile.ActivePage.MouseSensitivity = 10;
+            var turtleGame = new GameEntry
+            {
+                Id = "turtle-wow",
+                Name = "Turtle WoW",
+                WorkingDirectory = @"C:\Games\TurtleWoW\",
+                MainExecutable = "VanillaFixes.exe",
+                TargetPath = @"C:\Games\TurtleWoW\VanillaFixes.exe",
+                Profile = turtleProfile
+            };
+
+            var octoProfile = GameProfilePresets.CreateStandardPc();
+            octoProfile.ActivePage.MouseSensitivity = 90;
+            var octoGame = new GameEntry
+            {
+                Id = "octo-wow",
+                Name = "OctoWoW",
+                WorkingDirectory = @"C:\Games\OctoWoW\",
+                MainExecutable = "VanillaFixes.exe",
+                TargetPath = @"C:\Games\OctoWoW\VanillaFixes.exe",
+                Profile = octoProfile
+            };
+
+            tracker.SetGames(new[] { turtleGame, octoGame });
+
+            using (var profileEngine = new ProfileEngine(gamepad, desktopProfile))
+            using (var profileManager = new ProfileManager(profileEngine, gamingProfile, desktopProfile, tracker, gamepad, settings))
+            {
+                // 1. Processo WoW.exe rodando dentro da pasta do Turtle WoW
+                tracker.EvaluateActiveWindow(new IntPtr(100), 1234, "WoW", @"C:\Games\TurtleWoW\WoW.exe");
+                Assert.True(tracker.IsGameFocused);
+                Assert.NotNull(tracker.ActiveGame);
+                Assert.Equal("turtle-wow", tracker.ActiveGame.Id);
+                Assert.Equal("Turtle WoW", profileManager.ActiveProfileName);
+                Assert.Equal(10, gamingProfile.ActiveProfile.ActivePage.MouseSensitivity);
+
+                // 2. Processo WoW.exe rodando dentro da pasta do OctoWoW
+                tracker.EvaluateActiveWindow(new IntPtr(200), 5678, "WoW", @"C:\Games\OctoWoW\WoW.exe");
+                Assert.True(tracker.IsGameFocused);
+                Assert.NotNull(tracker.ActiveGame);
+                Assert.Equal("octo-wow", tracker.ActiveGame.Id);
+                Assert.Equal("OctoWoW", profileManager.ActiveProfileName);
+                Assert.Equal(90, gamingProfile.ActiveProfile.ActivePage.MouseSensitivity);
+
+                // 3. Processo desconhecido (ex: Chrome, Bloco de Notas) não é jogo
+                tracker.EvaluateActiveWindow(new IntPtr(300), 9999, "chrome", @"C:\Program Files\Google\Chrome\chrome.exe");
+                Assert.False(tracker.IsGameFocused);
+                Assert.Null(tracker.ActiveGame);
+                Assert.Equal("Desktop", profileManager.ActiveProfileName);
+            }
+        }
+
+        [Fact]
+        public void WindowTracker_RegisterGame_UpdatesCachedGameReferences_WhenProfileEdited()
+        {
+            var tracker = new WindowTracker();
+            var sim = new DummyInputSimulator();
+            var settings = new AppSettings { ClipCursorToGameWindow = false };
+            var gamingProfile = new GamingProfile(sim, settings);
+            var desktopProfile = new DesktopProfile();
+            var gamepad = new DummyGamepadService();
+
+            var gameProfile = GameProfilePresets.CreateStandardPc();
+            gameProfile.ActivePage.MouseSensitivity = 15;
+            var game = new GameEntry
+            {
+                Id = "my-rpg",
+                Name = "My RPG Game",
+                WorkingDirectory = @"C:\Games\MyRPG\",
+                MainExecutable = "Game.exe",
+                TargetPath = @"C:\Games\MyRPG\Game.exe",
+                Profile = gameProfile
+            };
+
+            tracker.SetGames(new[] { game });
+
+            using (var profileEngine = new ProfileEngine(gamepad, desktopProfile))
+            using (var profileManager = new ProfileManager(profileEngine, gamingProfile, desktopProfile, tracker, gamepad, settings))
+            {
+                // Jogo entra em foco
+                tracker.EvaluateActiveWindow(new IntPtr(555), 4444, "Game", @"C:\Games\MyRPG\Game.exe");
+                Assert.True(tracker.IsGameFocused);
+                Assert.Equal(15, gamingProfile.ActiveProfile.ActivePage.MouseSensitivity);
+
+                // Usuário altera a sensibilidade para 85 no editor e salva
+                var updatedGame = game.Clone();
+                updatedGame.Profile.ActivePage.MouseSensitivity = 85;
+
+                // Salva no tracker
+                tracker.RegisterGame(updatedGame);
+                profileManager.RefreshActiveGameProfile();
+
+                // Verifica que a referência ativa e o motor de input foram atualizados sem reiniciar o app
+                Assert.Equal(85, tracker.ActiveGame.Profile.ActivePage.MouseSensitivity);
+                Assert.Equal(85, gamingProfile.ActiveProfile.ActivePage.MouseSensitivity);
+            }
+        }
     }
 }

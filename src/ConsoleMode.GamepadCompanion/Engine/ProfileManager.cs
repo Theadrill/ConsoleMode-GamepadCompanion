@@ -198,7 +198,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
                 }
                 else
                 {
-                    _gamingProfile.ActiveProfile = GameProfilePresets.CreateWowClassic();
+                    _gamingProfile.ActiveProfile = GameProfilePresets.CreateStandardPc();
                 }
 
                 _profileEngine.CurrentProfile = _gamingProfile;

@@ -61,7 +61,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
         {
             _input = input ?? throw new ArgumentNullException(nameof(input));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            _activeProfile = initialProfile ?? GameProfilePresets.CreateWowClassic();
+            _activeProfile = initialProfile ?? GameProfilePresets.CreateStandardPc();
             _hapticsProvider = haptics;
         }
 
@@ -82,7 +82,7 @@ namespace ConsoleMode.GamepadCompanion.Profiles
                 {
                     if (ReferenceEquals(_activeProfile, value)) return;
                     ResetInternal();
-                    _activeProfile = value ?? GameProfilePresets.CreateWowClassic();
+                    _activeProfile = value ?? GameProfilePresets.CreateStandardPc();
                 }
             }
         }
