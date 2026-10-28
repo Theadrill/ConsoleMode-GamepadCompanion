@@ -26,7 +26,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             editor.LoadGameProfile(game, new AppSettings());
 
-            Assert.Equal(ProfileEditorSlot.DeadzoneSlider, editor.FocusedSlot);
+            Assert.Equal(ProfileEditorSlot.ButtonLT, editor.FocusedSlot);
             Assert.Equal(20, editor.WorkingProfile.ActivePage.MouseSensitivity);
             Assert.True(editor.WorkingProfile.UseGlobalDeadzone);
             Assert.True(editor.WorkingProfile.UseGlobalTriggerThreshold);
@@ -47,7 +47,7 @@ namespace ConsoleMode.GamepadCompanion.Tests
             editor.ProcessGamepad(MakeState(3), 70);
             Assert.False(editor.IsEditingSlider);
             Assert.True(editor.WorkingProfile.UseGlobalDeadzone);
-            Assert.Equal(ProfileEditorSlot.LeftStickMode, editor.FocusedSlot);
+            Assert.Equal(ProfileEditorSlot.TriggerSlider, editor.FocusedSlot);
 
             // 2. Retorna para DeadzoneSlider e aperta [A] para entrar no modo de edição do slider
             editor.SetFocusedSlot(ProfileEditorSlot.DeadzoneSlider);

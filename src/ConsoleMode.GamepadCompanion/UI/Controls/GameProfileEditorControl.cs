@@ -110,7 +110,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private AppSettings _settings = new AppSettings();
         private readonly List<GameEntry> _otherGames = new List<GameEntry>();
 
-        private ProfileEditorSlot _focusedSlot = ProfileEditorSlot.DeadzoneSlider;
+        private ProfileEditorSlot _focusedSlot = ProfileEditorSlot.ButtonLT;
         private readonly Dictionary<ProfileEditorSlot, RectangleF> _slotBounds = new Dictionary<ProfileEditorSlot, RectangleF>();
 
         // Bounds dinâmicos relativos dos cards
@@ -118,7 +118,6 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private RectangleF _dpadCardRect;
         private RectangleF _faceCardRect;
         private RectangleF _rightStickCardRect;
-        private RectangleF _sidebarRect;
 
         // Menu Overlay de Presets / Copiar Jogo
         private bool _isPresetMenuOpen;
@@ -226,7 +225,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             RebuildPresetMenuItems();
             _isPresetMenuOpen = false;
             _presetMenuFocusedIndex = 0;
-            _focusedSlot = ProfileEditorSlot.DeadzoneSlider;
+            _focusedSlot = ProfileEditorSlot.ButtonLT;
             ResetInputState();
             Invalidate();
         }
@@ -561,6 +560,17 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 return page.RightStick != null && page.RightStick.Mode == StickMode.MouseMove;
             }
 
+            if (slot == ProfileEditorSlot.DeadzoneSlider || slot == ProfileEditorSlot.DeadzoneGlobalToggle)
+            {
+                return (page.RightStick != null && page.RightStick.Mode == StickMode.MouseMove) ||
+                       (page.LeftStick != null && page.LeftStick.Mode == StickMode.MouseMove);
+            }
+
+            if (slot == ProfileEditorSlot.TriggerSlider || slot == ProfileEditorSlot.TriggerGlobalToggle)
+            {
+                return true;
+            }
+
             if (slot == ProfileEditorSlot.LeftStickUp ||
                 slot == ProfileEditorSlot.LeftStickDown ||
                 slot == ProfileEditorSlot.LeftStickLeft ||
@@ -783,14 +793,6 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             _lastRight = right;
         }
 
-        private static bool IsSidebarSlot(ProfileEditorSlot slot)
-        {
-            return slot == ProfileEditorSlot.DeadzoneSlider ||
-                   slot == ProfileEditorSlot.DeadzoneGlobalToggle ||
-                   slot == ProfileEditorSlot.TriggerSlider ||
-                   slot == ProfileEditorSlot.TriggerGlobalToggle;
-        }
-
         private static bool IsSliderSlot(ProfileEditorSlot slot)
         {
             return slot == ProfileEditorSlot.MouseSensitivity ||
@@ -995,6 +997,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     ? ProfileEditorSlot.LeftStickMode
                     : ProfileEditorSlot.RightStickMode;
             }
+            _slotBounds.Clear();
+            EnsureLogicalBoundsPopulated();
             Invalidate();
         }
 
@@ -1030,26 +1034,9 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             EnsureLogicalBoundsPopulated();
             if (!_slotBounds.TryGetValue(_focusedSlot, out var curRect))
             {
-                _focusedSlot = ProfileEditorSlot.DeadzoneSlider;
+                _focusedSlot = ProfileEditorSlot.ButtonLT;
                 Invalidate();
                 return;
-            }
-
-            // Transição direta da barra lateral de ajustes para a coluna de controles ao apertar Direita
-            if (dirX > 0 && IsSidebarSlot(_focusedSlot))
-            {
-                if (_focusedSlot == ProfileEditorSlot.DeadzoneSlider || _focusedSlot == ProfileEditorSlot.DeadzoneGlobalToggle)
-                {
-                    _focusedSlot = ProfileEditorSlot.LeftStickMode;
-                    Invalidate();
-                    return;
-                }
-                if (_focusedSlot == ProfileEditorSlot.TriggerSlider || _focusedSlot == ProfileEditorSlot.TriggerGlobalToggle)
-                {
-                    _focusedSlot = ProfileEditorSlot.DPadUp;
-                    Invalidate();
-                    return;
-                }
             }
 
             float curCx = curRect.X + curRect.Width / 2f;
@@ -1079,7 +1066,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 float secondaryDist = dirY != 0 ? Math.Abs(dx) : Math.Abs(dy);
 
                 // Penaliza candidatos muito desalinhados no eixo ortogonal
-                float score = primaryDist + secondaryDist * 1.65f;
+                float score = primaryDist + secondaryDist * 2.5f;
                 if (score < bestScore)
                 {
                     bestScore = score;
@@ -1099,138 +1086,201 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             if (_slotBounds.Count > 0) return;
 
             // 1. Seletor de Preset no Topo
-            _slotBounds[ProfileEditorSlot.PresetSelector] = new RectangleF(488, 5, 216, 28);
+            _slotBounds[ProfileEditorSlot.PresetSelector] = new RectangleF(480, 5, 216, 28);
 
-            // 2. Ombros Topo (LT/LB/Back e RT/RB/Start)
+            // 2. Ombros Topo (LT/LB/Back e RT/RB/Start) e Gatilhos Central
+            float cardW = 210f;
+            float leftX = 20f;
+            float rightX = 486f;
+
             float curLeftY = 44f;
-            _slotBounds[ProfileEditorSlot.ButtonLT] = new RectangleF(104, curLeftY, 178, 23); curLeftY += 25f;
-            _slotBounds[ProfileEditorSlot.ButtonLB] = new RectangleF(104, curLeftY, 178, 23); curLeftY += 25f;
-            _slotBounds[ProfileEditorSlot.ButtonBack] = new RectangleF(104, curLeftY, 178, 23); curLeftY += 27f;
+            _slotBounds[ProfileEditorSlot.ButtonLT] = new RectangleF(leftX, curLeftY, cardW, 23); curLeftY += 25f;
+            _slotBounds[ProfileEditorSlot.ButtonLB] = new RectangleF(leftX, curLeftY, cardW, 23); curLeftY += 25f;
+            _slotBounds[ProfileEditorSlot.ButtonBack] = new RectangleF(leftX, curLeftY, cardW, 23);
 
             float curRightY = 44f;
-            _slotBounds[ProfileEditorSlot.ButtonRT] = new RectangleF(526, curRightY, 178, 23); curRightY += 25f;
-            _slotBounds[ProfileEditorSlot.ButtonRB] = new RectangleF(526, curRightY, 178, 23); curRightY += 25f;
-            _slotBounds[ProfileEditorSlot.ButtonStart] = new RectangleF(526, curRightY, 178, 23); curRightY += 27f;
+            _slotBounds[ProfileEditorSlot.ButtonRT] = new RectangleF(rightX, curRightY, cardW, 23); curRightY += 25f;
+            _slotBounds[ProfileEditorSlot.ButtonRB] = new RectangleF(rightX, curRightY, cardW, 23); curRightY += 25f;
+            _slotBounds[ProfileEditorSlot.ButtonStart] = new RectangleF(rightX, curRightY, cardW, 23);
+
+            // Bloco Central de Limiar dos Gatilhos (entre LT e RT)
+            _slotBounds[ProfileEditorSlot.TriggerGlobalToggle] = new RectangleF(385, 43, 70, 18);
+            _slotBounds[ProfileEditorSlot.TriggerSlider] = new RectangleF(261, 65, 194, 14);
 
             float topCardsY = 125f;
 
+            var page = _workingProfile.ActivePage;
+            var stickL = page?.LeftStick;
+            var stickR = page?.RightStick;
+
             if (_visualMode == ControllerVisualMode.HandheldSteamDeck)
             {
-                // Layout Relativo Dinâmico Otimizado:
-                // Sticks e Botões Faciais ganham respiro vertical amplo (118px e 116px)
-                float leftStickH = 118f;
+                // Card Stick Esquerdo
+                if (stickL != null && stickL.Mode == StickMode.MouseMove)
+                {
+                    float leftStickH = 136f;
+                    _leftStickCardRect = new RectangleF(leftX, topCardsY, cardW, leftStickH);
+                    _slotBounds[ProfileEditorSlot.LeftStickMode] = new RectangleF(leftX + 8, topCardsY + 18, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle] = new RectangleF(leftX + cardW - 8 - 70, topCardsY + 41, 70, 18);
+                    _slotBounds[ProfileEditorSlot.DeadzoneSlider] = new RectangleF(leftX + 8, topCardsY + 63, cardW - 16, 14);
+                    _slotBounds[ProfileEditorSlot.LeftStickAdditional] = new RectangleF(leftX + 8, topCardsY + 85, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.LeftStickClick] = new RectangleF(leftX + 8, topCardsY + 107, cardW - 16, 18);
+                }
+                else
+                {
+                    float leftStickH = 118f;
+                    _leftStickCardRect = new RectangleF(leftX, topCardsY, cardW, leftStickH);
+                    _slotBounds[ProfileEditorSlot.LeftStickMode] = new RectangleF(leftX + 8, topCardsY + 18, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.LeftStickUp] = new RectangleF(leftX + 8, topCardsY + 38, 94, 15);
+                    _slotBounds[ProfileEditorSlot.LeftStickDown] = new RectangleF(leftX + 108, topCardsY + 38, 94, 15);
+                    _slotBounds[ProfileEditorSlot.LeftStickLeft] = new RectangleF(leftX + 8, topCardsY + 55, 94, 15);
+                    _slotBounds[ProfileEditorSlot.LeftStickRight] = new RectangleF(leftX + 108, topCardsY + 55, 94, 15);
+                    _slotBounds[ProfileEditorSlot.LeftStickAdditional] = new RectangleF(leftX + 8, topCardsY + 72, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.LeftStickClick] = new RectangleF(leftX + 8, topCardsY + 93, cardW - 16, 18);
+                }
+
+                // Card Botões Faciais (ABXY)
                 float faceButtonsH = 118f;
+                _faceCardRect = new RectangleF(rightX, topCardsY, cardW, faceButtonsH);
+                _slotBounds[ProfileEditorSlot.ButtonY] = new RectangleF(rightX + 8, topCardsY + 16, cardW - 16, 21);
+                _slotBounds[ProfileEditorSlot.ButtonB] = new RectangleF(rightX + 8, topCardsY + 40, cardW - 16, 21);
+                _slotBounds[ProfileEditorSlot.ButtonX] = new RectangleF(rightX + 8, topCardsY + 64, cardW - 16, 21);
+                _slotBounds[ProfileEditorSlot.ButtonA] = new RectangleF(rightX + 8, topCardsY + 88, cardW - 16, 21);
 
-                // Card Stick Esquerdo (118px)
-                _leftStickCardRect = new RectangleF(104, topCardsY, 178, leftStickH);
-                _slotBounds[ProfileEditorSlot.LeftStickMode] = new RectangleF(112, topCardsY + 18, 162, 18);
-                _slotBounds[ProfileEditorSlot.LeftStickUp] = new RectangleF(112, topCardsY + 38, 78, 15);
-                _slotBounds[ProfileEditorSlot.LeftStickDown] = new RectangleF(196, topCardsY + 38, 78, 15);
-                _slotBounds[ProfileEditorSlot.LeftStickLeft] = new RectangleF(112, topCardsY + 55, 78, 15);
-                _slotBounds[ProfileEditorSlot.LeftStickRight] = new RectangleF(196, topCardsY + 55, 78, 15);
-                _slotBounds[ProfileEditorSlot.LeftStickAdditional] = new RectangleF(112, topCardsY + 72, 162, 18);
-                _slotBounds[ProfileEditorSlot.LeftStickClick] = new RectangleF(112, topCardsY + 93, 162, 18);
-
-                // Card Botões Faciais (ABXY) (118px - linhas amplas de 21px com respiro interno!)
-                _faceCardRect = new RectangleF(526, topCardsY, 178, faceButtonsH);
-                _slotBounds[ProfileEditorSlot.ButtonY] = new RectangleF(534, topCardsY + 16, 162, 21);
-                _slotBounds[ProfileEditorSlot.ButtonB] = new RectangleF(534, topCardsY + 40, 162, 21);
-                _slotBounds[ProfileEditorSlot.ButtonX] = new RectangleF(534, topCardsY + 64, 162, 21);
-                _slotBounds[ProfileEditorSlot.ButtonA] = new RectangleF(534, topCardsY + 88, 162, 21);
-
-                // Card D-Pad (116px - caixas direcionais amplas de 38px!)
-                float dpadY = _leftStickCardRect.Bottom + 7f;
+                // Card D-Pad (Abaixo do Stick Esquerdo)
+                float dpadY = _leftStickCardRect.Bottom + 6f;
                 float dpadH = 116f;
-                _dpadCardRect = new RectangleF(104, dpadY, 178, dpadH);
-                _slotBounds[ProfileEditorSlot.DPadUp] = new RectangleF(112, dpadY + 18, 78, 38);
-                _slotBounds[ProfileEditorSlot.DPadDown] = new RectangleF(196, dpadY + 18, 78, 38);
-                _slotBounds[ProfileEditorSlot.DPadLeft] = new RectangleF(112, dpadY + 62, 78, 38);
-                _slotBounds[ProfileEditorSlot.DPadRight] = new RectangleF(196, dpadY + 62, 78, 38);
+                _dpadCardRect = new RectangleF(leftX, dpadY, cardW, dpadH);
+                _slotBounds[ProfileEditorSlot.DPadUp] = new RectangleF(leftX + 8, dpadY + 18, 94, 38);
+                _slotBounds[ProfileEditorSlot.DPadDown] = new RectangleF(leftX + 108, dpadY + 18, 94, 38);
+                _slotBounds[ProfileEditorSlot.DPadLeft] = new RectangleF(leftX + 8, dpadY + 62, 94, 38);
+                _slotBounds[ProfileEditorSlot.DPadRight] = new RectangleF(leftX + 108, dpadY + 62, 94, 38);
 
-                // Card Stick Direito (118px - amplo respiro, sem colisão de textos!)
-                float rightStickY = _faceCardRect.Bottom + 7f;
-                float rightStickH = 118f;
-                _rightStickCardRect = new RectangleF(526, rightStickY, 178, rightStickH);
-                _slotBounds[ProfileEditorSlot.RightStickMode] = new RectangleF(534, rightStickY + 18, 162, 18);
-                _slotBounds[ProfileEditorSlot.RightStickUp] = new RectangleF(534, rightStickY + 38, 78, 15);
-                _slotBounds[ProfileEditorSlot.RightStickDown] = new RectangleF(618, rightStickY + 38, 78, 15);
-                _slotBounds[ProfileEditorSlot.RightStickLeft] = new RectangleF(534, rightStickY + 55, 78, 15);
-                _slotBounds[ProfileEditorSlot.RightStickRight] = new RectangleF(618, rightStickY + 55, 78, 15);
-                _slotBounds[ProfileEditorSlot.MouseSensitivity] = new RectangleF(534, rightStickY + 52, 162, 14);
-                _slotBounds[ProfileEditorSlot.RightStickAdditional] = new RectangleF(534, rightStickY + 72, 162, 18);
-                _slotBounds[ProfileEditorSlot.RightStickClick] = new RectangleF(534, rightStickY + 93, 162, 18);
+                // Card Stick Direito (Abaixo dos Botões Faciais)
+                float rightStickY = _faceCardRect.Bottom + 6f;
+                if (stickR != null && stickR.Mode == StickMode.MouseMove)
+                {
+                    float rightStickH = 144f;
+                    _rightStickCardRect = new RectangleF(rightX, rightStickY, cardW, rightStickH);
+                    _slotBounds[ProfileEditorSlot.RightStickMode] = new RectangleF(rightX + 8, rightStickY + 18, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.MouseSensitivity] = new RectangleF(rightX + 8, rightStickY + 52, cardW - 16, 13);
+                    _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle] = new RectangleF(rightX + cardW - 8 - 70, rightStickY + 69, 70, 18);
+                    _slotBounds[ProfileEditorSlot.DeadzoneSlider] = new RectangleF(rightX + 8, rightStickY + 91, cardW - 16, 13);
+                    _slotBounds[ProfileEditorSlot.RightStickAdditional] = new RectangleF(rightX + 8, rightStickY + 108, cardW - 16, 17);
+                    _slotBounds[ProfileEditorSlot.RightStickClick] = new RectangleF(rightX + 8, rightStickY + 128, cardW - 16, 16);
+                }
+                else
+                {
+                    float rightStickH = 118f;
+                    _rightStickCardRect = new RectangleF(rightX, rightStickY, cardW, rightStickH);
+                    _slotBounds[ProfileEditorSlot.RightStickMode] = new RectangleF(rightX + 8, rightStickY + 18, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.RightStickUp] = new RectangleF(rightX + 8, rightStickY + 38, 94, 15);
+                    _slotBounds[ProfileEditorSlot.RightStickDown] = new RectangleF(rightX + 108, rightStickY + 38, 94, 15);
+                    _slotBounds[ProfileEditorSlot.RightStickLeft] = new RectangleF(rightX + 8, rightStickY + 55, 94, 15);
+                    _slotBounds[ProfileEditorSlot.RightStickRight] = new RectangleF(rightX + 108, rightStickY + 55, 94, 15);
+                    _slotBounds[ProfileEditorSlot.MouseSensitivity] = new RectangleF(rightX + 8, rightStickY + 52, cardW - 16, 13);
+                    _slotBounds[ProfileEditorSlot.RightStickAdditional] = new RectangleF(rightX + 8, rightStickY + 72, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.RightStickClick] = new RectangleF(rightX + 8, rightStickY + 93, cardW - 16, 18);
 
-                // Trackpads Sob Medida (116px de altura, sem sobras vazias!)
-                float padTop = 372f;
-                float padH = 116f;
+                    if (!_slotBounds.ContainsKey(ProfileEditorSlot.DeadzoneSlider))
+                    {
+                        _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle] = new RectangleF(rightX + cardW - 8 - 70, rightStickY + 69, 70, 18);
+                        _slotBounds[ProfileEditorSlot.DeadzoneSlider] = new RectangleF(rightX + 8, rightStickY + 91, cardW - 16, 13);
+                    }
+                }
 
-                _slotBounds[ProfileEditorSlot.LeftTrackpad] = new RectangleF(104, padTop, 178, padH);
-                _slotBounds[ProfileEditorSlot.RightTrackpad] = new RectangleF(526, padTop, 178, padH);
+                // Trackpads
+                float padTop = 374f;
+                float padH = 114f;
+                _slotBounds[ProfileEditorSlot.LeftTrackpad] = new RectangleF(leftX, padTop, cardW, padH);
 
-                // Barra Lateral de Ajustes (alinhada à base dos trackpads)
-                _sidebarRect = new RectangleF(8, 44, 88, 444);
-                _slotBounds[ProfileEditorSlot.DeadzoneSlider] = new RectangleF(14, 88, 76, 16);
-                _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle] = new RectangleF(14, 114, 76, 20);
-                _slotBounds[ProfileEditorSlot.TriggerSlider] = new RectangleF(14, 160, 76, 16);
-                _slotBounds[ProfileEditorSlot.TriggerGlobalToggle] = new RectangleF(14, 186, 76, 20);
+                float rPadTop = _rightStickCardRect.Bottom + 6f;
+                float rPadH = Math.Max(70f, 488f - rPadTop);
+                _slotBounds[ProfileEditorSlot.RightTrackpad] = new RectangleF(rightX, rPadTop, cardW, rPadH);
 
                 // Centro da Tela (Diagrama Centralizado + Botões Traseiros + Salvar/Voltar)
-                _slotBounds[ProfileEditorSlot.ButtonL4] = new RectangleF(291, 272, 52, 34);
-                _slotBounds[ProfileEditorSlot.ButtonL5] = new RectangleF(347, 272, 52, 34);
-                _slotBounds[ProfileEditorSlot.ButtonR5] = new RectangleF(411, 272, 52, 34);
-                _slotBounds[ProfileEditorSlot.ButtonR4] = new RectangleF(467, 272, 52, 34);
+                _slotBounds[ProfileEditorSlot.ButtonL4] = new RectangleF(244, 272, 52, 34);
+                _slotBounds[ProfileEditorSlot.ButtonL5] = new RectangleF(300, 272, 52, 34);
+                _slotBounds[ProfileEditorSlot.ButtonR5] = new RectangleF(364, 272, 52, 34);
+                _slotBounds[ProfileEditorSlot.ButtonR4] = new RectangleF(420, 272, 52, 34);
 
-                _slotBounds[ProfileEditorSlot.FooterSave] = new RectangleF(295, 324, 110, 36);
-                _slotBounds[ProfileEditorSlot.FooterBack] = new RectangleF(409, 324, 102, 36);
+                _slotBounds[ProfileEditorSlot.FooterSave] = new RectangleF(247, 324, 110, 36);
+                _slotBounds[ProfileEditorSlot.FooterBack] = new RectangleF(367, 324, 102, 36);
             }
             else
             {
                 // Layout Padrão Gamepad Clássico
-                _leftStickCardRect = new RectangleF(104, 122, 178, 120);
-                _dpadCardRect = new RectangleF(104, 258, 178, 70);
-                _faceCardRect = new RectangleF(526, 122, 178, 110);
-                _rightStickCardRect = new RectangleF(526, 240, 178, 120);
-                _sidebarRect = new RectangleF(8, 44, 88, 284);
+                if (stickL != null && stickL.Mode == StickMode.MouseMove)
+                {
+                    _leftStickCardRect = new RectangleF(leftX, 125, cardW, 136);
+                    _slotBounds[ProfileEditorSlot.LeftStickMode] = new RectangleF(leftX + 8, 143, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle] = new RectangleF(leftX + cardW - 8 - 70, 166, 70, 18);
+                    _slotBounds[ProfileEditorSlot.DeadzoneSlider] = new RectangleF(leftX + 8, 188, cardW - 16, 14);
+                    _slotBounds[ProfileEditorSlot.LeftStickAdditional] = new RectangleF(leftX + 8, 210, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.LeftStickClick] = new RectangleF(leftX + 8, 232, cardW - 16, 18);
+                }
+                else
+                {
+                    _leftStickCardRect = new RectangleF(leftX, 125, cardW, 120);
+                    _slotBounds[ProfileEditorSlot.LeftStickMode] = new RectangleF(leftX + 8, 143, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.LeftStickUp] = new RectangleF(leftX + 8, 163, 94, 15);
+                    _slotBounds[ProfileEditorSlot.LeftStickDown] = new RectangleF(leftX + 108, 163, 94, 15);
+                    _slotBounds[ProfileEditorSlot.LeftStickLeft] = new RectangleF(leftX + 8, 180, 94, 15);
+                    _slotBounds[ProfileEditorSlot.LeftStickRight] = new RectangleF(leftX + 108, 180, 94, 15);
+                    _slotBounds[ProfileEditorSlot.LeftStickAdditional] = new RectangleF(leftX + 8, 197, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.LeftStickClick] = new RectangleF(leftX + 8, 218, cardW - 16, 18);
+                }
 
-                _slotBounds[ProfileEditorSlot.DeadzoneSlider] = new RectangleF(14, 88, 76, 16);
-                _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle] = new RectangleF(14, 114, 76, 20);
-                _slotBounds[ProfileEditorSlot.TriggerSlider] = new RectangleF(14, 160, 76, 16);
-                _slotBounds[ProfileEditorSlot.TriggerGlobalToggle] = new RectangleF(14, 186, 76, 20);
+                float dpadClassicY = _leftStickCardRect.Bottom + 12f;
+                _dpadCardRect = new RectangleF(leftX, dpadClassicY, cardW, 72);
+                _slotBounds[ProfileEditorSlot.DPadUp] = new RectangleF(leftX + 8, dpadClassicY + 16, 94, 22);
+                _slotBounds[ProfileEditorSlot.DPadDown] = new RectangleF(leftX + 108, dpadClassicY + 16, 94, 22);
+                _slotBounds[ProfileEditorSlot.DPadLeft] = new RectangleF(leftX + 8, dpadClassicY + 42, 94, 22);
+                _slotBounds[ProfileEditorSlot.DPadRight] = new RectangleF(leftX + 108, dpadClassicY + 42, 94, 22);
 
-                _slotBounds[ProfileEditorSlot.LeftStickMode] = new RectangleF(112, 141, 162, 18);
-                _slotBounds[ProfileEditorSlot.LeftStickUp] = new RectangleF(112, 161, 78, 15);
-                _slotBounds[ProfileEditorSlot.LeftStickDown] = new RectangleF(196, 161, 78, 15);
-                _slotBounds[ProfileEditorSlot.LeftStickLeft] = new RectangleF(112, 178, 78, 15);
-                _slotBounds[ProfileEditorSlot.LeftStickRight] = new RectangleF(196, 178, 78, 15);
-                _slotBounds[ProfileEditorSlot.LeftStickAdditional] = new RectangleF(112, 195, 162, 18);
-                _slotBounds[ProfileEditorSlot.LeftStickClick] = new RectangleF(112, 216, 162, 18);
+                _faceCardRect = new RectangleF(rightX, 125, cardW, 110);
+                _slotBounds[ProfileEditorSlot.ButtonY] = new RectangleF(rightX + 8, 141, cardW - 16, 20);
+                _slotBounds[ProfileEditorSlot.ButtonB] = new RectangleF(rightX + 8, 163, cardW - 16, 20);
+                _slotBounds[ProfileEditorSlot.ButtonX] = new RectangleF(rightX + 8, 185, cardW - 16, 20);
+                _slotBounds[ProfileEditorSlot.ButtonA] = new RectangleF(rightX + 8, 207, cardW - 16, 20);
 
-                _slotBounds[ProfileEditorSlot.DPadUp] = new RectangleF(112, 274, 78, 22);
-                _slotBounds[ProfileEditorSlot.DPadDown] = new RectangleF(196, 274, 78, 22);
-                _slotBounds[ProfileEditorSlot.DPadLeft] = new RectangleF(112, 298, 78, 22);
-                _slotBounds[ProfileEditorSlot.DPadRight] = new RectangleF(196, 298, 78, 22);
+                float rightStickClassicY = _faceCardRect.Bottom + 10f;
+                if (stickR != null && stickR.Mode == StickMode.MouseMove)
+                {
+                    _rightStickCardRect = new RectangleF(rightX, rightStickClassicY, cardW, 160);
+                    _slotBounds[ProfileEditorSlot.RightStickMode] = new RectangleF(rightX + 8, rightStickClassicY + 18, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.MouseSensitivity] = new RectangleF(rightX + 8, rightStickClassicY + 54, cardW - 16, 14);
+                    _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle] = new RectangleF(rightX + cardW - 8 - 70, rightStickClassicY + 74, 70, 18);
+                    _slotBounds[ProfileEditorSlot.DeadzoneSlider] = new RectangleF(rightX + 8, rightStickClassicY + 96, cardW - 16, 14);
+                    _slotBounds[ProfileEditorSlot.RightStickAdditional] = new RectangleF(rightX + 8, rightStickClassicY + 116, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.RightStickClick] = new RectangleF(rightX + 8, rightStickClassicY + 137, cardW - 16, 18);
+                }
+                else
+                {
+                    _rightStickCardRect = new RectangleF(rightX, rightStickClassicY, cardW, 120);
+                    _slotBounds[ProfileEditorSlot.RightStickMode] = new RectangleF(rightX + 8, rightStickClassicY + 18, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.RightStickUp] = new RectangleF(rightX + 8, rightStickClassicY + 38, 94, 15);
+                    _slotBounds[ProfileEditorSlot.RightStickDown] = new RectangleF(594, rightStickClassicY + 38, 94, 15);
+                    _slotBounds[ProfileEditorSlot.RightStickLeft] = new RectangleF(494, rightStickClassicY + 55, 94, 15);
+                    _slotBounds[ProfileEditorSlot.RightStickRight] = new RectangleF(594, rightStickClassicY + 55, 94, 15);
+                    _slotBounds[ProfileEditorSlot.MouseSensitivity] = new RectangleF(494, rightStickClassicY + 54, cardW - 16, 14);
+                    _slotBounds[ProfileEditorSlot.RightStickAdditional] = new RectangleF(494, rightStickClassicY + 72, cardW - 16, 18);
+                    _slotBounds[ProfileEditorSlot.RightStickClick] = new RectangleF(494, rightStickClassicY + 93, cardW - 16, 18);
 
-                _slotBounds[ProfileEditorSlot.ButtonY] = new RectangleF(534, 138, 162, 20);
-                _slotBounds[ProfileEditorSlot.ButtonB] = new RectangleF(534, 160, 162, 20);
-                _slotBounds[ProfileEditorSlot.ButtonX] = new RectangleF(534, 182, 162, 20);
-                _slotBounds[ProfileEditorSlot.ButtonA] = new RectangleF(534, 204, 162, 20);
+                    if (!_slotBounds.ContainsKey(ProfileEditorSlot.DeadzoneSlider))
+                    {
+                        _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle] = new RectangleF(rightX + cardW - 8 - 70, rightStickClassicY + 74, 70, 18);
+                        _slotBounds[ProfileEditorSlot.DeadzoneSlider] = new RectangleF(rightX + 8, rightStickClassicY + 96, cardW - 16, 14);
+                    }
+                }
 
-                _slotBounds[ProfileEditorSlot.RightStickMode] = new RectangleF(534, 259, 162, 18);
-                _slotBounds[ProfileEditorSlot.RightStickUp] = new RectangleF(534, 279, 78, 15);
-                _slotBounds[ProfileEditorSlot.RightStickDown] = new RectangleF(618, 279, 78, 15);
-                _slotBounds[ProfileEditorSlot.RightStickLeft] = new RectangleF(534, 296, 78, 15);
-                _slotBounds[ProfileEditorSlot.RightStickRight] = new RectangleF(618, 296, 78, 15);
-                _slotBounds[ProfileEditorSlot.MouseSensitivity] = new RectangleF(534, 293, 162, 14);
-                _slotBounds[ProfileEditorSlot.RightStickAdditional] = new RectangleF(534, 313, 162, 18);
-                _slotBounds[ProfileEditorSlot.RightStickClick] = new RectangleF(534, 334, 162, 18);
+                _slotBounds[ProfileEditorSlot.ButtonL4] = new RectangleF(244, 255, 52, 34);
+                _slotBounds[ProfileEditorSlot.ButtonL5] = new RectangleF(300, 255, 52, 34);
+                _slotBounds[ProfileEditorSlot.ButtonR5] = new RectangleF(364, 255, 52, 34);
+                _slotBounds[ProfileEditorSlot.ButtonR4] = new RectangleF(420, 255, 52, 34);
 
-                _slotBounds[ProfileEditorSlot.ButtonL4] = new RectangleF(291, 255, 52, 34);
-                _slotBounds[ProfileEditorSlot.ButtonL5] = new RectangleF(347, 255, 52, 34);
-                _slotBounds[ProfileEditorSlot.ButtonR5] = new RectangleF(411, 255, 52, 34);
-                _slotBounds[ProfileEditorSlot.ButtonR4] = new RectangleF(467, 255, 52, 34);
-
-                _slotBounds[ProfileEditorSlot.FooterSave] = new RectangleF(295, 345, 110, 32);
-                _slotBounds[ProfileEditorSlot.FooterBack] = new RectangleF(409, 345, 102, 32);
+                _slotBounds[ProfileEditorSlot.FooterSave] = new RectangleF(247, 345, 110, 32);
+                _slotBounds[ProfileEditorSlot.FooterBack] = new RectangleF(367, 345, 102, 32);
             }
         }
 
@@ -1264,7 +1314,6 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             g.ScaleTransform(scale, scale);
 
             DrawHeader(g);
-            DrawGlobalSettingsSidebar(g);
             DrawControllerCenterDiagram(g);
             if (_visualMode == ControllerVisualMode.HandheldSteamDeck)
             {
@@ -1323,83 +1372,6 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
         }
 
-        private void DrawGlobalSettingsSidebar(Graphics g)
-        {
-            var sidebarRect = _sidebarRect.IsEmpty ? new RectangleF(8, 44, 88, 440) : _sidebarRect;
-            using (var path = CreateRoundedRectanglePath(sidebarRect, 6f))
-            using (var bg = new SolidBrush(Color.FromArgb(28, 31, 40)))
-            using (var pen = new Pen(BorderSubtle, 1f))
-            {
-                g.FillPath(bg, path);
-                g.DrawPath(pen, path);
-            }
-
-            // Cabeçalho da barra lateral
-            using (var font = new Font("Segoe UI", 7.2f, FontStyle.Bold))
-            using (var brush = new SolidBrush(BorderFocused))
-            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-            {
-                g.DrawString("AJUSTES", font, brush, new RectangleF(8, 48, 88, 16), sf);
-            }
-
-            var page = _workingProfile.ActivePage;
-
-            // 1. Deadzone Analógicos
-            int effectiveDeadzone = _workingProfile.UseGlobalDeadzone
-                ? _settings.StickDeadzonePercent
-                : _workingProfile.CustomDeadzonePercent;
-
-            DrawVerticalSliderBlock(
-                g,
-                "DEADZONE",
-                _slotBounds[ProfileEditorSlot.DeadzoneSlider],
-                effectiveDeadzone,
-                5,
-                50,
-                effectiveDeadzone + "%",
-                _focusedSlot == ProfileEditorSlot.DeadzoneSlider,
-                labelY: 74,
-                isEditing: _isEditingSlider && _focusedSlot == ProfileEditorSlot.DeadzoneSlider);
-
-            DrawCompactGlobalButton(
-                g,
-                _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle],
-                _workingProfile.UseGlobalDeadzone,
-                _focusedSlot == ProfileEditorSlot.DeadzoneGlobalToggle);
-
-            // 2. Limiar de Gatilhos
-            int effectiveTrigger = _workingProfile.UseGlobalTriggerThreshold
-                ? _settings.TriggerThresholdPercent
-                : _workingProfile.CustomTriggerThresholdPercent;
-
-            DrawVerticalSliderBlock(
-                g,
-                "GATILHOS",
-                _slotBounds[ProfileEditorSlot.TriggerSlider],
-                effectiveTrigger,
-                5,
-                90,
-                effectiveTrigger + "%",
-                _focusedSlot == ProfileEditorSlot.TriggerSlider,
-                labelY: 146,
-                isEditing: _isEditingSlider && _focusedSlot == ProfileEditorSlot.TriggerSlider);
-
-            DrawCompactGlobalButton(
-                g,
-                _slotBounds[ProfileEditorSlot.TriggerGlobalToggle],
-                _workingProfile.UseGlobalTriggerThreshold,
-                _focusedSlot == ProfileEditorSlot.TriggerGlobalToggle);
-
-            // Dica de navegação e atalho no rodapé da barra lateral
-            using (var hintFont = new Font("Segoe UI", 6.4f))
-            using (var hintBrush = new SolidBrush(_isEditingSlider ? AlertAmber : TextSecondary))
-            using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-            {
-                string hint = _isEditingSlider ? "◄► Ajustar\n[A] OK  [B] Sair" : "◄► Navegar\n[A] Ajustar";
-                g.DrawString(hint, hintFont, hintBrush, new RectangleF(sidebarRect.X, sidebarRect.Bottom - 36, sidebarRect.Width, 32), sf);
-            }
-        }
-
         private static void DrawVerticalSliderBlock(
             Graphics g,
             string title,
@@ -1410,7 +1382,8 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             string valueText,
             bool isFocused,
             float labelY,
-            bool isEditing = false)
+            bool isEditing = false,
+            float rightMarginOffset = 0f)
         {
             Color titleColor = isEditing ? AlertAmber : (isFocused ? BorderFocused : TextSecondary);
             Color valColor = isEditing ? AlertAmber : (isFocused ? ActiveGreen : BorderFocused);
@@ -1423,13 +1396,13 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 g.DrawString(title, font, brush, trackRect.X, labelY, sf);
             }
 
-            // Valor numérico à direita
+            // Valor numérico à direita (respeitando eventual botão global à direita)
             using (var font = new Font("Segoe UI", 6.8f, FontStyle.Bold))
             using (var brush = new SolidBrush(valColor))
             using (var sf = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center })
             {
                 string text = isEditing ? "◄ " + valueText + " ►" : valueText;
-                g.DrawString(text, font, brush, trackRect.Right, labelY, sf);
+                g.DrawString(text, font, brush, trackRect.Right - rightMarginOffset, labelY, sf);
             }
 
             // Foco do slot
@@ -1641,11 +1614,46 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 "Start:",
                 InputAction.FormatComboDisplay(page.GetActions(ControllerButton.Start)),
                 _focusedSlot == ProfileEditorSlot.ButtonStart);
+
+            // Bloco Central de Limiar dos Gatilhos (entre LT e RT)
+            int effectiveTrigger = _workingProfile.UseGlobalTriggerThreshold
+                ? _settings.TriggerThresholdPercent
+                : _workingProfile.CustomTriggerThresholdPercent;
+
+            var trigCardRect = new RectangleF(253, 39, 210, 48);
+            using (var bg = new SolidBrush(Color.FromArgb(28, 31, 40)))
+            using (var pen = new Pen(BorderSubtle, 1f))
+            {
+                g.FillRectangle(bg, trigCardRect);
+                g.DrawRectangle(pen, trigCardRect.X, trigCardRect.Y, trigCardRect.Width, trigCardRect.Height);
+            }
+
+            var trigSliderRect = _slotBounds[ProfileEditorSlot.TriggerSlider];
+            float trigLabelY = trigSliderRect.Y - 10f;
+
+            DrawVerticalSliderBlock(
+                g,
+                "GATILHOS",
+                trigSliderRect,
+                effectiveTrigger,
+                5,
+                90,
+                effectiveTrigger + "%",
+                _focusedSlot == ProfileEditorSlot.TriggerSlider,
+                labelY: trigLabelY,
+                isEditing: _isEditingSlider && _focusedSlot == ProfileEditorSlot.TriggerSlider,
+                rightMarginOffset: 76f);
+
+            DrawCompactGlobalButton(
+                g,
+                _slotBounds[ProfileEditorSlot.TriggerGlobalToggle],
+                _workingProfile.UseGlobalTriggerThreshold,
+                _focusedSlot == ProfileEditorSlot.TriggerGlobalToggle);
         }
 
         private void DrawLeftStickCard(Graphics g)
         {
-            var cardRect = _leftStickCardRect.IsEmpty ? new RectangleF(104, 122, 178, 104) : _leftStickCardRect;
+            var cardRect = _leftStickCardRect.IsEmpty ? new RectangleF(20, 125, 210, 118) : _leftStickCardRect;
             DrawCardFrame(g, cardRect, Strings.ProfileCardLeftStick);
 
             var stick = _workingProfile.ActivePage.LeftStick;
@@ -1689,6 +1697,33 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     InputAction.FormatComboDisplay(stick.Right),
                     _focusedSlot == ProfileEditorSlot.LeftStickRight);
             }
+            else if (stick.Mode == StickMode.MouseMove)
+            {
+                int effectiveDeadzone = _workingProfile.UseGlobalDeadzone
+                    ? _settings.StickDeadzonePercent
+                    : _workingProfile.CustomDeadzonePercent;
+
+                var deadRect = _slotBounds[ProfileEditorSlot.DeadzoneSlider];
+                float deadLabelY = deadRect.Y - 10f;
+                DrawVerticalSliderBlock(
+                    g,
+                    "Deadzone",
+                    deadRect,
+                    effectiveDeadzone,
+                    5,
+                    50,
+                    effectiveDeadzone + "%",
+                    _focusedSlot == ProfileEditorSlot.DeadzoneSlider,
+                    labelY: deadLabelY,
+                    isEditing: _isEditingSlider && _focusedSlot == ProfileEditorSlot.DeadzoneSlider,
+                    rightMarginOffset: 76f);
+
+                DrawCompactGlobalButton(
+                    g,
+                    _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle],
+                    _workingProfile.UseGlobalDeadzone,
+                    _focusedSlot == ProfileEditorSlot.DeadzoneGlobalToggle);
+            }
             else
             {
                 var modeRect = _slotBounds[ProfileEditorSlot.LeftStickMode];
@@ -1698,9 +1733,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                 using (var brush = new SolidBrush(TextSecondary))
                 using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
                 {
-                    string desc = stick.Mode == StickMode.MouseMove
-                        ? "Controla o cursor / câmera"
-                        : "Eixo analógico desativado";
+                    string desc = "Eixo analógico desativado";
                     g.DrawString(desc, font, brush, infoRect, sf);
                 }
             }
@@ -1798,7 +1831,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
 
         private void DrawRightStickCard(Graphics g)
         {
-            var cardRect = _rightStickCardRect.IsEmpty ? new RectangleF(526, 224, 178, 104) : _rightStickCardRect;
+            var cardRect = _rightStickCardRect.IsEmpty ? new RectangleF(486, 245, 210, 120) : _rightStickCardRect;
             DrawCardFrame(g, cardRect, Strings.ProfileCardRightStick);
 
             var stick = _workingProfile.ActivePage.RightStick;
@@ -1844,7 +1877,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             else if (stick.Mode == StickMode.MouseMove)
             {
                 var sensRect = _slotBounds[ProfileEditorSlot.MouseSensitivity];
-                float labelY = sensRect.Y - 9f;
+                float sensLabelY = sensRect.Y - 10f;
                 DrawVerticalSliderBlock(
                     g,
                     "Sensibilidade",
@@ -1854,8 +1887,33 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
                     100,
                     _workingProfile.ActivePage.MouseSensitivity.ToString(),
                     _focusedSlot == ProfileEditorSlot.MouseSensitivity,
-                    labelY: labelY,
+                    labelY: sensLabelY,
                     isEditing: _isEditingSlider && _focusedSlot == ProfileEditorSlot.MouseSensitivity);
+
+                int effectiveDeadzone = _workingProfile.UseGlobalDeadzone
+                    ? _settings.StickDeadzonePercent
+                    : _workingProfile.CustomDeadzonePercent;
+
+                var deadRect = _slotBounds[ProfileEditorSlot.DeadzoneSlider];
+                float deadLabelY = deadRect.Y - 10f;
+                DrawVerticalSliderBlock(
+                    g,
+                    "Deadzone",
+                    deadRect,
+                    effectiveDeadzone,
+                    5,
+                    50,
+                    effectiveDeadzone + "%",
+                    _focusedSlot == ProfileEditorSlot.DeadzoneSlider,
+                    labelY: deadLabelY,
+                    isEditing: _isEditingSlider && _focusedSlot == ProfileEditorSlot.DeadzoneSlider,
+                    rightMarginOffset: 76f);
+
+                DrawCompactGlobalButton(
+                    g,
+                    _slotBounds[ProfileEditorSlot.DeadzoneGlobalToggle],
+                    _workingProfile.UseGlobalDeadzone,
+                    _focusedSlot == ProfileEditorSlot.DeadzoneGlobalToggle);
             }
             else
             {
@@ -1897,7 +1955,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             }
             // Desenha um diagrama estilizado do controle centralizado entre os cards laterais
             var state = g.Save();
-            float targetCenterX = 404f;
+            float targetCenterX = 358f;
             float targetCenterY = 231f;
             float diagScale = 0.43f;
 
@@ -2055,7 +2113,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
             using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
             {
                 g.FillRectangle(bg, 0, footerY, LogicalWidth, footerH);
-                g.DrawLine(linePen, 0, footerY, LogicalWidth, footerH);
+                g.DrawLine(linePen, 0, footerY, LogicalWidth, footerY);
                 string text = _isEditingSlider
                     ? "(◄►) Ajustar Valor    (A) Confirmar    (B) Cancelar"
                     : Strings.ProfileFooterLegend;
@@ -2137,7 +2195,7 @@ namespace ConsoleMode.GamepadCompanion.UI.Controls
         private void DrawHandheldCenterDiagram(Graphics g)
         {
             var state = g.Save();
-            float targetCenterX = 404f;
+            float targetCenterX = 358f;
             float targetCenterY = 175f;
             float diagScale = 0.40f;
 
