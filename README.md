@@ -90,6 +90,12 @@ O que já foi feito:
   - Suspensão instantânea de emulação quando o Companion está em primeiro plano para garantir navegação fluida da UI sem interferência.
   - Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md`](./docs/PLANO_DE_IMPLEMENTACAO_MODO_DESKTOP.md).
 - [x] **Fase 6 (Steam Deck):** Configuração dos Trackpads (Mouse/Trackball de alta precisão, Scrollwheel vertical contínuo, D-Pad e Botão Único com Feedback Háptico). Detalhado em [`docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md`](./docs/PLANO_DE_IMPLEMENTACAO_TRACKPADS.md).
+- [ ] **Alternador de Janelas (Alt-Tab) ao Segurar o Botão GUIDE:**
+  - Ao segurar o botão central **GUIDE / Home** do controle (hold de ~400ms-500ms), exibir um switcher visual na tela listando todas as janelas abertas do Windows (estilo Alt-Tab / Task View de console).
+  - Permite navegar pelas janelas abertas usando o D-Pad ou analógico esquerdo, focar na janela selecionada ao soltar ou pressionar [A], e cancelar com [B].
+- [ ] **Sensibilidade e Ajuste Fino de Scroll de Mouse por Botão:**
+  - Configuração de sensibilidade / intensidade de rolagem independente para qualquer botão mapeado para emular a roda do mouse (`MouseWheel Up / Down`).
+  - Permite calibrar o delta de scroll e taxa de repetição para evitar saltos bruscos na tela ao dar um simples toque (ex: toque no D-Pad rolar suavemente sem pular áreas grandes de menus e inventários).
 - [ ] **Aba de Gamepad na Tela de Mapping (Steam Deck):**
   - Quando o controle ativo atual for reconhecido como **Steam Deck**, exibir uma aba dedicada de Gamepad na tela de Mapping.
   - Permite mapear os botões do gamepad para os botões nativos do Steam Deck (ex: A/B/X/Y, D-Pad, L1/R1, L2/R2, L4/L5/R4/R5, trackpads e botões de sistema).
