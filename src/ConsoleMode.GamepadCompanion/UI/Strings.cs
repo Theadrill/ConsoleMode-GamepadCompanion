@@ -156,15 +156,15 @@ namespace ConsoleMode.GamepadCompanion.UI
         // Tela de Escolha do Modo de Edição & Captura Física de Combos (Fase 3)
         public const string BindingHeaderTitle = "EDITAR MAPEAMENTO: {0} — Jogo: {1}";
         public const string BindingCurrentMapping = "Mapeamento Atual: [ {0} ]";
-        public const string BindingOptionCaptureTitle = "🎙️  CAPTURAR INPUT FÍSICO";
+        public const string BindingOptionCaptureTitle = "⏺  CAPTURAR INPUT FÍSICO";
         public const string BindingOptionCaptureDesc = "(Pressione tecla, combo ou botão do mouse)";
-        public const string BindingOptionVisualTitle = "🖮   ESCOLHER BOTÃO / BOTÕES";
+        public const string BindingOptionVisualTitle = "⌨   ESCOLHER BOTÃO / BOTÕES";
         public const string BindingOptionVisualDesc = "(Abrir seletor visual: Teclado / Mouse / Sistema)";
-        public const string BindingOptionClearTitle = "🗑️  LIMPAR / DESATIVAR ENTRADA";
+        public const string BindingOptionClearTitle = "✕  LIMPAR / DESATIVAR ENTRADA";
         public const string BindingOptionClearDesc = "(Define esta entrada como Nenhum)";
         public const string BindingCaptureTip = "* No modo Captura Física: segure múltiplas teclas (ex: Ctrl + Shift + S) e solte para gravar o combo completo automaticamente.";
         public const string BindingFooterChoice = "(A) Selecionar Opção                                                          (B) Voltar";
-        public const string BindingListeningTitle = "🎙️ AGUARDANDO COMANDO FÍSICO...";
+        public const string BindingListeningTitle = "⏺ AGUARDANDO COMANDO FÍSICO...";
         public const string BindingListeningPrompt = "Pressione qualquer tecla, combinação de teclas (ex: Ctrl + Shift + S),\nbotão do mouse ou gire a roda de scroll agora.";
         public const string BindingListeningComboLabel = "Combo Detectado:";
         public const string BindingListeningWaiting = "Aguardando entrada...";
