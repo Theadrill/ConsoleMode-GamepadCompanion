@@ -57,7 +57,12 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 var profile = ProfileSerializer.DeserializeFromIni(ini, section);
                 if (profile == null)
                 {
-                    profile = string.Equals(id, "turtle-wow", StringComparison.OrdinalIgnoreCase)
+                    bool isWow = string.Equals(id, "turtle-wow", StringComparison.OrdinalIgnoreCase) ||
+                                 (name != null && name.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0) ||
+                                 (ini.GetValue(section, "MainExecutable").IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0) ||
+                                 (ini.GetValue(section, "MainExecutable").IndexOf("vanilla", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                    profile = isWow
                         ? GameProfilePresets.CreateWowClassic()
                         : GameProfilePresets.CreateStandardPc();
                 }

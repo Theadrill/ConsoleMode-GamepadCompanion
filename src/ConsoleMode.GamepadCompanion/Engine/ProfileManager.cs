@@ -70,7 +70,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
         public DesktopProfile DesktopProfile => _desktopProfile;
 
-        public GameEntry ActiveGame => _windowTracker.ActiveGame;
+        public GameEntry ActiveGame => ResolveActiveOrCandidateGame();
 
         public string ActiveProfileName
         {
@@ -81,7 +81,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
                     return _desktopProfile.Enabled ? _desktopProfile.Name : $"{_desktopProfile.Name} (Desativado)";
                 }
 
-                var game = _windowTracker.ActiveGame;
+                var game = ResolveActiveOrCandidateGame();
                 if (game != null && !game.EnableCompanionInput)
                 {
                     return $"{game.Name} (Desativado)";
@@ -96,8 +96,19 @@ namespace ConsoleMode.GamepadCompanion.Engine
             }
         }
 
+        private GameEntry ResolveActiveOrCandidateGame()
+        {
+            return _windowTracker.ActiveGame ?? _windowTracker.LastLaunchedGame ?? _windowTracker.LastSelectedGame;
+        }
+
         public void RefreshActiveGameProfile()
         {
+            var game = ResolveActiveOrCandidateGame();
+            if (game?.Profile != null)
+            {
+                _gamingProfile.ActiveProfile = game.Profile;
+            }
+
             if (_windowTracker.IsGameFocused)
             {
                 UpdateActiveProfile(true);
@@ -138,7 +149,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
             if (activeHwnd != IntPtr.Zero && _windowTracker.IsGameFocused)
             {
-                var game = _windowTracker.ActiveGame;
+                var game = ResolveActiveOrCandidateGame();
                 bool shouldClip = (game == null || game.EnableCompanionInput) &&
                                   (_settings == null || _settings.ClipCursorToGameWindow) &&
                                   !_cursorClipToggledOff;
@@ -172,7 +183,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
 
             if (isGameFocused)
             {
-                var game = _windowTracker.ActiveGame;
+                var game = ResolveActiveOrCandidateGame();
                 if (game != null && !game.EnableCompanionInput)
                 {
                     // Companion input desativado para este jogo: jogo lê controle nativo diretamente

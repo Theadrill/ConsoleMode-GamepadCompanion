@@ -40,6 +40,9 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         private IntPtr _activeHwnd = IntPtr.Zero;
         private GameEntry _activeGame;
 
+        private GameEntry _lastLaunchedGame;
+        private GameEntry _lastSelectedGame;
+
         private readonly object _lock = new object();
         private readonly List<GameEntry> _registeredGames = new List<GameEntry>();
         private readonly Dictionary<string, GameEntry> _exeToGameMap =
@@ -71,11 +74,35 @@ namespace ConsoleMode.GamepadCompanion.Hardware
 
         public GameEntry ActiveGame => _activeGame;
 
+        public GameEntry LastLaunchedGame => _lastLaunchedGame;
+
+        public GameEntry LastSelectedGame => _lastSelectedGame;
+
         public event Action<bool> FocusChanged;
 
         public event Action<IntPtr> ActiveWindowChanged;
 
         public event Action<GameEntry> ActiveGameChanged;
+
+        public void NotifyGameLaunched(GameEntry game)
+        {
+            if (game == null) return;
+            lock (_lock)
+            {
+                _lastLaunchedGame = game;
+                RegisterGameInternal(game);
+            }
+        }
+
+        public void NotifyGameSelected(GameEntry game)
+        {
+            if (game == null) return;
+            lock (_lock)
+            {
+                _lastSelectedGame = game;
+                RegisterGameInternal(game);
+            }
+        }
 
         public void SetGames(IEnumerable<GameEntry> games)
         {
@@ -117,15 +144,22 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             }
 
             MapExecutable(game.MainExecutable, game);
-            MapExecutable(game.TargetPath, game);
+            if (!IsSystemExecutable(game.TargetPath))
+            {
+                MapExecutable(game.TargetPath, game);
+            }
             MapExecutable(game.LauncherName, game);
+
             MapDirectory(game.WorkingDirectory, game);
             if (!string.IsNullOrWhiteSpace(game.TargetPath))
             {
                 try
                 {
                     string targetDir = Path.GetDirectoryName(game.TargetPath.Trim().Trim('"', '\''));
-                    MapDirectory(targetDir, game);
+                    if (!IsSystemDirectory(targetDir))
+                    {
+                        MapDirectory(targetDir, game);
+                    }
                 }
                 catch { }
             }
@@ -135,7 +169,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         {
             if (string.IsNullOrWhiteSpace(rawDir) || game == null) return;
             string clean = rawDir.Trim().Trim('"', '\'').TrimEnd('\\', '/');
-            if (!string.IsNullOrEmpty(clean))
+            if (!string.IsNullOrEmpty(clean) && !IsSystemDirectory(clean))
             {
                 _dirToGameMap[clean] = game;
             }
@@ -160,6 +194,11 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 cleanName = dot > 0 ? fileName.Substring(0, dot) : fileName;
             }
 
+            if (IsSystemExecutable(cleanName) || IsSystemExecutable(fileName))
+            {
+                return;
+            }
+
             if (!string.IsNullOrEmpty(cleanName))
             {
                 _exeToGameMap[cleanName] = game;
@@ -173,6 +212,11 @@ namespace ConsoleMode.GamepadCompanion.Hardware
         }
 
         public void RegisterGameExecutable(string executableName)
+        {
+            RegisterGameExecutable(executableName, null);
+        }
+
+        public void RegisterGameExecutable(string executableName, GameEntry game)
         {
             if (string.IsNullOrWhiteSpace(executableName)) return;
             string clean = executableName.Trim().Trim('"', '\'');
@@ -191,15 +235,28 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 cleanName = dot > 0 ? fileName.Substring(0, dot) : fileName;
             }
 
+            if (IsSystemExecutable(cleanName) || IsSystemExecutable(fileName))
+            {
+                return;
+            }
+
             lock (_lock)
             {
                 if (!string.IsNullOrEmpty(cleanName))
                 {
                     _customGameExecutables.Add(cleanName);
+                    if (game != null)
+                    {
+                        _exeToGameMap[cleanName] = game;
+                    }
                 }
                 if (!string.IsNullOrEmpty(fileName))
                 {
                     _customGameExecutables.Add(fileName);
+                    if (game != null)
+                    {
+                        _exeToGameMap[fileName] = game;
+                    }
                 }
             }
         }
@@ -221,8 +278,6 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 UpdateFocus(false, string.Empty, IntPtr.Zero, null);
                 return;
             }
-
-            _isCompanionActive = (_companionPid != 0 && pid == _companionPid);
 
             string procName = string.Empty;
             string procFullPath = GetProcessFullPath(pid);
@@ -250,6 +305,13 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                 }
             }
 
+            EvaluateActiveWindow(hwnd, pid, procName, procFullPath);
+        }
+
+        internal void EvaluateActiveWindow(IntPtr hwnd, uint pid, string procName, string procFullPath)
+        {
+            _isCompanionActive = (_companionPid != 0 && pid == _companionPid);
+
             GameEntry matchedGame = null;
             bool isGameFocused = false;
 
@@ -261,7 +323,7 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     try
                     {
                         string procDir = Path.GetDirectoryName(procFullPath)?.TrimEnd('\\', '/');
-                        if (!string.IsNullOrEmpty(procDir))
+                        if (!string.IsNullOrEmpty(procDir) && !IsSystemDirectory(procDir))
                         {
                             if (_dirToGameMap.TryGetValue(procDir, out var dirGame))
                             {
@@ -285,11 +347,46 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     catch { }
                 }
 
-                // 2. Match pelo nome do executável
+                // 2. Se o processo em foco for cliente de World of Warcraft (WoW.exe, VanillaFixes, etc.)
+                if (!isGameFocused && !string.IsNullOrEmpty(procName) && IsDefaultWowProcess(procName))
+                {
+                    isGameFocused = true;
+
+                    // 2a. Se um jogo WoW foi lançado pelo Companion, prioridade máxima para ele!
+                    if (_lastLaunchedGame != null && IsWowGame(_lastLaunchedGame))
+                    {
+                        matchedGame = _lastLaunchedGame;
+                    }
+                    // 2b. Continuidade: se o jogo ativo já é um WoW cadastrado, mantenha-o!
+                    else if (_activeGame != null && IsWowGame(_activeGame))
+                    {
+                        matchedGame = _activeGame;
+                    }
+                    // 2c. Se um jogo WoW foi selecionado/editado no Companion
+                    else if (_lastSelectedGame != null && IsWowGame(_lastSelectedGame))
+                    {
+                        matchedGame = _lastSelectedGame;
+                    }
+                    // 2d. Busca nos jogos cadastrados pelo executável ou preset WoW
+                    else
+                    {
+                        matchedGame = _registeredGames.Find(g =>
+                            (!string.IsNullOrEmpty(g.MainExecutable) && string.Equals(Path.GetFileNameWithoutExtension(g.MainExecutable), procName, StringComparison.OrdinalIgnoreCase)) ||
+                            (!string.IsNullOrEmpty(g.LauncherName) && string.Equals(Path.GetFileNameWithoutExtension(g.LauncherName), procName, StringComparison.OrdinalIgnoreCase)))
+                            ?? _registeredGames.Find(IsWowGame);
+                    }
+                }
+
+                // 3. Match pelo executável (jogos gerais)
                 if (!isGameFocused && !string.IsNullOrEmpty(procName))
                 {
-                    if (_exeToGameMap.TryGetValue(procName, out var game) ||
-                        _exeToGameMap.TryGetValue(procName + ".exe", out game))
+                    if (_lastLaunchedGame != null && MatchesGameExecutable(_lastLaunchedGame, procName))
+                    {
+                        matchedGame = _lastLaunchedGame;
+                        isGameFocused = true;
+                    }
+                    else if (_exeToGameMap.TryGetValue(procName, out var game) ||
+                             _exeToGameMap.TryGetValue(procName + ".exe", out game))
                     {
                         matchedGame = game;
                         isGameFocused = true;
@@ -298,28 +395,118 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                              _customGameExecutables.Contains(procName + ".exe"))
                     {
                         isGameFocused = true;
-                    }
-                }
-
-                // 3. Fallback para clientes WoW Classic / VanillaFixes (ex: VanillaFixes.exe que spawna WoW.exe na mesma pasta)
-                if (!isGameFocused && !string.IsNullOrEmpty(procName))
-                {
-                    bool isDefaultWow = string.Equals(procName, "turtle-wow", StringComparison.OrdinalIgnoreCase) ||
-                                       string.Equals(procName, "WoW", StringComparison.OrdinalIgnoreCase) ||
-                                       string.Equals(procName, "VanillaFixes", StringComparison.OrdinalIgnoreCase);
-
-                    if (isDefaultWow)
-                    {
-                        isGameFocused = true;
-                        matchedGame = _registeredGames.Find(g => string.Equals(g.Id, "turtle-wow", StringComparison.OrdinalIgnoreCase))
-                                      ?? _registeredGames.Find(g => g.MainExecutable != null &&
-                                          (g.MainExecutable.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                           g.MainExecutable.IndexOf("vanilla", StringComparison.OrdinalIgnoreCase) >= 0));
+                        matchedGame = _lastLaunchedGame ?? _lastSelectedGame ?? _activeGame;
                     }
                 }
             }
 
             UpdateFocus(isGameFocused, procName, hwnd, matchedGame);
+        }
+
+        private static bool IsDefaultWowProcess(string procName)
+        {
+            if (string.IsNullOrEmpty(procName)) return false;
+            return string.Equals(procName, "WoW", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(procName, "turtle-wow", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(procName, "VanillaFixes", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(procName, "WoWClassic", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(procName, "WoW-64", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsWowGame(GameEntry game)
+        {
+            if (game == null) return false;
+            if (string.Equals(game.Id, "turtle-wow", StringComparison.OrdinalIgnoreCase)) return true;
+            if (!string.IsNullOrEmpty(game.MainExecutable) &&
+                (game.MainExecutable.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 game.MainExecutable.IndexOf("vanilla", StringComparison.OrdinalIgnoreCase) >= 0))
+                return true;
+            if (!string.IsNullOrEmpty(game.TargetPath) &&
+                (game.TargetPath.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 game.TargetPath.IndexOf("vanilla", StringComparison.OrdinalIgnoreCase) >= 0))
+                return true;
+            if (!string.IsNullOrEmpty(game.LauncherName) &&
+                (game.LauncherName.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 game.LauncherName.IndexOf("vanilla", StringComparison.OrdinalIgnoreCase) >= 0))
+                return true;
+            if (!string.IsNullOrEmpty(game.WorkingDirectory) &&
+                (game.WorkingDirectory.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 game.WorkingDirectory.IndexOf("vanilla", StringComparison.OrdinalIgnoreCase) >= 0))
+                return true;
+            if (!string.IsNullOrEmpty(game.Name) &&
+                game.Name.IndexOf("wow", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            return false;
+        }
+
+        private static bool MatchesGameExecutable(GameEntry game, string procName)
+        {
+            if (game == null || string.IsNullOrEmpty(procName)) return false;
+            return MatchesExe(game.MainExecutable, procName) ||
+                   MatchesExe(game.LauncherName, procName) ||
+                   (!IsSystemExecutable(game.TargetPath) && MatchesExe(game.TargetPath, procName));
+        }
+
+        private static bool MatchesExe(string pathOrName, string procName)
+        {
+            if (string.IsNullOrWhiteSpace(pathOrName)) return false;
+            string clean = pathOrName.Trim().Trim('"', '\'');
+            string name = clean;
+            try
+            {
+                name = Path.GetFileNameWithoutExtension(clean);
+            }
+            catch { }
+            return string.Equals(name, procName, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(clean, procName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsSystemDirectory(string dir)
+        {
+            if (string.IsNullOrWhiteSpace(dir)) return false;
+            string clean = dir.Trim().Trim('"', '\'').TrimEnd('\\', '/');
+
+            string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows).TrimEnd('\\', '/');
+            string sysDir = Environment.SystemDirectory.TrimEnd('\\', '/');
+
+            if (!string.IsNullOrEmpty(winDir) && string.Equals(clean, winDir, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.IsNullOrEmpty(sysDir) && string.Equals(clean, sysDir, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (!string.IsNullOrEmpty(winDir))
+            {
+                string sys32 = Path.Combine(winDir, "System32");
+                string sysWow64 = Path.Combine(winDir, "SysWOW64");
+                if (string.Equals(clean, sys32, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(clean, sysWow64, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool IsSystemExecutable(string exe)
+        {
+            if (string.IsNullOrWhiteSpace(exe)) return false;
+            string clean = exe.Trim().Trim('"', '\'');
+            string name = clean;
+            try
+            {
+                name = Path.GetFileNameWithoutExtension(clean);
+            }
+            catch { }
+
+            return string.Equals(name, "cmd", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "powershell", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "pwsh", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "wt", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "explorer", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "conhost", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "rundll32", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "cscript", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(name, "wscript", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string GetProcessFullPath(uint pid)
@@ -328,13 +515,14 @@ namespace ConsoleMode.GamepadCompanion.Hardware
             try
             {
                 hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
-                if (hProc == IntPtr.Zero) return string.Empty;
-
-                var sb = new System.Text.StringBuilder(1024);
-                uint size = (uint)sb.Capacity;
-                if (QueryFullProcessImageName(hProc, 0, sb, ref size))
+                if (hProc != IntPtr.Zero)
                 {
-                    return sb.ToString();
+                    var sb = new System.Text.StringBuilder(1024);
+                    uint size = (uint)sb.Capacity;
+                    if (QueryFullProcessImageName(hProc, 0, sb, ref size))
+                    {
+                        return sb.ToString();
+                    }
                 }
             }
             catch
@@ -347,6 +535,18 @@ namespace ConsoleMode.GamepadCompanion.Hardware
                     CloseHandle(hProc);
                 }
             }
+
+            try
+            {
+                using (var proc = Process.GetProcessById((int)pid))
+                {
+                    return proc.MainModule?.FileName ?? string.Empty;
+                }
+            }
+            catch
+            {
+            }
+
             return string.Empty;
         }
 

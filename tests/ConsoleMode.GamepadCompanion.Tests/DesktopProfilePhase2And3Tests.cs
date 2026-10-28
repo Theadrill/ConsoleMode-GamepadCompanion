@@ -45,6 +45,8 @@ namespace ConsoleMode.GamepadCompanion.Tests
             public string ActiveProcessName { get; set; } = string.Empty;
             public IntPtr ActiveWindowHandle { get; set; } = IntPtr.Zero;
             public GameEntry ActiveGame { get; set; }
+            public GameEntry LastLaunchedGame { get; set; }
+            public GameEntry LastSelectedGame { get; set; }
 
             public event Action<bool> FocusChanged;
             public event Action<IntPtr> ActiveWindowChanged;
@@ -52,6 +54,9 @@ namespace ConsoleMode.GamepadCompanion.Tests
 
             public void CheckActiveWindow() { }
             public void RegisterGameExecutable(string executableName) { }
+            public void RegisterGameExecutable(string executableName, GameEntry game) { }
+            public void NotifyGameLaunched(GameEntry game) { LastLaunchedGame = game; }
+            public void NotifyGameSelected(GameEntry game) { LastSelectedGame = game; }
             public void RegisterGame(GameEntry game) { }
             public void SetGames(IEnumerable<GameEntry> games) { }
 

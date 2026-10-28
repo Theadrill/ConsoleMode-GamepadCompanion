@@ -12,6 +12,8 @@ namespace ConsoleMode.GamepadCompanion.Core.Interfaces
         string ActiveProcessName { get; }
         IntPtr ActiveWindowHandle { get; }
         GameEntry ActiveGame { get; }
+        GameEntry LastLaunchedGame { get; }
+        GameEntry LastSelectedGame { get; }
 
         event Action<bool> FocusChanged;
         event Action<IntPtr> ActiveWindowChanged;
@@ -19,7 +21,10 @@ namespace ConsoleMode.GamepadCompanion.Core.Interfaces
 
         void CheckActiveWindow();
         void RegisterGameExecutable(string executableName);
+        void RegisterGameExecutable(string executableName, GameEntry game);
         void RegisterGame(GameEntry game);
         void SetGames(IEnumerable<GameEntry> games);
+        void NotifyGameLaunched(GameEntry game);
+        void NotifyGameSelected(GameEntry game);
     }
 }

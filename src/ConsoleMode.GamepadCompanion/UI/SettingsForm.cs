@@ -423,11 +423,11 @@ namespace ConsoleMode.GamepadCompanion.UI
             if (game == null || _windowTracker == null) return;
             _windowTracker.RegisterGame(game);
             if (!string.IsNullOrWhiteSpace(game.TargetPath))
-                _windowTracker.RegisterGameExecutable(game.TargetPath);
+                _windowTracker.RegisterGameExecutable(game.TargetPath, game);
             if (!string.IsNullOrWhiteSpace(game.MainExecutable))
-                _windowTracker.RegisterGameExecutable(game.MainExecutable);
+                _windowTracker.RegisterGameExecutable(game.MainExecutable, game);
             if (!string.IsNullOrWhiteSpace(game.LauncherName))
-                _windowTracker.RegisterGameExecutable(game.LauncherName);
+                _windowTracker.RegisterGameExecutable(game.LauncherName, game);
         }
 
 
@@ -556,6 +556,10 @@ namespace ConsoleMode.GamepadCompanion.UI
 
         private void ShowGameConfig(GameEntry game)
         {
+            if (game != null)
+            {
+                _windowTracker?.NotifyGameSelected(game);
+            }
             _isEditingDesktopProfile = false;
             UpdateSidebarVisualState(inConfigMode: true);
             _viewMode = ContentViewMode.GameConfig;
@@ -687,8 +691,10 @@ namespace ConsoleMode.GamepadCompanion.UI
             _isLaunching = true;
             try
             {
+                _windowTracker?.NotifyGameLaunched(game);
                 _gameLauncher.Launch(game);
                 _windowTracker?.CheckActiveWindow();
+                _profileManager?.RefreshActiveGameProfile();
                 ResetAllUiInputStates();
                 Hide();
             }
@@ -726,6 +732,7 @@ namespace ConsoleMode.GamepadCompanion.UI
             if (game == null) return;
             _gameRepo.Save(game);
             RegisterGameWithTracker(game);
+            _windowTracker?.NotifyGameSelected(game);
             _windowTracker?.CheckActiveWindow();
             _profileManager?.RefreshActiveGameProfile();
 
@@ -1084,6 +1091,7 @@ namespace ConsoleMode.GamepadCompanion.UI
         private void OnConfigureControls(GameEntry game)
         {
             if (game == null) return;
+            _windowTracker?.NotifyGameSelected(game);
             _isEditingDesktopProfile = false;
             UpdateSidebarVisualState(inConfigMode: true);
             _viewMode = ContentViewMode.GameProfileEditor;
@@ -1130,6 +1138,7 @@ namespace ConsoleMode.GamepadCompanion.UI
                     existing.Profile = updatedProfile?.Clone();
                     _gameRepo.Save(existing);
                     RegisterGameWithTracker(existing);
+                    _windowTracker?.NotifyGameSelected(existing);
                     _windowTracker?.CheckActiveWindow();
                     _profileManager?.RefreshActiveGameProfile();
                 }

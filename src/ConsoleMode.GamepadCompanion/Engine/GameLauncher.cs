@@ -36,19 +36,22 @@ namespace ConsoleMode.GamepadCompanion.Engine
             // Registra os executáveis no WindowTracker para garantir detecção automática de foco
             if (_windowTracker != null)
             {
+                _windowTracker.RegisterGame(game);
+                _windowTracker.NotifyGameLaunched(game);
+
                 if (!string.IsNullOrWhiteSpace(target))
                 {
-                    _windowTracker.RegisterGameExecutable(target);
+                    _windowTracker.RegisterGameExecutable(target, game);
                 }
 
                 if (!string.IsNullOrWhiteSpace(game.MainExecutable))
                 {
-                    _windowTracker.RegisterGameExecutable(game.MainExecutable.Trim().Trim('"', '\''));
+                    _windowTracker.RegisterGameExecutable(game.MainExecutable.Trim().Trim('"', '\''), game);
                 }
 
                 if (!string.IsNullOrWhiteSpace(game.LauncherName))
                 {
-                    _windowTracker.RegisterGameExecutable(game.LauncherName.Trim().Trim('"', '\''));
+                    _windowTracker.RegisterGameExecutable(game.LauncherName.Trim().Trim('"', '\''), game);
                 }
             }
 
@@ -82,7 +85,7 @@ namespace ConsoleMode.GamepadCompanion.Engine
             {
                 try
                 {
-                    _windowTracker.RegisterGameExecutable(process.ProcessName);
+                    _windowTracker.RegisterGameExecutable(process.ProcessName, game);
                 }
                 catch
                 {

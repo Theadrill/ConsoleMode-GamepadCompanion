@@ -947,6 +947,8 @@ namespace ConsoleMode.GamepadCompanion.Tests
             public string ActiveProcessName => string.Empty;
             public IntPtr ActiveWindowHandle => IntPtr.Zero;
             public GameEntry ActiveGame => null;
+            public GameEntry LastLaunchedGame => null;
+            public GameEntry LastSelectedGame => null;
 
             public event Action<bool> FocusChanged { add { } remove { } }
             public event Action<IntPtr> ActiveWindowChanged { add { } remove { } }
@@ -958,6 +960,12 @@ namespace ConsoleMode.GamepadCompanion.Tests
             {
                 RegisteredExecutables.Add(executableName);
             }
+            public void RegisterGameExecutable(string executableName, GameEntry game)
+            {
+                RegisteredExecutables.Add(executableName);
+            }
+            public void NotifyGameLaunched(GameEntry game) { }
+            public void NotifyGameSelected(GameEntry game) { }
 
             public void RegisterGame(GameEntry game) { }
             public void SetGames(System.Collections.Generic.IEnumerable<GameEntry> games) { }
